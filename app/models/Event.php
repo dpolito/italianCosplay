@@ -1,92 +1,141 @@
 <?php
 
-require_once APP_ROOT . '/app/models/BaseModel.php';
+// Assicurati che Database.php sia già caricato in index.php
+// e che la classe Database sia disponibile.
 
-class Event extends BaseModel
+class Event
 {
-	protected $table = 'events'; // Nome della tabella nel database
+	private $db;
+	private $table = 'events'; // Il nome della tabella degli eventi
 
 	public function __construct()
 	{
-		parent::__construct();
+		// Ottieni l'istanza della connessione PDO dalla classe Database
+		$this->db = Database::getInstance()->getConnection();
 	}
 
-	public function create($data)
-	{
-		$sql = "INSERT INTO {$this->table} (titolo, descrizione, data_inizio, data_fine, luogo, regione_id, provincia_id, comune_id, latitudine, longitudine, sito_web, social_facebook, social_twitter, social_instagram, social_tiktok, social_youtube, tipo_evento_id, immagine, approvato, created_at, updated_at) VALUES (:titolo, :descrizione, :data_inizio, :data_fine, :luogo, :regione_id, :provincia_id, :comune_id, :latitudine, :longitudine, :sito_web, :social_facebook, :social_twitter, :social_instagram, :social_tiktok, :social_youtube, :tipo_evento_id, :immagine, :approvato, NOW(), NOW())";
-		$stmt = $this->db->prepare($sql);
-		return $stmt->execute([
-			'titolo'           => $data['titolo'],
-			'descrizione'      => $data['descrizione'],
-			'data_inizio'      => $data['data_inizio'],
-			'data_fine'        => $data['data_fine'],
-			'luogo'            => $data['luogo'],
-			'regione_id'       => $data['regione_id'] ?? null,
-			'provincia_id'     => $data['provincia_id'] ?? null,
-			'comune_id'        => $data['comune_id'] ?? null,
-			'latitudine'       => $data['latitudine'] ?? null,
-			'longitudine'      => $data['longitudine'] ?? null,
-			'sito_web'         => $data['sito_web'] ?? null,
-			'social_facebook'  => $data['social_facebook'] ?? null,
-			'social_twitter'   => $data['social_twitter'] ?? null,
-			'social_instagram' => $data['social_instagram'] ?? null,
-			'social_tiktok'    => $data['social_tiktok'] ?? null,
-			'social_youtube'   => $data['social_youtube'] ?? null,
-			'tipo_evento_id'   => $data['tipo_evento_id'] ?? null,
-			'immagine'         => $data['immagine'] ?? null,
-			'approvato'        => $data['approvato'] ?? 0 // Di default non approvato, in attesa di moderazione
-		]);
-	}
-
-	public function update($id, $data)
-	{
-		$sql = "UPDATE {$this->table} SET titolo = :titolo, descrizione = :descrizione, data_inizio = :data_inizio, data_fine = :data_fine, luogo = :luogo, regione_id = :regione_id, provincia_id = :provincia_id, comune_id = :comune_id, latitudine = :latitudine, longitudine = :longitudine, sito_web = :sito_web, social_facebook = :social_facebook, social_twitter = :social_twitter, social_instagram = :social_instagram, social_tiktok = :social_tiktok, social_youtube = :social_youtube, tipo_evento_id = :tipo_evento_id, immagine = :immagine, approvato = :approvato, updated_at = NOW() WHERE id = :id";
-		$stmt = $this->db->prepare($sql);
-		return $stmt->execute([
-			'titolo'           => $data['titolo'],
-			'descrizione'      => $data['descrizione'],
-			'data_inizio'      => $data['data_inizio'],
-			'data_fine'        => $data['data_fine'],
-			'luogo'            => $data['luogo'],
-			'regione_id'       => $data['regione_id'] ?? null,
-			'provincia_id'     => $data['provincia_id'] ?? null,
-			'comune_id'        => $data['comune_id'] ?? null,
-			'latitudine'       => $data['latitudine'] ?? null,
-			'longitudine'      => $data['longitudine'] ?? null,
-			'sito_web'         => $data['sito_web'] ?? null,
-			'social_facebook'  => $data['social_facebook'] ?? null,
-			'social_twitter'   => $data['social_twitter'] ?? null,
-			'social_instagram' => $data['social_instagram'] ?? null,
-			'social_tiktok'    => $data['social_tiktok'] ?? null,
-			'social_youtube'   => $data['social_youtube'] ?? null,
-			'tipo_evento_id'   => $data['tipo_evento_id'] ?? null,
-			'immagine'         => $data['immagine'] ?? null,
-			'approvato'        => $data['approvato'] ?? 0,
-			'id'               => $id
-		]);
-	}
-
-	public function delete($id)
-	{
-		$stmt = $this->db->prepare("DELETE FROM {$this->table} WHERE id = :id");
-		return $stmt->execute(['id' => $id]);
-	}
-
+	/**
+	 * Recupera tutti gli eventi approvati.
+	 * @return array Array di eventi.
+	 */
 	public function getApprovedEvents()
 	{
-		$stmt = $this->db->query("SELECT * FROM {$this->table} WHERE approvato = 1 ORDER BY data_inizio ASC, data_fine ASC");
-		return $stmt->fetchAll();
+		// Modificato per usare 'approvato = 1'
+		$stmt = $this->db->query("SELECT * FROM " . $this->table . " WHERE approvato = 1 ORDER BY created_at DESC");
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
 	}
 
+	/**
+	 * Recupera tutti gli eventi in attesa di approvazione.
+	 * @return array Array di eventi in attesa.
+	 */
 	public function getPendingEvents()
 	{
-		$stmt = $this->db->query("SELECT * FROM {$this->table} WHERE approvato = 0 ORDER BY created_at ASC");
-		return $stmt->fetchAll();
+		// Modificato per usare 'approvato = 0'
+		$stmt = $this->db->query("SELECT * FROM " . $this->table . " WHERE approvato = 0 ORDER BY created_at ASC");
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
 	}
 
+	/**
+	 * Recupera tutti gli eventi (approvati e non).
+	 * Questo metodo è per l'area amministrativa.
+	 * @return array Array di tutti gli eventi.
+	 */
+	public function getAllEvents()
+	{
+		$stmt = $this->db->query("SELECT * FROM " . $this->table . " ORDER BY created_at DESC");
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
+	/**
+	 * Trova un evento per ID.
+	 * @param int $id L'ID dell'evento.
+	 * @return array|null L'evento come array associativo o null se non trovato.
+	 */
+	public function find($id)
+	{
+		$stmt = $this->db->prepare("SELECT * FROM " . $this->table . " WHERE id = :id");
+		$stmt->bindParam(':id', $id, PDO::PARAM_INT);
+		$stmt->execute();
+		return $stmt->fetch(PDO::FETCH_ASSOC);
+	}
+
+	/**
+	 * Crea un nuovo evento.
+	 * @param array $data Dati dell'evento.
+	 * @return bool True se l'evento è stato creato con successo, false altrimenti.
+	 */
+	public function create($data)
+	{
+		// Imposta 'approvato' a 0 (false) per default per i nuovi eventi
+		$stmt = $this->db->prepare("INSERT INTO " . $this->table . " (titolo, descrizione, data_inizio, data_fine, luogo, immagine, approvato) VALUES (:titolo, :descrizione, :data_inizio, :data_fine, :luogo, :immagine, 0)");
+
+		$stmt->bindParam(':titolo', $data['titolo'], PDO::PARAM_STR);
+		$stmt->bindParam(':descrizione', $data['descrizione'], PDO::PARAM_STR);
+		$stmt->bindParam(':data_inizio', $data['data_inizio'], PDO::PARAM_STR);
+		$stmt->bindParam(':data_fine', $data['data_fine'], PDO::PARAM_STR);
+		$stmt->bindParam(':luogo', $data['luogo'], PDO::PARAM_STR);
+		$stmt->bindParam(':immagine', $data['immagine'], PDO::PARAM_STR);
+
+		return $stmt->execute();
+	}
+
+	/**
+	 * Aggiorna un evento esistente.
+	 * @param int $id L'ID dell'evento da aggiornare.
+	 * @param array $data Dati dell'evento da aggiornare.
+	 * @return bool True se l'evento è stato aggiornato con successo, false altrimenti.
+	 */
+	public function update($id, $data)
+	{
+		$query = "UPDATE " . $this->table . " SET titolo = :titolo, descrizione = :descrizione, data_inizio = :data_inizio, data_fine = :data_fine, luogo = :luogo, immagine = :immagine";
+
+		// Se 'approvato' è presente nei dati, lo includiamo nell'aggiornamento
+		if (isset($data['approvato'])) {
+			$query .= ", approvato = :approvato";
+		}
+		$query .= " WHERE id = :id";
+
+		$stmt = $this->db->prepare($query);
+
+		$stmt->bindParam(':titolo', $data['titolo'], PDO::PARAM_STR);
+		$stmt->bindParam(':descrizione', $data['descrizione'], PDO::PARAM_STR);
+		$stmt->bindParam(':data_inizio', $data['data_inizio'], PDO::PARAM_STR);
+		$stmt->bindParam(':data_fine', $data['data_fine'], PDO::PARAM_STR);
+		$stmt->bindParam(':luogo', $data['luogo'], PDO::PARAM_STR);
+		$stmt->bindParam(':immagine', $data['immagine'], PDO::PARAM_STR);
+
+		if (isset($data['approvato'])) {
+			// Assicurati che il valore sia un intero (0 o 1)
+			$stmt->bindParam(':approvato', $data['approvato'], PDO::PARAM_INT);
+		}
+		$stmt->bindParam(':id', $id, PDO::PARAM_INT);
+
+		return $stmt->execute();
+	}
+
+	/**
+	 * Approva un evento cambiando il suo stato a 'approvato' (1).
+	 * @param int $id L'ID dell'evento da approvare.
+	 * @return bool True se l'evento è stato approvato con successo, false altrimenti.
+	 */
 	public function approveEvent($id)
 	{
-		$stmt = $this->db->prepare("UPDATE {$this->table} SET approvato = 1, updated_at = NOW() WHERE id = :id");
-		return $stmt->execute(['id' => $id]);
+		// Imposta 'approvato' a 1 (true)
+		$stmt = $this->db->prepare("UPDATE " . $this->table . " SET approvato = 1 WHERE id = :id");
+		$stmt->bindParam(':id', $id, PDO::PARAM_INT);
+		return $stmt->execute();
+	}
+
+	/**
+	 * Elimina un evento per ID.
+	 * @param int $id L'ID dell'evento da eliminare.
+	 * @return bool True se l'evento è stato eliminato con successo, false altrimenti.
+	 */
+	public function delete($id)
+	{
+		$stmt = $this->db->prepare("DELETE FROM " . $this->table . " WHERE id = :id");
+		$stmt->bindParam(':id', $id, PDO::PARAM_INT);
+		return $stmt->execute();
 	}
 }

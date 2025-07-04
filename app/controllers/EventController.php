@@ -2,265 +2,282 @@
 
 require_once APP_ROOT . '/app/core/Controller.php';
 require_once APP_ROOT . '/app/models/Event.php';
-require_once APP_ROOT . '/app/core/Session.php'; // Assicurati che Session sia incluso
+require_once APP_ROOT . '/app/core/Session.php';
 
 class EventController extends Controller
 {
-	private $eventModel;
+	private Event $eventModel;
 
 	public function __construct()
 	{
 		$this->eventModel = new Event();
 	}
 
+	/**
+	 * Mostra la lista degli eventi approvati al pubblico.
+	 */
 	public function index()
 	{
 		$events = $this->eventModel->getApprovedEvents();
-		$this->view('events/index', ['events' => $events]);
+		$this->view('events/index', ['events' => $events]); // Vista pubblica
 	}
 
-	public function show($params)
-	{
-		$id = $params[0]; // L'ID viene passato come primo parametro dal router
-		$event = $this->eventModel->find($id);
-		if (!$event) {
-			// Gestisci evento non trovato, ad esempio con una pagina 404
-			$this->view('errors/404');
-			return;
-		}
-		$this->view('events/show', ['event' => $event]);
-	}
-
+	/**
+	 * Mostra il form per segnalare un nuovo evento (pubblico).
+	 */
 	public function create()
 	{
-		// Mostra il form per segnalare un nuovo evento
-		$this->view('events/create');
+		$this->view('events/create'); // Vista pubblica
 	}
 
+	/**
+	 * Salva un nuovo evento segnalato (pubblico).
+	 */
 	public function store()
 	{
-		// Logica per salvare un nuovo evento
-		if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+		if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 			$data = [
-				'titolo'           => $_POST['titolo'] ?? '',
-				'descrizione'      => $_POST['descrizione'] ?? '',
-				'data_inizio'      => $_POST['data_inizio'] ?? '',
-				'data_fine'        => $_POST['data_fine'] ?? null, // Può essere null se evento di un solo giorno
-				'luogo'            => $_POST['luogo'] ?? '',
-				'regione_id'       => $_POST['regione_id'] ?? null,
-				'provincia_id'     => $_POST['provincia_id'] ?? null,
-				'comune_id'        => $_POST['comune_id'] ?? null,
-				'latitudine'       => $_POST['latitudine'] ?? null,
-				'longitudine'      => $_POST['longitudine'] ?? null,
-				'sito_web'         => $_POST['sito_web'] ?? null,
-				'social_facebook'  => $_POST['social_facebook'] ?? null,
-				'social_twitter'   => $_POST['social_twitter'] ?? null,
-				'social_instagram' => $_POST['social_instagram'] ?? null,
-				'social_tiktok'    => $_POST['social_tiktok'] ?? null,
-				'social_youtube'   => $_POST['social_youtube'] ?? null,
-				'tipo_evento_id'   => $_POST['tipo_evento_id'] ?? null,
-				'approvato'        => 0 // Nuovo evento è sempre non approvato
+				'titolo' => trim($_POST['titolo']),
+				'descrizione' => trim($_POST['descrizione']),
+				'data_inizio' => trim($_POST['data_inizio']),
+				'data_fine' => trim($_POST['data_fine'] ?? ''),
+				'luogo' => trim($_POST['luogo']),
+				'immagine' => trim($_POST['immagine'] ?? '')
 			];
 
-			// Validazione dei dati di base (da migliorare)
-			if (empty($data['titolo']) || empty($data['data_inizio']) || empty($data['luogo'])) {
-				Session::setFlash('error', 'Titolo, Data Inizio e Luogo sono campi obbligatori.');
-				$this->redirect('/events/create');
-			}
-
-			// Gestione upload immagine
-			$data['immagine'] = null;
-			if (isset($_FILES['immagine']) && $_FILES['immagine']['error'] === UPLOAD_ERR_OK) {
-				$uploadDir = APP_ROOT . '/public_assets/images/';
-				if (!is_dir($uploadDir)) {
-					mkdir($uploadDir, 0777, true); // Crea la directory se non esiste
-				}
-
-				$fileName = uniqid() . '_' . basename($_FILES['immagine']['name']); // Rinomina per evitare collisioni
-				$targetFilePath = $uploadDir . $fileName;
-				$fileType = strtolower(pathinfo($targetFilePath, PATHINFO_EXTENSION));
-
-				$allowTypes = array('jpg', 'png', 'jpeg', 'gif');
-				if (in_array($fileType, $allowTypes)) {
-					if (move_uploaded_file($_FILES['immagine']['tmp_name'], $targetFilePath)) {
-						$data['immagine'] = $fileName;
-					} else {
-						Session::setFlash('error', 'Errore durante il caricamento dell\'immagine.');
-						$this->redirect('/events/create');
-					}
-				} else {
-					Session::setFlash('error', 'Solo file JPG, JPEG, PNG, GIF sono permessi per l\'immagine.');
-					$this->redirect('/events/create');
-				}
-			}
-
-
-			if (Session::hasFlash('error')) { // Se c'è stato un errore nell'upload, fermati qui
+			// Validazione di base
+			if (empty($data['titolo']) || empty($data['descrizione']) || empty($data['data_inizio']) || empty($data['luogo'])) {
+				Session::setFlash('error', 'Si prega di compilare tutti i campi obbligatori.');
+				$this->view('events/create', $data);
 				return;
 			}
 
 			if ($this->eventModel->create($data)) {
 				Session::setFlash('success', 'Evento segnalato con successo! Sarà visibile dopo l\'approvazione.');
-				$this->redirect('/events');
+				header('Location: /events');
+				exit();
 			} else {
-				Session::setFlash('error', 'Si è verificato un errore durante la segnalazione dell\'evento. Riprova.');
-				$this->redirect('/events/create');
+				Session::setFlash('error', 'Errore durante la segnalazione dell\'evento.');
+				$this->view('events/create', $data);
 			}
 		} else {
-			$this->redirect('/events/create'); // Reindirizza se non è una POST request
+			header('Location: /events/create');
+			exit();
 		}
 	}
 
+	/**
+	 * Mostra i dettagli di un singolo evento (pubblico).
+	 * @param array $params Contiene l'ID dell'evento.
+	 */
+	public function show($params)
+	{
+		$id = $params[0] ?? null;
+		if (!$id || !is_numeric($id)) {
+			Session::setFlash('error', 'ID evento non valido.');
+			header('Location: /events');
+			exit();
+		}
+
+		$event = $this->eventModel->find($id);
+
+		// Per la vista pubblica, mostra solo eventi approvati
+		if (!$event || $event['approvato'] == 0) {
+			Session::setFlash('error', 'Evento non trovato o non ancora approvato.');
+			header('Location: /events');
+			exit();
+		}
+
+		$this->view('events/show', ['event' => $event]);
+	}
+
+	// --- Metodi per l'Area Amministrativa ---
+
+	/**
+	 * Protegge i metodi admin.
+	 */
+	private function requireAdmin()
+	{
+		if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+			Session::setFlash('error', 'Accesso non autorizzato all\'area amministrativa degli eventi.');
+			header('Location: /login');
+			exit();
+		}
+	}
+
+	/**
+	 * Mostra la lista degli eventi in attesa di approvazione (ADMIN).
+	 */
+	public function pending()
+	{
+		$this->requireAdmin(); // Proteggi il metodo
+
+		$events = $this->eventModel->getPendingEvents();
+		$this->view('admin/events/pending', ['events' => $events]);
+	}
+
+	/**
+	 * Mostra tutti gli eventi (approvati e non) per l'amministratore.
+	 */
+	public function allEvents()
+	{
+		$this->requireAdmin(); // Proteggi il metodo
+
+		$events = $this->eventModel->getAllEvents();
+		$this->view('admin/events/all', ['events' => $events]); // Nuova vista per tutti gli eventi
+	}
+
+	/**
+	 * Mostra il form per modificare un evento (ADMIN).
+	 * Questo metodo è destinato ad essere chiamato tramite una rotta admin (es. /admin/events/edit/{id}).
+	 * @param array $params Contiene l'ID dell'evento.
+	 */
 	public function edit($params)
 	{
-		// Solo per amministratori o utenti che hanno segnalato l'evento
-		// Qui si dovrebbe aggiungere la logica di autorizzazione
-		$id = $params[0];
-		$event = $this->eventModel->find($id);
-		if (!$event) {
-			$this->view('errors/404');
-			return;
+		$this->requireAdmin(); // Proteggi il metodo
+
+		$id = $params[0] ?? null;
+		if (!$id || !is_numeric($id)) {
+			Session::setFlash('error', 'ID evento non valido.');
+			header('Location: /admin/events/pending');
+			exit();
 		}
-		$this->view('events/edit', ['event' => $event]);
+
+		$event = $this->eventModel->find($id);
+
+		if (!$event) {
+			Session::setFlash('error', 'Evento non trovato.');
+			header('Location: /admin/events/pending');
+			exit();
+		}
+
+		$this->view('admin/events/edit', ['event' => $event]);
 	}
 
+	/**
+	 * Gestisce l'invio del modulo per l'aggiornamento di un evento (ADMIN).
+	 * Questo metodo è destinato ad essere chiamato tramite una rotta admin (es. /admin/events/update/{id}).
+	 * @param array $params Contiene l'ID dell'evento.
+	 */
 	public function update($params)
 	{
-		// Solo per amministratori o utenti che hanno segnalato l'evento
-		// Qui si dovrebbe aggiungere la logica di autorizzazione
-		$id = $params[0];
-		if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+		$this->requireAdmin(); // Proteggi il metodo
+
+		$id = $params[0] ?? null;
+		if (!$id || !is_numeric($id)) {
+			Session::setFlash('error', 'ID evento non valido.');
+			header('Location: /admin/events/pending');
+			exit();
+		}
+
+		if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 			$data = [
-				'titolo'           => $_POST['titolo'] ?? '',
-				'descrizione'      => $_POST['descrizione'] ?? '',
-				'data_inizio'      => $_POST['data_inizio'] ?? '',
-				'data_fine'        => $_POST['data_fine'] ?? null,
-				'luogo'            => $_POST['luogo'] ?? '',
-				'regione_id'       => $_POST['regione_id'] ?? null,
-				'provincia_id'     => $_POST['provincia_id'] ?? null,
-				'comune_id'        => $_POST['comune_id'] ?? null,
-				'latitudine'       => $_POST['latitudine'] ?? null,
-				'longitudine'      => $_POST['longitudine'] ?? null,
-				'sito_web'         => $_POST['sito_web'] ?? null,
-				'social_facebook'  => $_POST['social_facebook'] ?? null,
-				'social_twitter'   => $_POST['social_twitter'] ?? null,
-				'social_instagram' => $_POST['social_instagram'] ?? null,
-				'social_tiktok'    => $_POST['social_tiktok'] ?? null,
-				'social_youtube'   => $_POST['social_youtube'] ?? null,
-				'tipo_evento_id'   => $_POST['tipo_evento_id'] ?? null,
-				'approvato'        => $_POST['approvato'] ?? 0 // Solo admin dovrebbe poter modificare questo
+				'titolo' => trim($_POST['titolo']),
+				'descrizione' => trim($_POST['descrizione']),
+				'data_inizio' => trim($_POST['data_inizio']),
+				'data_fine' => trim($_POST['data_fine'] ?? ''),
+				'luogo' => trim($_POST['luogo']),
+				'immagine' => trim($_POST['immagine'] ?? ''),
+				'approvato' => (int)($_POST['approvato'] ?? 0)
 			];
 
-			// Recupera il nome dell'immagine esistente
-			$existingEvent = $this->eventModel->find($id);
-			$data['immagine'] = $existingEvent['immagine'] ?? null;
-
-			// Gestione nuovo upload immagine
-			if (isset($_FILES['immagine']) && $_FILES['immagine']['error'] === UPLOAD_ERR_OK) {
-				$uploadDir = APP_ROOT . '/public_assets/images/';
-				if (!is_dir($uploadDir)) {
-					mkdir($uploadDir, 0777, true);
-				}
-
-				$fileName = uniqid() . '_' . basename($_FILES['immagine']['name']);
-				$targetFilePath = $uploadDir . $fileName;
-				$fileType = strtolower(pathinfo($targetFilePath, PATHINFO_EXTENSION));
-
-				$allowTypes = array('jpg', 'png', 'jpeg', 'gif');
-				if (in_array($fileType, $allowTypes)) {
-					// Elimina la vecchia immagine se ne esiste una
-					if ($existingEvent['immagine'] && file_exists($uploadDir . $existingEvent['immagine'])) {
-						unlink($uploadDir . $existingEvent['immagine']);
-					}
-					if (move_uploaded_file($_FILES['immagine']['tmp_name'], $targetFilePath)) {
-						$data['immagine'] = $fileName;
-					} else {
-						Session::setFlash('error', 'Errore durante il caricamento della nuova immagine.');
-						$this->redirect('/events/' . $id . '/edit');
-						return;
-					}
-				} else {
-					Session::setFlash('error', 'Solo file JPG, JPEG, PNG, GIF sono permessi per l\'immagine.');
-					$this->redirect('/events/' . $id . '/edit');
-					return;
-				}
-			} elseif (isset($_POST['remove_image']) && $_POST['remove_image'] == '1') {
-				// Se l'utente ha richiesto di rimuovere l'immagine
-				$uploadDir = APP_ROOT . '/public_assets/images/';
-				if ($existingEvent['immagine'] && file_exists($uploadDir . $existingEvent['immagine'])) {
-					unlink($uploadDir . $existingEvent['immagine']);
-				}
-				$data['immagine'] = null;
-			}
-
-
-			if (Session::hasFlash('error')) {
+			// Validazione di base
+			if (empty($data['titolo']) || empty($data['descrizione']) || empty($data['data_inizio']) || empty($data['luogo'])) {
+				Session::setFlash('error', 'Si prega di compilare tutti i campi obbligatori.');
+				$event = $this->eventModel->find($id);
+				$this->view('admin/events/edit', ['event' => array_merge($event, $data), 'error' => Session::getFlash('error')]);
 				return;
 			}
 
 			if ($this->eventModel->update($id, $data)) {
 				Session::setFlash('success', 'Evento aggiornato con successo!');
-				$this->redirect('/events/' . $id);
+				// Reindirizza alla lista pending o a tutti gli eventi, a seconda della preferenza
+				header('Location: /admin/events/pending');
+				exit();
 			} else {
-				Session::setFlash('error', 'Si è verificato un errore durante l\'aggiornamento dell\'evento.');
-				$this->redirect('/events/' . $id . '/edit');
+				Session::setFlash('error', 'Errore durante l\'aggiornamento dell\'evento.');
+				$event = $this->eventModel->find($id);
+				$this->view('admin/events/edit', ['event' => array_merge($event, $data), 'error' => Session::getFlash('error')]);
 			}
 		} else {
-			$this->redirect('/events/' . $id . '/edit');
+			header('Location: /admin/events/pending');
+			exit();
 		}
 	}
 
+	/**
+	 * Elimina un evento (ADMIN).
+	 * @param array $params Contiene l'ID dell'evento.
+	 */
 	public function delete($params)
 	{
-		// Solo per amministratori
-		// Qui si dovrebbe aggiungere la logica di autorizzazione
-		$id = $params[0];
-		$event = $this->eventModel->find($id);
-		if (!$event) {
-			Session::setFlash('error', 'Evento non trovato per l\'eliminazione.');
-			$this->redirect('/events');
-			return;
+		$this->requireAdmin(); // Proteggi il metodo
+
+		$id = $params[0] ?? null;
+		if (!$id || !is_numeric($id)) {
+			Session::setFlash('error', 'ID evento non valido.');
+			header('Location: /admin/events/pending');
+			exit();
 		}
 
 		if ($this->eventModel->delete($id)) {
-			// Elimina anche il file immagine se esiste
-			if ($event['immagine']) {
-				$imagePath = APP_ROOT . '/public_assets/images/' . $event['immagine'];
-				if (file_exists($imagePath)) {
-					unlink($imagePath);
-				}
-			}
 			Session::setFlash('success', 'Evento eliminato con successo!');
 		} else {
-			Session::setFlash('error', 'Si è verificato un errore durante l\'eliminazione dell\'evento.');
+			Session::setFlash('error', 'Errore durante l\'eliminazione dell\'evento.');
 		}
-		$this->redirect('/admin/events/pending'); // O dove è più appropriato reindirizzare dopo l'eliminazione
+		header('Location: /admin/events/pending');
+		exit();
 	}
 
-	public function pending()
-	{
-		// Solo per amministratori
-		// Qui si dovrebbe aggiungere la logica di autorizzazione
-		$events = $this->eventModel->getPendingEvents();
-		$this->view('events/pending', ['events' => $events]);
-	}
-
+	/**
+	 * Approva un evento (ADMIN).
+	 * @param array $params Contiene l'ID dell'evento.
+	 */
 	public function approve($params)
 	{
-		// Solo per amministratori
-		// Qui si dovrebbe aggiungere la logica di autorizzazione
-		$id = $params[0];
+		$this->requireAdmin(); // Proteggi il metodo
+
+		$id = $params[0] ?? null;
+		if (!$id || !is_numeric($id)) {
+			Session::setFlash('error', 'ID evento non valido.');
+			header('Location: /admin/events/pending');
+			exit();
+		}
+
 		if ($this->eventModel->approveEvent($id)) {
 			Session::setFlash('success', 'Evento approvato con successo!');
 		} else {
-			Session::setFlash('error', 'Si è verificato un errore durante l\'approvazione dell\'evento.');
+			Session::setFlash('error', 'Errore durante l\'approvazione dell\'evento.');
 		}
-		$this->redirect('/admin/events/pending');
+		header('Location: /admin/events/pending');
+		exit();
 	}
 
-	// Aggiungi un AuthController per gestire login/register
-	// public function showLoginForm() {}
-	// public function login() {}
-	// public function register() {}
-	// public function logout() {}
+	/**
+	 * Mostra i dettagli di un singolo evento per l'amministratore.
+	 * Non controlla lo stato di approvazione, l'admin può vedere tutti i dettagli.
+	 * @param array $params Contiene l'ID dell'evento.
+	 */
+	public function adminShow($params)
+	{
+		$this->requireAdmin(); // Proteggi il metodo
+
+		$id = $params[0] ?? null;
+		if (!$id || !is_numeric($id)) {
+			Session::setFlash('error', 'ID evento non valido.');
+			header('Location: /admin/events/pending'); // Reindirizza alla lista pending
+			exit();
+		}
+
+		$event = $this->eventModel->find($id);
+
+		if (!$event) {
+			Session::setFlash('error', 'Evento non trovato.');
+			header('Location: /admin/events/pending');
+			exit();
+		}
+
+		// Usa la stessa vista admin/events/show.php che abbiamo già migliorato
+		$this->view('admin/events/show', ['event' => $event]);
+	}
 }
