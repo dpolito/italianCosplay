@@ -1,4 +1,4 @@
-	<?php
+<?php
 	// Normalmente si usano variabili d'ambiente per credenziali sensibili
 	// Per semplicità, qui sono dirette, ma in produzione si userebbero file .env e getenv()
 	return [

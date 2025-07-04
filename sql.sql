@@ -274,13 +274,12 @@ COMMIT;
 
 
                                          -- Tabella per gli utenti
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE,
     email VARCHAR(100) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
-    role ENUM('admin', 'user') NOT NULL DEFAULT 'user',
+    password VARCHAR(255) NOT NULL,
+    role ENUM(''user'', ''admin'') DEFAULT ''user'' NOT NULL, -- Aggiungi questo campo per il ruolo
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_login_at TIMESTAMP NULL,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
