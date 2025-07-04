@@ -5,7 +5,7 @@
 
 <div class="container mx-auto p-6">
 	<div class="mb-6">
-		<a href="/admin/events/pending" class="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-300 transition duration-300 ease-in-out">
+		<a title="" href="/admin/events/pending" class="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-300 transition duration-300 ease-in-out">
 			<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
 			</svg>
@@ -73,7 +73,7 @@
 				<button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md focus:outline-none focus:shadow-outline transition duration-300 ease-in-out">
 					Aggiorna Evento
 				</button>
-				<a href="/admin/events/pending" class="inline-block align-baseline font-semibold text-blue-600 hover:text-blue-800">
+				<a title="" href="/admin/events/pending" class="inline-block align-baseline font-semibold text-blue-600 hover:text-blue-800">
 					Annulla
 				</a>
 			</div>

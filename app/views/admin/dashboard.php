@@ -32,7 +32,7 @@
 			</div>
 			<h3 class="text-xl font-semibold text-gray-700 mb-3">Gestione Utenti</h3>
 			<p class="text-gray-600 mb-4">Visualizza, crea, modifica ed elimina gli utenti del sistema.</p>
-			<a href="/admin/users" class="mt-auto bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Vai a Gestione Utenti</a>
+			<a title="" href="/admin/users" class="mt-auto bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Vai a Gestione Utenti</a>
 		</div>
 		<!-- Card Gestione Eventi -->
 		<div class="bg-white rounded-lg shadow-lg p-6 flex flex-col items-center text-center">
@@ -44,7 +44,7 @@
 			</div>
 			<h3 class="text-xl font-semibold text-gray-700 mb-3">Gestione Eventi</h3>
 			<p class="text-gray-600 mb-4">Approva, modifica ed elimina gli eventi segnalati dagli utenti.</p>
-			<a href="/admin/events/all" class="mt-auto bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Vai a Gestione Eventi</a>
+			<a title="" href="/admin/events/all" class="mt-auto bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Vai a Gestione Eventi</a>
 		</div>
 		<!-- Card Gestione Eventi -->
 		<div class="bg-white rounded-lg shadow-lg p-6 flex flex-col items-center text-center">
@@ -56,7 +56,7 @@
 			</div>
 			<h3 class="text-xl font-semibold text-gray-700 mb-3">Gestione Eventi da approvare</h3>
 			<p class="text-gray-600 mb-4">Approva, modifica ed elimina gli eventi segnalati dagli utenti.</p>
-			<a href="/admin/events/pending" class="mt-auto bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Vai a Gestione Eventi</a>
+			<a title="" href="/admin/events/pending" class="mt-auto bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Vai a Gestione Eventi</a>
 		</div>
 
 		<!-- Card Altre Funzionalità (Esempio) -->
@@ -70,7 +70,7 @@
 			</div>
 			<h3 class="text-xl font-semibold text-gray-700 mb-3">Impostazioni</h3>
 			<p class="text-gray-600 mb-4">Configura le impostazioni generali del sito e altre opzioni.</p>
-			<a href="#" class="mt-auto bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Vai a Impostazioni</a>
+			<a title="" href="#" class="mt-auto bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Vai a Impostazioni</a>
 		</div>
 	</div>
 </main>

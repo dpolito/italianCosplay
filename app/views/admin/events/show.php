@@ -5,7 +5,7 @@
 
 <div class="container mx-auto p-6">
 	<div class="mb-6">
-		<a href="/admin/events/pending" class="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-300 transition duration-300 ease-in-out">
+		<a title="" href="/admin/events/pending" class="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-300 transition duration-300 ease-in-out">
 			<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
 			</svg>
@@ -56,7 +56,7 @@
 		<div class="mb-4">
 			<h3 class="text-xl font-semibold text-gray-700 mb-2">URL Immagine:</h3>
 			<?php if (!empty($data['event']['immagine'])): ?>
-				<a href="<?php echo htmlspecialchars($data['event']['immagine']); ?>" target="_blank" class="text-blue-600 hover:underline"><?php echo htmlspecialchars($data['event']['immagine']); ?></a>
+				<a title="" href="<?php echo htmlspecialchars($data['event']['immagine']); ?>" target="_blank" class="text-blue-600 hover:underline"><?php echo htmlspecialchars($data['event']['immagine']); ?></a>
 				<img src="<?php echo htmlspecialchars($data['event']['immagine']); ?>" alt="Immagine Evento" class="mt-2 max-w-full h-auto rounded-lg shadow-md">
 			<?php else: ?>
 				<p class="text-gray-600">Nessuna immagine fornita.</p>
@@ -78,7 +78,7 @@
 					</button>
 				</form>
 			<?php endif; ?>
-			<a href="/admin/events/edit/<?php echo htmlspecialchars($data['event']['id'] ?? ''); ?>" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md focus:outline-none focus:shadow-outline transition duration-300 ease-in-out mr-4">
+			<a title="" href="/admin/events/edit/<?php echo htmlspecialchars($data['event']['id'] ?? ''); ?>" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md focus:outline-none focus:shadow-outline transition duration-300 ease-in-out mr-4">
 				Modifica Evento
 			</a>
 			<form action="/admin/events/delete/<?php echo htmlspecialchars($data['event']['id'] ?? ''); ?>" method="POST" class="inline-block" onsubmit="return confirm('Sei sicuro di voler eliminare questo evento?');">
