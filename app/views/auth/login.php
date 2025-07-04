@@ -1,15 +1,20 @@
-<h1>Login</h1>
+<h1>Accedi</h1>
+
+<?php
+// Questo blocco PHP controlla se c'è un messaggio di errore passato alla vista
+// e lo visualizza.
+if (isset($data['error'])): ?>
+	<p style="color: red; margin-bottom: 15px; padding: 10px; border: 1px solid red; background-color: #ffe6e6; border-radius: 5px;">
+		<?php echo htmlspecialchars($data['error']); ?>
+	</p>
+<?php endif; ?>
 
 <form action="/login" method="POST">
-	<div class="form-group">
-		<label for="username">Username:</label>
-		<input type="text" id="username" name="username" class="form-control" required>
-	</div>
-	<div class="form-group">
-		<label for="password">Password:</label>
-		<input type="password" id="password" name="password" class="form-control" required>
-	</div>
-	<button type="submit" class="btn primary">Accedi</button>
-</form>
+	<label for="username_email">Username o Email:</label><br>
+	<input type="text" id="username_email" name="username_email" value="<?php echo htmlspecialchars($data['old_identifier'] ?? ''); ?>" required><br><br>
 
-<p>Non hai un account? <a href="/register">Registrati qui</a></p>
+	<label for="password">Password:</label><br>
+	<input type="password" id="password" name="password" required><br><br>
+
+	<button type="submit">Accedi</button>
+</form>
