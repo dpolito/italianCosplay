@@ -1,0 +1,45 @@
+version: "3.8"
+
+services:
+  web:
+    build: .
+    container_name: italiancosplay_gemini_web
+    volumes:
+      - ./:/var/www/html # Questo mappa la root del tuo progetto locale alla DocumentRoot del container
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+    restart: unless-stopped
+
+
+  db:
+    image: mysql:8.0
+    container_name: italiancosplay_gemini_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword123
+      MYSQL_DATABASE: italiancosplay_gemini
+      MYSQL_USER: cosplayuser
+      MYSQL_PASSWORD: cosplaypass
+    volumes:
+      - db_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    platform: linux/amd64
+    container_name: italiancosplay_gemini_phpmyadmin
+    depends_on:
+      - db
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: db
+      PMA_USER: cosplayuser
+      PMA_PASSWORD: cosplaypass
+    restart: unless-stopped
+
+volumes:
+  db_data:
