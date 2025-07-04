@@ -19,38 +19,46 @@ class AuthController extends Controller
 
 	public function login()
 	{
-		// Controlla se la richiesta è di tipo POST e se i campi sono stati inviati
+		error_log("DEBUG: Inizio metodo login."); // DEBUG POINT 1
+
 		if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['username_email']) && isset($_POST['password'])) {
-			$identifier = trim($_POST['username_email']); // Può essere username o email
+			$identifier = trim($_POST['username_email']);
 			$password = trim($_POST['password']);
 
-			// 1. Cerca l'utente per username o email
+			error_log("DEBUG: Dati POST ricevuti. Identifier: " . $identifier); // DEBUG POINT 2
+
 			$user = $this->userModel->findByUsername($identifier);
 			if (!$user) {
 				$user = $this->userModel->findByEmail($identifier);
 			}
 
-			// 2. Verifica se l'utente esiste e la password è corretta
+			error_log("DEBUG: Utente trovato: " . ($user ? $user['username'] : 'Nessuno')); // DEBUG POINT 3
+
 			if ($user && password_verify($password, $user['password'])) {
-				// Password corretta! Salva i dati dell'utente nella sessione.
-				// session_start() dovrebbe essere chiamato una sola volta all'inizio del tuo index.php o file di bootstrap.
-				// Rimosso il controllo e la chiamata a session_start() qui.
+				error_log("DEBUG: Password verificata con successo."); // DEBUG POINT 4
+
+				if (session_status() == PHP_SESSION_NONE) { // Questo controllo è buono, ma idealmente session_start() è già fatto
+					session_start();
+				}
 
 				$_SESSION['user_id'] = $user['id'];
 				$_SESSION['username'] = $user['username'];
-				$_SESSION['role'] = $user['role']; // Salva il ruolo dell'utente nella sessione
+				$_SESSION['role'] = $user['role'];
 
-				// 3. Reindirizza in base al ruolo
+				error_log("DEBUG: Sessione impostata. Ruolo: " . $_SESSION['role']); // DEBUG POINT 5
+
 				if ($user['role'] === 'admin') {
-					header('Location: /admin/dashboard'); // Reindirizza all'area admin
+					error_log("DEBUG: Reindirizzo ad admin dashboard."); // DEBUG POINT 6
+					header('Location: /admin/dashboard');
 					exit();
 				} else {
-					header('Location: /dashboard'); // Reindirizza all'area utente normale
+					error_log("DEBUG: Reindirizzo a dashboard utente."); // DEBUG POINT 7
+					header('Location: /dashboard');
 					exit();
 				}
 
 			} else {
-				// Credenziali non valide
+				error_log("DEBUG: Credenziali non valide o password non corrispondente."); // DEBUG POINT 8
 				$data = [
 					'error' => 'Username/Email o password non validi.',
 					'old_identifier' => $identifier
@@ -58,7 +66,7 @@ class AuthController extends Controller
 				$this->view('auth/login', $data);
 			}
 		} else {
-			// Se non è una richiesta POST o i campi non sono settati, reindirizza alla pagina di login
+			error_log("DEBUG: Richiesta non POST o campi mancanti."); // DEBUG POINT 9
 			header('Location: /login');
 			exit();
 		}
