@@ -42,6 +42,18 @@ class EventController extends Controller
 				'data_inizio' => trim($_POST['data_inizio']),
 				'data_fine' => trim($_POST['data_fine'] ?? ''),
 				'luogo' => trim($_POST['luogo']),
+				'regione_id' => trim($_POST['regione_id'] ?? null), // Nuovo campo
+				'provincia_id' => trim($_POST['provincia_id'] ?? null), // Nuovo campo
+				'comune_id' => trim($_POST['comune_id'] ?? null), // Nuovo campo
+				'latitudine' => trim($_POST['latitudine'] ?? null), // Nuovo campo
+				'longitudine' => trim($_POST['longitudine'] ?? null), // Nuovo campo
+				'sito_web' => trim($_POST['sito_web'] ?? ''), // Nuovo campo
+				'social_facebook' => trim($_POST['social_facebook'] ?? ''), // Nuovo campo
+				'social_twitter' => trim($_POST['social_twitter'] ?? ''), // Nuovo campo
+				'social_instagram' => trim($_POST['social_instagram'] ?? ''), // Nuovo campo
+				'social_tiktok' => trim($_POST['social_tiktok'] ?? ''), // Nuovo campo
+				'social_youtube' => trim($_POST['social_youtube'] ?? ''), // Nuovo campo
+				'tipo_evento_id' => trim($_POST['tipo_evento_id'] ?? null), // Nuovo campo
 				'immagine' => trim($_POST['immagine'] ?? '')
 			];
 
@@ -164,12 +176,13 @@ class EventController extends Controller
 		$this->requireAdmin(); // Proteggi il metodo
 
 		$id = $params[0] ?? null;
+
 		if (!$id || !is_numeric($id)) {
+
 			Session::setFlash('error', 'ID evento non valido.');
-			header('Location: /admin/events/pending');
+			header('Location: /admin/events/all');
 			exit();
 		}
-
 		if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 			$data = [
 				'titolo' => trim($_POST['titolo']),
@@ -177,6 +190,18 @@ class EventController extends Controller
 				'data_inizio' => trim($_POST['data_inizio']),
 				'data_fine' => trim($_POST['data_fine'] ?? ''),
 				'luogo' => trim($_POST['luogo']),
+				'regione_id' => trim($_POST['regione_id'] ?? null), // Nuovo campo
+				'provincia_id' => trim($_POST['provincia_id'] ?? null), // Nuovo campo
+				'comune_id' => trim($_POST['comune_id'] ?? null), // Nuovo campo
+				'latitudine' => trim($_POST['latitudine'] ?? null), // Nuovo campo
+				'longitudine' => trim($_POST['longitudine'] ?? null), // Nuovo campo
+				'sito_web' => trim($_POST['sito_web'] ?? ''), // Nuovo campo
+				'social_facebook' => trim($_POST['social_facebook'] ?? ''), // Nuovo campo
+				'social_twitter' => trim($_POST['social_twitter'] ?? ''), // Nuovo campo
+				'social_instagram' => trim($_POST['social_instagram'] ?? ''), // Nuovo campo
+				'social_tiktok' => trim($_POST['social_tiktok'] ?? ''), // Nuovo campo
+				'social_youtube' => trim($_POST['social_youtube'] ?? ''), // Nuovo campo
+				'tipo_evento_id' => trim($_POST['tipo_evento_id'] ?? null), // Nuovo campo
 				'immagine' => trim($_POST['immagine'] ?? ''),
 				'approvato' => (int)($_POST['approvato'] ?? 0)
 			];
@@ -191,8 +216,7 @@ class EventController extends Controller
 
 			if ($this->eventModel->update($id, $data)) {
 				Session::setFlash('success', 'Evento aggiornato con successo!');
-				// Reindirizza alla lista pending o a tutti gli eventi, a seconda della preferenza
-				header('Location: /admin/events/pending');
+				header('Location: /admin/events/all');
 				exit();
 			} else {
 				Session::setFlash('error', 'Errore durante l\'aggiornamento dell\'evento.');
@@ -200,7 +224,8 @@ class EventController extends Controller
 				$this->view('admin/events/edit', ['event' => array_merge($event, $data), 'error' => Session::getFlash('error')]);
 			}
 		} else {
-			header('Location: /admin/events/pending');
+			Session::setFlash('error', 'Errore durante l\'aggiornamento dell\'evento, la funzione non è stata chiamata in POST');
+			header('Location: /admin/events/all');
 			exit();
 		}
 	}

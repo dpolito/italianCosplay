@@ -24,6 +24,11 @@ if (file_exists(APP_ROOT . '/vendor/autoload.php')) {
 	require_once APP_ROOT . '/app/core/Controller.php';
 	require_once APP_ROOT . '/app/models/BaseModel.php';
 	require_once APP_ROOT . '/app/models/Event.php';
+	require_once APP_ROOT . '/app/models/BaseModel.php'; // Se non è già incluso
+	require_once APP_ROOT . '/app/models/Regione.php';
+	require_once APP_ROOT . '/app/models/Provincia.php';
+	require_once APP_ROOT . '/app/models/Comune.php';
+	require_once APP_ROOT . '/app/controllers/ApiController.php'; // Assicurati che sia presente
 	// ... e tutti gli altri modelli e classi core se non usi Composer
 }
 

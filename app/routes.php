@@ -35,3 +35,10 @@ $router->post('/admin/events/update/(\d+)', 'EventController@update'); // Aggior
 $router->post('/admin/events/delete/(\d+)', 'EventController@delete'); // Elimina evento (ADMIN)
 $router->post('/admin/events/approve/(\d+)', 'EventController@approve'); // Approva evento (ADMIN)
 $router->get('/admin/events/all', 'EventController@allEvents'); // Lista tutti gli eventi (approvati e non) per admin
+
+// Rotte API per Regioni, Province, Comuni
+$router->get('/api/regioni', 'ApiController@getRegioni');
+$router->get('/api/province/(\d+)', 'ApiController@getProvinceByRegione');
+$router->get('/api/comuni/(\d+)', 'ApiController@getComuniByProvincia');
+
+//
