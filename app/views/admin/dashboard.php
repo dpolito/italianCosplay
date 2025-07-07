@@ -4,7 +4,6 @@
 // Le risorse CSS (Tailwind) e i tag base devono essere nel layout che lo include.
 ?>
 
-
 <main class="flex-grow container mx-auto p-6">
 	<div class="bg-white rounded-lg shadow-lg p-8 mb-6">
 		<h2 class="text-3xl font-semibold text-gray-800 mb-4">Benvenuto, <?php echo htmlspecialchars($_SESSION['username'] ?? 'Admin'); ?>!</h2>
@@ -25,16 +24,17 @@
 		<!-- Card Gestione Utenti -->
 		<div class="bg-white rounded-lg shadow-lg p-6 flex flex-col items-center text-center">
 			<div class="text-blue-500 mb-4">
-				<!-- Icona di esempio per gli utenti (potresti usare Font Awesome o Lucide React) -->
+				<!-- Icona di esempio per gli utenti -->
 				<svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-3-3H5a3 3 0 00-3 3v2h5m0 0l3-3m-3 3l-3-3m3 3v-2.5M17 11V9a2 2 0 00-2-2H9a2 2 0 00-2 2v2m9 6h-6v-3h6v3z" />
 				</svg>
 			</div>
 			<h3 class="text-xl font-semibold text-gray-700 mb-3">Gestione Utenti</h3>
 			<p class="text-gray-600 mb-4">Visualizza, crea, modifica ed elimina gli utenti del sistema.</p>
-			<a title="" href="/admin/users" class="mt-auto bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Vai a Gestione Utenti</a>
+			<a href="/admin/users" class="mt-auto bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Vai a Gestione Utenti</a>
 		</div>
-		<!-- Card Gestione Eventi -->
+
+		<!-- Card Gestione Eventi (Eventi in Attesa) -->
 		<div class="bg-white rounded-lg shadow-lg p-6 flex flex-col items-center text-center">
 			<div class="text-green-500 mb-4">
 				<!-- Icona di esempio per gli eventi -->
@@ -44,19 +44,19 @@
 			</div>
 			<h3 class="text-xl font-semibold text-gray-700 mb-3">Gestione Eventi</h3>
 			<p class="text-gray-600 mb-4">Approva, modifica ed elimina gli eventi segnalati dagli utenti.</p>
-			<a title="" href="/admin/events/all" class="mt-auto bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Vai a Gestione Eventi</a>
+			<a href="/admin/events/pending" class="mt-auto bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Vai a Gestione Eventi</a>
 		</div>
-		<!-- Card Gestione Eventi -->
+
+		<!-- Nuova Card: Inserisci Nuovo Evento -->
 		<div class="bg-white rounded-lg shadow-lg p-6 flex flex-col items-center text-center">
-			<div class="text-green-500 mb-4">
-				<!-- Icona di esempio per gli eventi -->
+			<div class="text-indigo-500 mb-4">
 				<svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+					<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
 				</svg>
 			</div>
-			<h3 class="text-xl font-semibold text-gray-700 mb-3">Gestione Eventi da approvare</h3>
-			<p class="text-gray-600 mb-4">Approva, modifica ed elimina gli eventi segnalati dagli utenti.</p>
-			<a title="" href="/admin/events/pending" class="mt-auto bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Vai a Gestione Eventi</a>
+			<h3 class="text-xl font-semibold text-gray-700 mb-3">Crea Nuovo Evento</h3>
+			<p class="text-gray-600 mb-4">Aggiungi un nuovo evento al sistema per l'approvazione.</p>
+			<a href="/admin/events/create" class="mt-auto bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Crea Evento</a>
 		</div>
 
 		<!-- Card Altre Funzionalità (Esempio) -->
@@ -70,7 +70,7 @@
 			</div>
 			<h3 class="text-xl font-semibold text-gray-700 mb-3">Impostazioni</h3>
 			<p class="text-gray-600 mb-4">Configura le impostazioni generali del sito e altre opzioni.</p>
-			<a title="" href="#" class="mt-auto bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Vai a Impostazioni</a>
+			<a href="#" class="mt-auto bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Vai a Impostazioni</a>
 		</div>
 	</div>
 </main>

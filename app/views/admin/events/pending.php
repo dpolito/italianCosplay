@@ -5,7 +5,7 @@
 
 <div class="container mx-auto p-6">
 	<div class="mb-6">
-		<a title="" href="/admin/dashboard" class="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-300 transition duration-300 ease-in-out">
+		<a href="/admin/dashboard" class="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-300 transition duration-300 ease-in-out">
 			<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
 			</svg>
@@ -19,6 +19,7 @@
 	// Visualizza i messaggi flash
 	if (isset($_SESSION['flash_messages'])) {
 		foreach ($_SESSION['flash_messages'] as $type => $message) {
+			// Protezione XSS: htmlspecialchars() applicato al tipo e al messaggio
 			echo '<div class="flash-message ' . htmlspecialchars($type) . '">' . htmlspecialchars($message) . '</div>';
 		}
 		unset($_SESSION['flash_messages']);
@@ -59,19 +60,19 @@
 				<?php foreach ($data['events'] as $event): ?>
 					<tr>
 						<td class="id px-5 py-5 border-b border-gray-200 bg-white text-sm">
-							<?php echo htmlspecialchars($event['id']); ?>
+							<?php echo htmlspecialchars($event['id']); // Protezione XSS ?>
 						</td>
 						<td class="titolo px-5 py-5 border-b border-gray-200 bg-white text-sm">
-							<?php echo htmlspecialchars($event['titolo']); ?>
+							<?php echo htmlspecialchars($event['titolo']); // Protezione XSS ?>
 						</td>
 						<td class="data_inizio px-5 py-5 border-b border-gray-200 bg-white text-sm">
-							<?php echo htmlspecialchars(date('d/m/Y', strtotime($event['data_inizio']))); ?>
+							<?php echo htmlspecialchars(date('d/m/Y', strtotime($event['data_inizio']))); // Protezione XSS ?>
 						</td>
 						<td class="data_fine px-5 py-5 border-b border-gray-200 bg-white text-sm">
-							<?php echo htmlspecialchars(date('d/m/Y', strtotime($event['data_fine']))); ?>
+							<?php echo htmlspecialchars(date('d/m/Y', strtotime($event['data_fine']))); // Protezione XSS ?>
 						</td>
 						<td class="luogo px-5 py-5 border-b border-gray-200 bg-white text-sm">
-							<?php echo htmlspecialchars($event['luogo']); ?>
+							<?php echo htmlspecialchars($event['luogo']); // Protezione XSS ?>
 						</td>
 						<td class="approvato_status px-5 py-5 border-b border-gray-200 bg-white text-sm">
                                 <span class="relative inline-block px-3 py-1 font-semibold leading-tight">
@@ -82,14 +83,18 @@
                                 </span>
 						</td>
 						<td class="px-5 py-5 border-b border-gray-200 bg-white text-sm whitespace-nowrap">
-							<a title="" href="/admin/events/show/<?php echo htmlspecialchars($event['id']); ?>" class="text-blue-600 hover:text-blue-900 mr-2">Dettagli</a>
+							<a href="/admin/events/show/<?php echo htmlspecialchars($event['id']); ?>" class="text-blue-600 hover:text-blue-900 mr-2">Dettagli</a>
 							<?php if ($event['approvato'] == 0): ?>
 								<form action="/admin/events/approve/<?php echo htmlspecialchars($event['id']); ?>" method="POST" class="inline-block mr-2" onsubmit="return confirm('Sei sicuro di voler approvare questo evento?');">
+									<!-- CSRF Token per il form di approvazione -->
+									<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($data['csrf_token'] ?? ''); ?>">
 									<button type="submit" class="text-green-600 hover:text-green-900 focus:outline-none focus:underline">Approva</button>
 								</form>
 							<?php endif; ?>
-							<a title="" href="/admin/events/edit/<?php echo htmlspecialchars($event['id']); ?>" class="text-indigo-600 hover:text-indigo-900 mr-2">Modifica</a>
+							<a href="/admin/events/edit/<?php echo htmlspecialchars($event['id']); ?>" class="text-indigo-600 hover:text-indigo-900 mr-2">Modifica</a>
 							<form action="/admin/events/delete/<?php echo htmlspecialchars($event['id']); ?>" method="POST" class="inline-block" onsubmit="return confirm('Sei sicuro di voler eliminare questo evento?');">
+								<!-- CSRF Token per il form di eliminazione -->
+								<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($data['csrf_token'] ?? ''); ?>">
 								<button type="submit" class="text-red-600 hover:text-red-900 focus:outline-none focus:underline">Elimina</button>
 							</form>
 						</td>
@@ -101,13 +106,18 @@
 		<!-- Inclusione di List.js -->
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/list.js/2.3.1/list.min.js"></script>
 		<script>
-			window.onload = function() { // Modificato a window.onload
+			window.addEventListener('load', function() {
 				var options = {
 					valueNames: [ 'id', 'titolo', 'data_inizio', 'data_fine', 'luogo', 'approvato_status' ]
 				};
 
-				var eventsList = new List('events-list-container', options);
-			};
+				var containerElement = document.getElementById('events-list-container');
+				if (containerElement) {
+					var eventsList = new List(containerElement, options);
+				} else {
+					console.error("Elemento '#events-list-container' non trovato. Impossibile inizializzare List.js.");
+				}
+			});
 		</script>
 	<?php else: ?>
 		<p class="text-gray-600">Nessun evento in attesa di approvazione.</p>

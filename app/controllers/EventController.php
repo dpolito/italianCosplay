@@ -27,7 +27,11 @@ class EventController extends Controller
 	 */
 	public function create()
 	{
-		$this->view('events/create'); // Vista pubblica
+		// Genera un token CSRF per il form pubblico, se non esiste già
+		if (!isset($_SESSION['csrf_token'])) {
+			$_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+		}
+		$this->view('events/create', ['csrf_token' => $_SESSION['csrf_token']]); // Passa il token alla vista
 	}
 
 	/**
@@ -35,42 +39,96 @@ class EventController extends Controller
 	 */
 	public function store()
 	{
+		// Protezione CSRF
+		if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+			Session::setFlash('error', 'Errore di sicurezza: richiesta non valida (CSRF).');
+			header('Location: /events/create'); // Reindirizza al form di creazione
+			exit();
+		}
+
 		if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 			$data = [
 				'titolo' => trim($_POST['titolo']),
-				'descrizione' => trim($_POST['descrizione']),
+				'descrizione' => $_POST['descrizione'], // Contenuto HTML da Quill, non trim o htmlspecialchars qui
 				'data_inizio' => trim($_POST['data_inizio']),
 				'data_fine' => trim($_POST['data_fine'] ?? ''),
 				'luogo' => trim($_POST['luogo']),
-				'regione_id' => trim($_POST['regione_id'] ?? null), // Nuovo campo
-				'provincia_id' => trim($_POST['provincia_id'] ?? null), // Nuovo campo
-				'comune_id' => trim($_POST['comune_id'] ?? null), // Nuovo campo
-				'latitudine' => trim($_POST['latitudine'] ?? null), // Nuovo campo
-				'longitudine' => trim($_POST['longitudine'] ?? null), // Nuovo campo
-				'sito_web' => trim($_POST['sito_web'] ?? ''), // Nuovo campo
-				'social_facebook' => trim($_POST['social_facebook'] ?? ''), // Nuovo campo
-				'social_twitter' => trim($_POST['social_twitter'] ?? ''), // Nuovo campo
-				'social_instagram' => trim($_POST['social_instagram'] ?? ''), // Nuovo campo
-				'social_tiktok' => trim($_POST['social_tiktok'] ?? ''), // Nuovo campo
-				'social_youtube' => trim($_POST['social_youtube'] ?? ''), // Nuovo campo
-				'tipo_evento_id' => trim($_POST['tipo_evento_id'] ?? null), // Nuovo campo
-				'immagine' => trim($_POST['immagine'] ?? '')
+				'regione_id' => filter_var($_POST['regione_id'] ?? null, FILTER_VALIDATE_INT),
+				'provincia_id' => filter_var($_POST['provincia_id'] ?? null, FILTER_VALIDATE_INT),
+				'comune_id' => filter_var($_POST['comune_id'] ?? null, FILTER_VALIDATE_INT),
+				'latitudine' => filter_var($_POST['latitudine'] ?? null, FILTER_VALIDATE_FLOAT),
+				'longitudine' => filter_var($_POST['longitudine'] ?? null, FILTER_VALIDATE_FLOAT),
+				'sito_web' => filter_var(trim($_POST['sito_web'] ?? ''), FILTER_VALIDATE_URL),
+				'social_facebook' => filter_var(trim($_POST['social_facebook'] ?? ''), FILTER_VALIDATE_URL),
+				'social_twitter' => filter_var(trim($_POST['social_twitter'] ?? ''), FILTER_VALIDATE_URL),
+				'social_instagram' => filter_var(trim($_POST['social_instagram'] ?? ''), FILTER_VALIDATE_URL),
+				'social_tiktok' => filter_var(trim($_POST['social_tiktok'] ?? ''), FILTER_VALIDATE_URL),
+				'social_youtube' => filter_var(trim($_POST['social_youtube'] ?? ''), FILTER_VALIDATE_URL),
+				'tipo_evento_id' => filter_var($_POST['tipo_evento_id'] ?? null, FILTER_VALIDATE_INT),
+				'immagine' => filter_var(trim($_POST['immagine'] ?? ''), FILTER_VALIDATE_URL)
 			];
 
-			// Validazione di base
-			if (empty($data['titolo']) || empty($data['descrizione']) || empty($data['data_inizio']) || empty($data['luogo'])) {
-				Session::setFlash('error', 'Si prega di compilare tutti i campi obbligatori.');
-				$this->view('events/create', $data);
+			$errors = [];
+
+			// Validazione campi obbligatori e formati
+			if (empty($data['titolo'])) $errors[] = 'Il titolo è obbligatorio.';
+			if (strlen($data['titolo']) > 255) $errors[] = 'Il titolo è troppo lungo (max 255 caratteri).';
+			if (empty($data['descrizione'])) $errors[] = 'La descrizione è obbligatoria.';
+			if (empty($data['data_inizio'])) $errors[] = 'La data di inizio è obbligatoria.';
+
+			// Validazione formati data e logica
+			if (!empty($data['data_inizio']) && !strtotime($data['data_inizio'])) $errors[] = 'Formato data di inizio non valido.';
+			if (!empty($data['data_fine']) && !strtotime($data['data_fine'])) $errors[] = 'Formato data di fine non valido.';
+			if (!empty($data['data_fine']) && !empty($data['data_inizio']) && strtotime($data['data_fine']) < strtotime($data['data_inizio'])) {
+				$errors[] = 'La data di fine non può essere precedente alla data di inizio.';
+			}
+
+			if (empty($data['luogo'])) $errors[] = 'Il luogo è obbligatorio.';
+			if (strlen($data['luogo']) > 255) $errors[] = 'Il luogo è troppo lungo (max 255 caratteri).';
+
+			// Validazione ID numerici
+			if ($data['regione_id'] === false || $data['regione_id'] === null) $errors[] = 'ID Regione non valido.';
+			if ($data['provincia_id'] === false || $data['provincia_id'] === null) $errors[] = 'ID Provincia non valido.';
+			if ($data['comune_id'] === false || $data['comune_id'] === null) $errors[] = 'ID Comune non valido.';
+			if ($data['tipo_evento_id'] === false || $data['tipo_evento_id'] === null) $errors[] = 'ID Tipo Evento non valido.';
+
+			// Validazione Latitudine/Longitudine
+			if ($data['latitudine'] === false || $data['latitudine'] === null || $data['latitudine'] < -90 || $data['latitudine'] > 90) {
+				if (!empty($_POST['latitudine'])) { // Solo se l'utente ha provato a inserire un valore
+					$errors[] = 'Latitudine non valida (deve essere tra -90 e 90).';
+				}
+			}
+			if ($data['longitudine'] === false || $data['longitudine'] === null || $data['longitudine'] < -180 || $data['longitudine'] > 180) {
+				if (!empty($_POST['longitudine'])) { // Solo se l'utente ha provato a inserire un valore
+					$errors[] = 'Longitudine non valida (deve essere tra -180 e 180).';
+				}
+			}
+
+			// Validazione URL (filter_var restituisce false se non è un URL valido o se è null/empty e non lo valida)
+			if ($data['sito_web'] === false && !empty(trim($_POST['sito_web'] ?? ''))) $errors[] = 'URL Sito Web non valido.';
+			if ($data['social_facebook'] === false && !empty(trim($_POST['social_facebook'] ?? ''))) $errors[] = 'URL Social Facebook non valido.';
+			if ($data['social_twitter'] === false && !empty(trim($_POST['social_twitter'] ?? ''))) $errors[] = 'URL Social Twitter non valido.';
+			if ($data['social_instagram'] === false && !empty(trim($_POST['social_instagram'] ?? ''))) $errors[] = 'URL Social Instagram non valido.';
+			if ($data['social_tiktok'] === false && !empty(trim($_POST['social_tiktok'] ?? ''))) $errors[] = 'URL Social TikTok non valido.';
+			if ($data['social_youtube'] === false && !empty(trim($_POST['social_youtube'] ?? ''))) $errors[] = 'URL Social YouTube non valido.';
+			if ($data['immagine'] === false && !empty(trim($_POST['immagine'] ?? ''))) $errors[] = 'URL Immagine non valido.';
+
+
+			if (!empty($errors)) {
+				Session::setFlash('error', implode('<br>', $errors));
+				// Ricarica la vista con i dati inviati e il token CSRF per ripopolare il form
+				$this->view('events/create', array_merge($_POST, ['csrf_token' => $_SESSION['csrf_token'], 'error' => Session::getFlash('error')]));
 				return;
 			}
 
+			// Se la validazione passa, procedi con la creazione
 			if ($this->eventModel->create($data)) {
 				Session::setFlash('success', 'Evento segnalato con successo! Sarà visibile dopo l\'approvazione.');
 				header('Location: /events');
 				exit();
 			} else {
 				Session::setFlash('error', 'Errore durante la segnalazione dell\'evento.');
-				$this->view('events/create', $data);
+				$this->view('events/create', array_merge($data, ['csrf_token' => $_SESSION['csrf_token']]));
 			}
 		} else {
 			header('Location: /events/create');
@@ -106,7 +164,7 @@ class EventController extends Controller
 	// --- Metodi per l'Area Amministrativa ---
 
 	/**
-	 * Protegge i metodi admin.
+	 * Protegge i metodi admin e assicura la presenza di un token CSRF.
 	 */
 	private function requireAdmin()
 	{
@@ -115,6 +173,23 @@ class EventController extends Controller
 			header('Location: /login');
 			exit();
 		}
+		// Genera un token CSRF se non esiste già per la sessione admin
+		if (!isset($_SESSION['csrf_token'])) {
+			$_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+		}
+	}
+
+	/**
+	 * Valida il token CSRF per le richieste POST/modifiche.
+	 * @return bool True se il token è valido, false altrimenti.
+	 */
+	private function validateCsrfToken()
+	{
+		if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+			Session::setFlash('error', 'Errore di sicurezza: richiesta non valida (CSRF).');
+			return false;
+		}
+		return true;
 	}
 
 	/**
@@ -125,7 +200,7 @@ class EventController extends Controller
 		$this->requireAdmin(); // Proteggi il metodo
 
 		$events = $this->eventModel->getPendingEvents();
-		$this->view('admin/events/pending', ['events' => $events]);
+		$this->view('admin/events/pending', ['events' => $events, 'csrf_token' => $_SESSION['csrf_token']]);
 	}
 
 	/**
@@ -136,7 +211,119 @@ class EventController extends Controller
 		$this->requireAdmin(); // Proteggi il metodo
 
 		$events = $this->eventModel->getAllEvents();
-		$this->view('admin/events/all', ['events' => $events]); // Nuova vista per tutti gli eventi
+		$this->view('admin/events/all', ['events' => $events, 'csrf_token' => $_SESSION['csrf_token']]);
+	}
+
+	/**
+	 * Mostra il form per creare un nuovo evento (ADMIN).
+	 */
+	public function adminCreate()
+	{
+		$this->requireAdmin(); // Proteggi il metodo
+		$this->view('admin/events/create', ['csrf_token' => $_SESSION['csrf_token']]); // Passa il token alla vista
+	}
+
+	/**
+	 * Salva un nuovo evento creato dall'amministratore.
+	 */
+	public function adminStore()
+	{
+		$this->requireAdmin(); // Proteggi il metodo
+
+		// Protezione CSRF
+		if (!$this->validateCsrfToken()) {
+			header('Location: /admin/events/create'); // Reindirizza al form di creazione admin
+			exit();
+		}
+
+		if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+			$data = [
+				'titolo' => trim($_POST['titolo']),
+				'descrizione' => $_POST['descrizione'], // Contenuto HTML da Quill, non trim o htmlspecialchars qui
+				'data_inizio' => trim($_POST['data_inizio']),
+				'data_fine' => trim($_POST['data_fine'] ?? ''),
+				'luogo' => trim($_POST['luogo']),
+				'regione_id' => filter_var($_POST['regione_id'] ?? null, FILTER_VALIDATE_INT),
+				'provincia_id' => filter_var($_POST['provincia_id'] ?? null, FILTER_VALIDATE_INT),
+				'comune_id' => filter_var($_POST['comune_id'] ?? null, FILTER_VALIDATE_INT),
+				'latitudine' => filter_var($_POST['latitudine'] ?? null, FILTER_VALIDATE_FLOAT),
+				'longitudine' => filter_var($_POST['longitudine'] ?? null, FILTER_VALIDATE_FLOAT),
+				'sito_web' => filter_var(trim($_POST['sito_web'] ?? ''), FILTER_VALIDATE_URL),
+				'social_facebook' => filter_var(trim($_POST['social_facebook'] ?? ''), FILTER_VALIDATE_URL),
+				'social_twitter' => filter_var(trim($_POST['social_twitter'] ?? ''), FILTER_VALIDATE_URL),
+				'social_instagram' => filter_var(trim($_POST['social_instagram'] ?? ''), FILTER_VALIDATE_URL),
+				'social_tiktok' => filter_var(trim($_POST['social_tiktok'] ?? ''), FILTER_VALIDATE_URL),
+				'social_youtube' => filter_var(trim($_POST['social_youtube'] ?? ''), FILTER_VALIDATE_URL),
+				'tipo_evento_id' => filter_var($_POST['tipo_evento_id'] ?? null, FILTER_VALIDATE_INT),
+				'immagine' => filter_var(trim($_POST['immagine'] ?? ''), FILTER_VALIDATE_URL),
+				'approvato' => (int)($_POST['approvato'] ?? 0)
+			];
+
+			$errors = [];
+
+			// Validazione campi obbligatori e formati
+			if (empty($data['titolo'])) $errors[] = 'Il titolo è obbligatorio.';
+			if (strlen($data['titolo']) > 255) $errors[] = 'Il titolo è troppo lungo (max 255 caratteri).';
+			if (empty($data['descrizione'])) $errors[] = 'La descrizione è obbligatoria.';
+			if (empty($data['data_inizio'])) $errors[] = 'La data di inizio è obbligatoria.';
+
+			// Validazione formati data e logica
+			if (!empty($data['data_inizio']) && !strtotime($data['data_inizio'])) $errors[] = 'Formato data di inizio non valido.';
+			if (!empty($data['data_fine']) && !strtotime($data['data_fine'])) $errors[] = 'Formato data di fine non valido.';
+			if (!empty($data['data_fine']) && !empty($data['data_inizio']) && strtotime($data['data_fine']) < strtotime($data['data_inizio'])) {
+				$errors[] = 'La data di fine non può essere precedente alla data di inizio.';
+			}
+
+			if (empty($data['luogo'])) $errors[] = 'Il luogo è obbligatorio.';
+			if (strlen($data['luogo']) > 255) $errors[] = 'Il luogo è troppo lungo (max 255 caratteri).';
+
+			// Validazione ID numerici
+			if ($data['regione_id'] === false || $data['regione_id'] === null) $errors[] = 'ID Regione non valido.';
+			if ($data['provincia_id'] === false || $data['provincia_id'] === null) $errors[] = 'ID Provincia non valido.';
+			if ($data['comune_id'] === false || $data['comune_id'] === null) $errors[] = 'ID Comune non valido.';
+			if ($data['tipo_evento_id'] === false || $data['tipo_evento_id'] === null) $errors[] = 'ID Tipo Evento non valido.';
+
+			// Validazione Latitudine/Longitudine
+			if ($data['latitudine'] === false || $data['latitudine'] === null || $data['latitudine'] < -90 || $data['latitudine'] > 90) {
+				if (!empty($_POST['latitudine'])) {
+					$errors[] = 'Latitudine non valida (deve essere tra -90 e 90).';
+				}
+			}
+			if ($data['longitudine'] === false || $data['longitudine'] === null || $data['longitudine'] < -180 || $data['longitudine'] > 180) {
+				if (!empty($_POST['longitudine'])) {
+					$errors[] = 'Longitudine non valida (deve essere tra -180 e 180).';
+				}
+			}
+
+			// Validazione URL
+			if ($data['sito_web'] === false && !empty(trim($_POST['sito_web'] ?? ''))) $errors[] = 'URL Sito Web non valido.';
+			if ($data['social_facebook'] === false && !empty(trim($_POST['social_facebook'] ?? ''))) $errors[] = 'URL Social Facebook non valido.';
+			if ($data['social_twitter'] === false && !empty(trim($_POST['social_twitter'] ?? ''))) $errors[] = 'URL Social Twitter non valido.';
+			if ($data['social_instagram'] === false && !empty(trim($_POST['social_instagram'] ?? ''))) $errors[] = 'URL Social Instagram non valido.';
+			if ($data['social_tiktok'] === false && !empty(trim($_POST['social_tiktok'] ?? ''))) $errors[] = 'URL Social TikTok non valido.';
+			if ($data['social_youtube'] === false && !empty(trim($_POST['social_youtube'] ?? ''))) $errors[] = 'URL Social YouTube non valido.';
+			if ($data['immagine'] === false && !empty(trim($_POST['immagine'] ?? ''))) $errors[] = 'URL Immagine non valido.';
+
+
+			if (!empty($errors)) {
+				Session::setFlash('error', implode('<br>', $errors));
+				$this->view('admin/events/create', array_merge($_POST, ['csrf_token' => $_SESSION['csrf_token'], 'error' => Session::getFlash('error')]));
+				return;
+			}
+
+			// Se la validazione passa, procedi con la creazione
+			if ($this->eventModel->create($data)) {
+				Session::setFlash('success', 'Evento creato con successo!');
+				header('Location: /admin/events/all');
+				exit();
+			} else {
+				Session::setFlash('error', 'Errore durante la creazione dell\'evento.');
+				$this->view('admin/events/create', array_merge($data, ['csrf_token' => $_SESSION['csrf_token']]));
+			}
+		} else {
+			header('Location: /admin/events/create');
+			exit();
+		}
 	}
 
 	/**
@@ -163,7 +350,7 @@ class EventController extends Controller
 			exit();
 		}
 
-		$this->view('admin/events/edit', ['event' => $event]);
+		$this->view('admin/events/edit', ['event' => $event, 'csrf_token' => $_SESSION['csrf_token']]); // Passa il token alla vista
 	}
 
 	/**
@@ -175,42 +362,94 @@ class EventController extends Controller
 	{
 		$this->requireAdmin(); // Proteggi il metodo
 
-		$id = $params[0] ?? null;
-
-		if (!$id || !is_numeric($id)) {
-
-			Session::setFlash('error', 'ID evento non valido.');
-			header('Location: /admin/events/all');
+		// Protezione CSRF
+		if (!$this->validateCsrfToken()) {
+			$id = $params[0] ?? null; // Recupera l'ID per il reindirizzamento corretto
+			header('Location: /admin/events/edit/' . $id);
 			exit();
 		}
+
 		if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+			$id = $params[0] ?? null;
+			if (!$id || !is_numeric($id)) {
+				Session::setFlash('error', 'ID evento non valido.');
+				header('Location: /admin/events/pending');
+				exit();
+			}
+
 			$data = [
 				'titolo' => trim($_POST['titolo']),
-				'descrizione' => trim($_POST['descrizione']),
+				'descrizione' => $_POST['descrizione'], // Contenuto HTML da Quill, non trim o htmlspecialchars qui
 				'data_inizio' => trim($_POST['data_inizio']),
 				'data_fine' => trim($_POST['data_fine'] ?? ''),
 				'luogo' => trim($_POST['luogo']),
-				'regione_id' => trim($_POST['regione_id'] ?? null), // Nuovo campo
-				'provincia_id' => trim($_POST['provincia_id'] ?? null), // Nuovo campo
-				'comune_id' => trim($_POST['comune_id'] ?? null), // Nuovo campo
-				'latitudine' => trim($_POST['latitudine'] ?? null), // Nuovo campo
-				'longitudine' => trim($_POST['longitudine'] ?? null), // Nuovo campo
-				'sito_web' => trim($_POST['sito_web'] ?? ''), // Nuovo campo
-				'social_facebook' => trim($_POST['social_facebook'] ?? ''), // Nuovo campo
-				'social_twitter' => trim($_POST['social_twitter'] ?? ''), // Nuovo campo
-				'social_instagram' => trim($_POST['social_instagram'] ?? ''), // Nuovo campo
-				'social_tiktok' => trim($_POST['social_tiktok'] ?? ''), // Nuovo campo
-				'social_youtube' => trim($_POST['social_youtube'] ?? ''), // Nuovo campo
-				'tipo_evento_id' => trim($_POST['tipo_evento_id'] ?? null), // Nuovo campo
-				'immagine' => trim($_POST['immagine'] ?? ''),
+				'regione_id' => filter_var($_POST['regione_id'] ?? null, FILTER_VALIDATE_INT),
+				'provincia_id' => filter_var($_POST['provincia_id'] ?? null, FILTER_VALIDATE_INT),
+				'comune_id' => filter_var($_POST['comune_id'] ?? null, FILTER_VALIDATE_INT),
+				'latitudine' => filter_var($_POST['latitudine'] ?? null, FILTER_VALIDATE_FLOAT),
+				'longitudine' => filter_var($_POST['longitudine'] ?? null, FILTER_VALIDATE_FLOAT),
+				'sito_web' => filter_var(trim($_POST['sito_web'] ?? ''), FILTER_VALIDATE_URL),
+				'social_facebook' => filter_var(trim($_POST['social_facebook'] ?? ''), FILTER_VALIDATE_URL),
+				'social_twitter' => filter_var(trim($_POST['social_twitter'] ?? ''), FILTER_VALIDATE_URL),
+				'social_instagram' => filter_var(trim($_POST['social_instagram'] ?? ''), FILTER_VALIDATE_URL),
+				'social_tiktok' => filter_var(trim($_POST['social_tiktok'] ?? ''), FILTER_VALIDATE_URL),
+				'social_youtube' => filter_var(trim($_POST['social_youtube'] ?? ''), FILTER_VALIDATE_URL),
+				'tipo_evento_id' => filter_var($_POST['tipo_evento_id'] ?? null, FILTER_VALIDATE_INT),
+				'immagine' => filter_var(trim($_POST['immagine'] ?? ''), FILTER_VALIDATE_URL),
 				'approvato' => (int)($_POST['approvato'] ?? 0)
 			];
 
-			// Validazione di base
-			if (empty($data['titolo']) || empty($data['descrizione']) || empty($data['data_inizio']) || empty($data['luogo'])) {
-				Session::setFlash('error', 'Si prega di compilare tutti i campi obbligatori.');
-				$event = $this->eventModel->find($id);
-				$this->view('admin/events/edit', ['event' => array_merge($event, $data), 'error' => Session::getFlash('error')]);
+			$errors = [];
+
+			// Validazione campi obbligatori e formati
+			if (empty($data['titolo'])) $errors[] = 'Il titolo è obbligatorio.';
+			if (strlen($data['titolo']) > 255) $errors[] = 'Il titolo è troppo lungo (max 255 caratteri).';
+			if (empty($data['descrizione'])) $errors[] = 'La descrizione è obbligatoria.';
+			if (empty($data['data_inizio'])) $errors[] = 'La data di inizio è obbligatoria.';
+
+			// Validazione formati data e logica
+			if (!empty($data['data_inizio']) && !strtotime($data['data_inizio'])) $errors[] = 'Formato data di inizio non valido.';
+			if (!empty($data['data_fine']) && !strtotime($data['data_fine'])) $errors[] = 'Formato data di fine non valido.';
+			if (!empty($data['data_fine']) && !empty($data['data_inizio']) && strtotime($data['data_fine']) < strtotime($data['data_inizio'])) {
+				$errors[] = 'La data di fine non può essere precedente alla data di inizio.';
+			}
+
+			if (empty($data['luogo'])) $errors[] = 'Il luogo è obbligatorio.';
+			if (strlen($data['luogo']) > 255) $errors[] = 'Il luogo è troppo lungo (max 255 caratteri).';
+
+			// Validazione ID numerici
+			if ($data['regione_id'] === false || $data['regione_id'] === null) $errors[] = 'ID Regione non valido.';
+			if ($data['provincia_id'] === false || $data['provincia_id'] === null) $errors[] = 'ID Provincia non valido.';
+			if ($data['comune_id'] === false || $data['comune_id'] === null) $errors[] = 'ID Comune non valido.';
+			if ($data['tipo_evento_id'] === false || $data['tipo_evento_id'] === null) $errors[] = 'ID Tipo Evento non valido.';
+
+			// Validazione Latitudine/Longitudine
+			if ($data['latitudine'] === false || $data['latitudine'] === null || $data['latitudine'] < -90 || $data['latitudine'] > 90) {
+				if (!empty($_POST['latitudine'])) {
+					$errors[] = 'Latitudine non valida (deve essere tra -90 e 90).';
+				}
+			}
+			if ($data['longitudine'] === false || $data['longitudine'] === null || $data['longitudine'] < -180 || $data['longitudine'] > 180) {
+				if (!empty($_POST['longitudine'])) {
+					$errors[] = 'Longitudine non valida (deve essere tra -180 e 180).';
+				}
+			}
+
+			// Validazione URL
+			if ($data['sito_web'] === false && !empty(trim($_POST['sito_web'] ?? ''))) $errors[] = 'URL Sito Web non valido.';
+			if ($data['social_facebook'] === false && !empty(trim($_POST['social_facebook'] ?? ''))) $errors[] = 'URL Social Facebook non valido.';
+			if ($data['social_twitter'] === false && !empty(trim($_POST['social_twitter'] ?? ''))) $errors[] = 'URL Social Twitter non valido.';
+			if ($data['social_instagram'] === false && !empty(trim($_POST['social_instagram'] ?? ''))) $errors[] = 'URL Social Instagram non valido.';
+			if ($data['social_tiktok'] === false && !empty(trim($_POST['social_tiktok'] ?? ''))) $errors[] = 'URL Social TikTok non valido.';
+			if ($data['social_youtube'] === false && !empty(trim($_POST['social_youtube'] ?? ''))) $errors[] = 'URL Social YouTube non valido.';
+			if ($data['immagine'] === false && !empty(trim($_POST['immagine'] ?? ''))) $errors[] = 'URL Immagine non valido.';
+
+
+			if (!empty($errors)) {
+				Session::setFlash('error', implode('<br>', $errors));
+				// Ricarica la vista con i dati inviati, l'evento originale e il token CSRF
+				$event = $this->eventModel->find($id); // Recupera l'evento originale per i dati non modificati
+				$this->view('admin/events/edit', array_merge(['event' => $event], $_POST, ['csrf_token' => $_SESSION['csrf_token'], 'error' => Session::getFlash('error')]));
 				return;
 			}
 
@@ -221,11 +460,10 @@ class EventController extends Controller
 			} else {
 				Session::setFlash('error', 'Errore durante l\'aggiornamento dell\'evento.');
 				$event = $this->eventModel->find($id);
-				$this->view('admin/events/edit', ['event' => array_merge($event, $data), 'error' => Session::getFlash('error')]);
+				$this->view('admin/events/edit', array_merge(['event' => $event], $data, ['csrf_token' => $_SESSION['csrf_token']]));
 			}
 		} else {
-			Session::setFlash('error', 'Errore durante l\'aggiornamento dell\'evento, la funzione non è stata chiamata in POST');
-			header('Location: /admin/events/all');
+			header('Location: /admin/events/pending');
 			exit();
 		}
 	}
@@ -237,6 +475,12 @@ class EventController extends Controller
 	public function delete($params)
 	{
 		$this->requireAdmin(); // Proteggi il metodo
+
+		// Protezione CSRF
+		if (!$this->validateCsrfToken()) {
+			header('Location: /admin/events/pending'); // Reindirizza alla lista pending
+			exit();
+		}
 
 		$id = $params[0] ?? null;
 		if (!$id || !is_numeric($id)) {
@@ -261,6 +505,12 @@ class EventController extends Controller
 	public function approve($params)
 	{
 		$this->requireAdmin(); // Proteggi il metodo
+
+		// Protezione CSRF
+		if (!$this->validateCsrfToken()) {
+			header('Location: /admin/events/pending'); // Reindirizza alla lista pending
+			exit();
+		}
 
 		$id = $params[0] ?? null;
 		if (!$id || !is_numeric($id)) {
@@ -302,7 +552,6 @@ class EventController extends Controller
 			exit();
 		}
 
-		// Usa la stessa vista admin/events/show.php che abbiamo già migliorato
-		$this->view('admin/events/show', ['event' => $event]);
+		$this->view('admin/events/show', ['event' => $event, 'csrf_token' => $_SESSION['csrf_token']]); // Passa il token alla vista
 	}
 }

@@ -1,22 +1,18 @@
 <?php
 
 require_once APP_ROOT . '/app/core/Controller.php';
-require_once APP_ROOT . '/app/core/Database.php'; // Assicurati che sia incluso
-
-// Includi i nuovi modelli
 require_once APP_ROOT . '/app/models/Regione.php';
 require_once APP_ROOT . '/app/models/Provincia.php';
 require_once APP_ROOT . '/app/models/Comune.php';
 
 class ApiController extends Controller
 {
-	private Regione $regioneModel;
-	private Provincia $provinciaModel;
-	private Comune $comuneModel;
+	private $regioneModel;
+	private $provinciaModel;
+	private $comuneModel;
 
 	public function __construct()
 	{
-		// Inizializza le istanze dei modelli
 		$this->regioneModel = new Regione();
 		$this->provinciaModel = new Provincia();
 		$this->comuneModel = new Comune();
@@ -24,70 +20,61 @@ class ApiController extends Controller
 
 	/**
 	 * Recupera tutte le regioni.
-	 * Restituisce un JSON con {id, nome}.
+	 * Endpoint: /api/regioni
 	 */
 	public function getRegioni()
 	{
+		$regioni = $this->regioneModel->getAll();
 		header('Content-Type: application/json');
-		try {
-			$regioni = $this->regioneModel->getAll();
-			echo json_encode($regioni);
-		} catch (Exception $e) { // Cattura eccezioni generiche dal modello
-			http_response_code(500);
-			echo json_encode(['error' => 'Errore nel recupero delle regioni: ' . $e->getMessage()]);
-		}
-		exit();
+		echo json_encode($regioni);
+		exit(); // Termina lo script dopo l'invio della risposta JSON
 	}
 
 	/**
 	 * Recupera le province in base all'ID della regione.
-	 * Restituisce un JSON con {id, nome}.
+	 * Endpoint: /api/province/{regioneId}
 	 * @param array $params Contiene l'ID della regione.
 	 */
-	public function getProvinceByRegione($params)
+	public function getProvince($params)
 	{
-		header('Content-Type: application/json');
 		$regioneId = $params[0] ?? null;
 
-		if (!$regioneId || !is_numeric($regioneId)) {
-			http_response_code(400);
-			echo json_encode(['error' => 'ID regione non valido.']);
-			exit();
+		// Validazione dell'ID della regione
+		$regioneId = filter_var($regioneId, FILTER_VALIDATE_INT);
+
+		if ($regioneId === false || $regioneId === null) {
+			header('Content-Type: application/json');
+			echo json_encode(['error' => 'ID Regione non valido.']);
+			exit(); // Termina lo script in caso di errore
 		}
 
-		try {
-			$province = $this->provinciaModel->getByRegioneId($regioneId);
-			echo json_encode($province);
-		} catch (Exception $e) {
-			http_response_code(500);
-			echo json_encode(['error' => 'Errore nel recupero delle province: ' . $e->getMessage()]);
-		}
-		exit();
+		$province = $this->provinciaModel->getByRegioneId($regioneId);
+		header('Content-Type: application/json');
+		echo json_encode($province);
+		exit(); // Termina lo script dopo l'invio della risposta JSON
 	}
 
 	/**
 	 * Recupera i comuni in base all'ID della provincia.
-	 * Restituisce un JSON con {id, nome}.
+	 * Endpoint: /api/comuni/{provinciaId}
 	 * @param array $params Contiene l'ID della provincia.
 	 */
-	public function getComuniByProvincia($params)
+	public function getComuni($params)
 	{
-		header('Content-Type: application/json');
 		$provinciaId = $params[0] ?? null;
 
-		if (!$provinciaId || !is_numeric($provinciaId)) {
-			http_response_code(400);
-			echo json_encode(['error' => 'ID provincia non valido.']);
-			exit();
+		// Validazione dell'ID della provincia
+		$provinciaId = filter_var($provinciaId, FILTER_VALIDATE_INT);
+
+		if ($provinciaId === false || $provinciaId === null) {
+			header('Content-Type: application/json');
+			echo json_encode(['error' => 'ID Provincia non valido.']);
+			exit(); // Termina lo script in caso di errore
 		}
 
-		try {
-			$comuni = $this->comuneModel->getByProvinciaId($provinciaId);
-			echo json_encode($comuni);
-		} catch (Exception $e) {
-			http_response_code(500);
-			echo json_encode(['error' => 'Errore nel recupero dei comuni: ' . $e->getMessage()]);
-		}
-		exit();
+		$comuni = $this->comuneModel->getByProvinciaId($provinciaId);
+		header('Content-Type: application/json');
+		echo json_encode($comuni);
+		exit(); // Termina lo script dopo l'invio della risposta JSON
 	}
 }

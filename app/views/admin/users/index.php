@@ -15,16 +15,9 @@
 		unset($_SESSION['flash_messages']); // Pulisci i messaggi flash dopo averli visualizzati
 	}
 	?>
+
 	<div class="mb-6">
-		<a title="" href="/admin/dashboard" class="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-300 transition duration-300 ease-in-out">
-			<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-				<path stroke-linecap="round" stroke-linejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
-			</svg>
-			Torna alla dashboard
-		</a>
-	</div>
-	<div class="mb-6">
-		<a title="" href="/admin/users/create" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-300 ease-in-out">
+		<a href="/admin/users/create" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-300 ease-in-out">
 			<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
 			</svg>
@@ -87,8 +80,10 @@
 							<?php echo htmlspecialchars($user['updated_at']); ?>
 						</td>
 						<td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-							<a title="" href="/admin/users/edit/<?php echo htmlspecialchars($user['id']); ?>" class="text-indigo-600 hover:text-indigo-900 mr-3">Modifica</a>
+							<a href="/admin/users/edit/<?php echo htmlspecialchars($user['id']); ?>" class="text-indigo-600 hover:text-indigo-900 mr-3">Modifica</a>
 							<form action="/admin/users/delete/<?php echo htmlspecialchars($user['id']); ?>" method="POST" class="inline-block" onsubmit="return confirm('Sei sicuro di voler eliminare questo utente?');">
+								<!-- CSRF Token per il form di eliminazione -->
+								<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
 								<button type="submit" class="text-red-600 hover:text-red-900 focus:outline-none focus:underline">Elimina</button>
 							</form>
 						</td>

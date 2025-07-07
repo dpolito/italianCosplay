@@ -4,30 +4,16 @@
 ?>
 
 <div class="container mx-auto p-6">
-	<div class="mb-6 flex justify-between items-center">
+	<div class="mb-6">
 		<a href="/admin/events/all" class="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-300 transition duration-300 ease-in-out">
 			<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
 			</svg>
 			Torna a Tutti gli Eventi
 		</a>
-		<div>
-			<?php if (isset($data['event']['id'])): ?>
-				<form action="/admin/events/delete/<?php echo htmlspecialchars($data['event']['id']); ?>" method="POST" class="inline-block" onsubmit="return confirm('Sei sicuro di voler eliminare questo evento?');">
-					<!-- CSRF Token per il form di eliminazione -->
-					<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($data['csrf_token'] ?? ''); ?>">
-					<button type="submit" class="inline-flex items-center px-4 py-2 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 transition duration-300 ease-in-out">
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-							<path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-						</svg>
-						Elimina
-					</button>
-				</form>
-			<?php endif; ?>
-		</div>
 	</div>
 
-	<h1 class="text-3xl font-semibold text-gray-800 mb-6">Modifica Evento: <?php echo htmlspecialchars($data['event']['titolo'] ?? ''); ?></h1>
+	<h1 class="text-3xl font-semibold text-gray-800 mb-6">Crea Nuovo Evento</h1>
 
 	<?php
 	// Visualizza i messaggi flash o errori passati direttamente
@@ -42,14 +28,13 @@
 	?>
 
 	<div class="bg-white rounded-lg shadow-lg p-8">
-		<form id="eventForm" action="/admin/events/update/<?php echo htmlspecialchars($data['event']['id'] ?? ''); ?>" method="POST">
-			<input type="hidden" name="id" value="<?php echo htmlspecialchars($data['event']['id'] ?? ''); ?>">
+		<form id="eventForm" action="/admin/events/store" method="POST">
 			<!-- Campo CSRF Token -->
 			<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($data['csrf_token'] ?? ''); ?>">
 
 			<div class="mb-4">
 				<label for="titolo" class="block text-gray-700 text-sm font-bold mb-2">Titolo:</label>
-				<input type="text" id="titolo" name="titolo" value="<?php echo htmlspecialchars($data['event']['titolo'] ?? ''); ?>" required class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+				<input type="text" id="titolo" name="titolo" value="<?php echo htmlspecialchars($data['titolo'] ?? ''); ?>" required class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
 			</div>
 
 			<div class="mb-4">
@@ -57,22 +42,22 @@
 				<!-- Div per Quill.js -->
 				<div id="editor" class="bg-white border border-gray-300 rounded-lg p-3 min-h-[150px] focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"></div>
 				<!-- Input hidden per inviare il contenuto HTML di Quill -->
-				<input type="hidden" name="descrizione" id="descrizione_hidden" value="<?php echo htmlspecialchars($data['event']['descrizione'] ?? ''); ?>">
+				<input type="hidden" name="descrizione" id="descrizione_hidden" value="<?php echo htmlspecialchars($data['descrizione'] ?? ''); ?>">
 			</div>
 
 			<div class="mb-4">
 				<label for="data_inizio" class="block text-gray-700 text-sm font-bold mb-2">Data Inizio:</label>
-				<input type="date" id="data_inizio" name="data_inizio" value="<?php echo htmlspecialchars($data['event']['data_inizio'] ?? ''); ?>" required class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+				<input type="date" id="data_inizio" name="data_inizio" value="<?php echo htmlspecialchars($data['data_inizio'] ?? ''); ?>" required class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
 			</div>
 
 			<div class="mb-4">
 				<label for="data_fine" class="block text-gray-700 text-sm font-bold mb-2">Data Fine:</label>
-				<input type="date" id="data_fine" name="data_fine" value="<?php echo htmlspecialchars($data['event']['data_fine'] ?? ''); ?>" class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+				<input type="date" id="data_fine" name="data_fine" value="<?php echo htmlspecialchars($data['data_fine'] ?? ''); ?>" class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
 			</div>
 
 			<div class="mb-4">
 				<label for="luogo" class="block text-gray-700 text-sm font-bold mb-2">Luogo:</label>
-				<input type="text" id="luogo" name="luogo" value="<?php echo htmlspecialchars($data['event']['luogo'] ?? ''); ?>" required class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+				<input type="text" id="luogo" name="luogo" value="<?php echo htmlspecialchars($data['luogo'] ?? ''); ?>" required class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
 			</div>
 
 			<div class="mb-4">
@@ -98,65 +83,65 @@
 
 			<div class="mb-4">
 				<label for="latitudine" class="block text-gray-700 text-sm font-bold mb-2">Latitudine:</label>
-				<input type="number" step="0.0000001" id="latitudine" name="latitudine" value="<?php echo htmlspecialchars($data['event']['latitudine'] ?? ''); ?>" class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+				<input type="number" step="0.0000001" id="latitudine" name="latitudine" value="<?php echo htmlspecialchars($data['latitudine'] ?? ''); ?>" class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
 			</div>
 
 			<div class="mb-4">
 				<label for="longitudine" class="block text-gray-700 text-sm font-bold mb-2">Longitudine:</label>
-				<input type="number" step="0.0000001" id="longitudine" name="longitudine" value="<?php echo htmlspecialchars($data['event']['longitudine'] ?? ''); ?>" class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+				<input type="number" step="0.0000001" id="longitudine" name="longitudine" value="<?php echo htmlspecialchars($data['longitudine'] ?? ''); ?>" class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
 			</div>
 
 			<div class="mb-4">
 				<label for="sito_web" class="block text-gray-700 text-sm font-bold mb-2">Sito Web:</label>
-				<input type="text" id="sito_web" name="sito_web" value="<?php echo htmlspecialchars($data['event']['sito_web'] ?? ''); ?>" class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+				<input type="text" id="sito_web" name="sito_web" value="<?php echo htmlspecialchars($data['sito_web'] ?? ''); ?>" class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
 			</div>
 
 			<div class="mb-4">
 				<label for="social_facebook" class="block text-gray-700 text-sm font-bold mb-2">Social Facebook:</label>
-				<input type="text" id="social_facebook" name="social_facebook" value="<?php echo htmlspecialchars($data['event']['social_facebook'] ?? ''); ?>" class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+				<input type="text" id="social_facebook" name="social_facebook" value="<?php echo htmlspecialchars($data['social_facebook'] ?? ''); ?>" class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
 			</div>
 
 			<div class="mb-4">
 				<label for="social_twitter" class="block text-gray-700 text-sm font-bold mb-2">Social Twitter:</label>
-				<input type="text" id="social_twitter" name="social_twitter" value="<?php echo htmlspecialchars($data['event']['social_twitter'] ?? ''); ?>" class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+				<input type="text" id="social_twitter" name="social_twitter" value="<?php echo htmlspecialchars($data['social_twitter'] ?? ''); ?>" class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
 			</div>
 
 			<div class="mb-4">
 				<label for="social_instagram" class="block text-gray-700 text-sm font-bold mb-2">Social Instagram:</label>
-				<input type="text" id="social_instagram" name="social_instagram" value="<?php echo htmlspecialchars($data['event']['social_instagram'] ?? ''); ?>" class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+				<input type="text" id="social_instagram" name="social_instagram" value="<?php echo htmlspecialchars($data['social_instagram'] ?? ''); ?>" class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
 			</div>
 
 			<div class="mb-4">
 				<label for="social_tiktok" class="block text-gray-700 text-sm font-bold mb-2">Social TikTok:</label>
-				<input type="text" id="social_tiktok" name="social_tiktok" value="<?php echo htmlspecialchars($data['event']['social_tiktok'] ?? ''); ?>" class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+				<input type="text" id="social_tiktok" name="social_tiktok" value="<?php echo htmlspecialchars($data['social_tiktok'] ?? ''); ?>" class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
 			</div>
 
 			<div class="mb-4">
 				<label for="social_youtube" class="block text-gray-700 text-sm font-bold mb-2">Social YouTube:</label>
-				<input type="text" id="social_youtube" name="social_youtube" value="<?php echo htmlspecialchars($data['event']['social_youtube'] ?? ''); ?>" class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+				<input type="text" id="social_youtube" name="social_youtube" value="<?php echo htmlspecialchars($data['social_youtube'] ?? ''); ?>" class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
 			</div>
 
 			<div class="mb-4">
 				<label for="tipo_evento_id" class="block text-gray-700 text-sm font-bold mb-2">ID Tipo Evento:</label>
-				<input type="text" id="tipo_evento_id" name="tipo_evento_id" value="<?php echo htmlspecialchars($data['event']['tipo_evento_id'] ?? ''); ?>" class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+				<input type="text" id="tipo_evento_id" name="tipo_evento_id" value="<?php echo htmlspecialchars($data['tipo_evento_id'] ?? ''); ?>" class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
 			</div>
 
 			<div class="mb-4">
 				<label for="immagine" class="block text-gray-700 text-sm font-bold mb-2">URL Immagine (Opzionale):</label>
-				<input type="text" id="immagine" name="immagine" value="<?php echo htmlspecialchars($data['event']['immagine'] ?? ''); ?>" class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+				<input type="text" id="immagine" name="immagine" value="<?php echo htmlspecialchars($data['immagine'] ?? ''); ?>" class="shadow appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
 			</div>
 
 			<div class="mb-6">
 				<label for="approvato" class="block text-gray-700 text-sm font-bold mb-2">Approvato:</label>
 				<select id="approvato" name="approvato" class="shadow border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
-					<option value="0" <?php echo (isset($data['event']['approvato']) && $data['event']['approvato'] == 0) ? 'selected' : ''; ?>>In Attesa</option>
-					<option value="1" <?php echo (isset($data['event']['approvato']) && $data['event']['approvato'] == 1) ? 'selected' : ''; ?>>Approvato</option>
+					<option value="0" <?php echo (isset($data['approvato']) && $data['approvato'] == 0) ? 'selected' : ''; ?>>In Attesa</option>
+					<option value="1" <?php echo (isset($data['approvato']) && $data['approvato'] == 1) ? 'selected' : ''; ?>>Approvato</option>
 				</select>
 			</div>
 
 			<div class="flex items-center justify-between">
 				<button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md focus:outline-none focus:shadow-outline transition duration-300 ease-in-out">
-					Aggiorna Evento
+					Crea Evento
 				</button>
 				<a href="/admin/events/all" class="inline-block align-baseline font-semibold text-blue-600 hover:text-blue-800">
 					Annulla
@@ -194,9 +179,11 @@
 			}
 		});
 
-		// Imposta il contenuto iniziale dell'editor dal campo nascosto
+		// Imposta il contenuto iniziale dell'editor dal campo nascosto (se ci sono dati da un tentativo precedente)
 		var initialContent = document.getElementById('descrizione_hidden').value;
-		quill.root.innerHTML = initialContent;
+		if (initialContent) {
+			quill.root.innerHTML = initialContent;
+		}
 
 		// Gestione della sottomissione del form
 		var form = document.getElementById('eventForm');
@@ -212,15 +199,14 @@
 		const provinciaSelect = document.getElementById('provincia_id');
 		const comuneSelect = document.getElementById('comune_id');
 
-		// Valori iniziali dell'evento (se presenti)
-		const initialRegioneId = "<?php echo htmlspecialchars($data['event']['regione_id'] ?? ''); ?>";
-		const initialProvinciaId = "<?php echo htmlspecialchars($data['event']['provincia_id'] ?? ''); ?>";
-		const initialComuneId = "<?php echo htmlspecialchars($data['event']['comune_id'] ?? ''); ?>";
+		// Valori iniziali per la creazione (saranno vuoti, a meno di un errore di validazione)
+		const initialRegioneId = "<?php echo htmlspecialchars($data['regione_id'] ?? ''); ?>";
+		const initialProvinciaId = "<?php echo htmlspecialchars($data['provincia_id'] ?? ''); ?>";
+		const initialComuneId = "<?php echo htmlspecialchars($data['comune_id'] ?? ''); ?>";
 
 		// Funzione generica per recuperare dati JSON da un URL
 		async function fetchData(relativePath) {
 			try {
-				// Prepend window.location.origin per rendere l'URL assoluto
 				const url = window.location.origin + relativePath;
 				const response = await fetch(url);
 				if (!response.ok) {
@@ -238,22 +224,22 @@
 			dropdownElement.innerHTML = `<option value="">${placeholderText}</option>`;
 			data.forEach(item => {
 				const option = document.createElement('option');
-				option.value = item.id; // Assumendo che l'API restituisca 'id'
-				option.textContent = item.nome; // Assumendo che l'API restituisca 'nome'
+				option.value = item.id;
+				option.textContent = item.nome;
 				if (selectedValue && selectedValue == item.id) {
 					option.selected = true;
 				}
 				dropdownElement.appendChild(option);
 			});
-			dropdownElement.disabled = false; // Riabilita il dropdown dopo il caricamento
+			dropdownElement.disabled = false;
 		}
 
 		// Carica le regioni all'avvio della pagina
 		async function loadRegioni() {
-			const regioni = await fetchData('/api/regioni'); // Sostituisci con il tuo endpoint API reale
+			const regioni = await fetchData('/api/regioni');
 			populateDropdown(regioneSelect, regioni, initialRegioneId, "Seleziona Regione");
 			if (initialRegioneId) {
-				await loadProvince(initialRegioneId); // Carica le province se la regione iniziale è impostata
+				await loadProvince(initialRegioneId);
 			}
 		}
 
@@ -264,10 +250,10 @@
 			comuneSelect.innerHTML = '<option value="">Seleziona Comune</option>';
 			comuneSelect.disabled = true;
 
-			const province = await fetchData(`/api/province/${regioneId}`); // Sostituisci con il tuo endpoint API reale
+			const province = await fetchData(`/api/province/${regioneId}`);
 			populateDropdown(provinciaSelect, province, initialProvinciaId, "Seleziona Provincia");
-			if (initialProvinciaId) { // Solo se la provincia iniziale è stata trovata
-				await loadComuni(initialProvinciaId); // Carica i comuni se la provincia iniziale è impostata
+			if (initialProvinciaId) {
+				await loadComuni(initialProvinciaId);
 			}
 		}
 
@@ -276,7 +262,7 @@
 			comuneSelect.innerHTML = '<option value="">Caricamento Comuni...</option>';
 			comuneSelect.disabled = true;
 
-			const comuni = await fetchData(`/api/comuni/${provinciaId}`); // Sostituisci con il tuo endpoint API reale
+			const comuni = await fetchData(`/api/comuni/${provinciaId}`);
 			populateDropdown(comuneSelect, comuni, initialComuneId, "Seleziona Comune");
 		}
 
@@ -286,7 +272,6 @@
 			if (selectedRegioneId) {
 				await loadProvince(selectedRegioneId);
 			} else {
-				// Reset province e comuni se la regione non è selezionata
 				provinciaSelect.innerHTML = '<option value="">Seleziona Provincia</option>';
 				provinciaSelect.disabled = true;
 				comuneSelect.innerHTML = '<option value="">Seleziona Comune</option>';
@@ -300,7 +285,6 @@
 			if (selectedProvinciaId) {
 				await loadComuni(selectedProvinciaId);
 			} else {
-				// Reset comuni se la provincia non è selezionata
 				comuneSelect.innerHTML = '<option value="">Seleziona Comune</option>';
 				comuneSelect.disabled = true;
 			}

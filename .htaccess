@@ -1,0 +1,34 @@
+# Abilita il modulo degli header
+<IfModule mod_headers.c>
+    # Prevenire Clickjacking: impedisce l'incorporamento della pagina in iframe su altri domini
+    Header always set X-Frame-Options "DENY"
+
+    # Prevenire MIME-sniffing: forza il browser a rispettare il Content-Type dichiarato
+    Header always set X-Content-Type-Options "nosniff"
+
+    # Forza HTTPS: istruisce il browser a comunicare solo via HTTPS per 1 anno (richiede HTTPS sul server)
+    # includeSubDomains: applica la regola anche ai sottodomini
+    # preload: permette di essere incluso nella lista di precaricamento HSTS dei browser
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+
+    # Content Security Policy (CSP):
+    # Restringe le fonti da cui il browser può caricare risorse, mitigando gli attacchi XSS.
+    # Adatta questa policy alle tue esigenze specifiche.
+    # Aggiunti 'https://cdn.tailwindcss.com' a script-src e 'unsafe-inline' a script-src e style-src.
+    Header set Content-Security-Policy "default-src 'self'; \
+        script-src 'self' https://cdn.quilljs.com https://cdnjs.cloudflare.com https://cdn.tailwindcss.com 'unsafe-inline'; \
+        style-src 'self' https://cdn.quilljs.com https://cdn.tailwindcss.com https://fonts.googleapis.com 'unsafe-inline'; \
+        img-src 'self' data: https://placehold.co; \
+        font-src 'self' https://fonts.gstatic.com; \
+        connect-src 'self';"
+</IfModule>
+
+# Modulo di riscrittura URL (se non è già presente e necessario per il tuo routing)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Reindirizza tutto il traffico a index.php (front controller pattern)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ index.php [QSA,L]
+</IfModule>

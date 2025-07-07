@@ -10,6 +10,9 @@ if (isset($data['error'])): ?>
 <?php endif; ?>
 
 <form action="/login" method="POST">
+	<!-- Campo CSRF Token -->
+	<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($data['csrf_token'] ?? ''); ?>">
+
 	<label for="username_email">Username o Email:</label><br>
 	<input type="text" id="username_email" name="username_email" value="<?php echo htmlspecialchars($data['old_identifier'] ?? ''); ?>" required><br><br>
 

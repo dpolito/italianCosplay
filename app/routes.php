@@ -41,4 +41,7 @@ $router->get('/api/regioni', 'ApiController@getRegioni');
 $router->get('/api/province/(\d+)', 'ApiController@getProvinceByRegione');
 $router->get('/api/comuni/(\d+)', 'ApiController@getComuniByProvincia');
 
+$router->get('/admin/events/create', 'EventController@adminCreate'); // Mostra il form di creazione evento per admin
+$router->post('/admin/events/store', 'EventController@adminStore'); // Gestisce l'invio del form di creazione evento per admin
+
 //
