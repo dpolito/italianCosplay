@@ -1,5 +1,51 @@
+<IfModule mod_expires.c>
+    ExpiresActive On
+
+    # Images
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/webp "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType image/x-icon "access plus 1 year"
+
+    # Fonts
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType font/woff "access plus 1 year"
+
+    # CSS & JS
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+
+    # Default
+    ExpiresDefault "access plus 7 days"
+</IfModule>
+
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE text/javascript
+    AddOutputFilterByType DEFLATE image/svg+xml
+
+    Header append Vary Accept-Encoding
+</IfModule>
+
+<IfModule mod_brotli.c>
+    AddOutputFilterByType BROTLI_COMPRESS text/html text/plain text/xml text/css application/javascript application/xml image/svg+xml
+</IfModule>
+
+
 # Abilita il modulo degli header
 <IfModule mod_headers.c>
+    <FilesMatch "\.(css|js|jpg|jpeg|png|gif|webp|svg|ico|woff|woff2)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
     # Prevenire Clickjacking: impedisce l'incorporamento della pagina in iframe su altri domini
     Header always set X-Frame-Options "DENY"
 
@@ -14,13 +60,16 @@
     # Content Security Policy (CSP):
     # Restringe le fonti da cui il browser può caricare risorse, mitigando gli attacchi XSS.
     # Adatta questa policy alle tue esigenze specifiche.
-    # Aggiunti 'https://cdn.tailwindcss.com' a script-src e 'unsafe-inline' a script-src e style-src.
-    Header set Content-Security-Policy "default-src 'self'; \
-        script-src 'self' https://cdn.quilljs.com https://cdnjs.cloudflare.com https://cdn.tailwindcss.com 'unsafe-inline'; \
-        style-src 'self' https://cdn.quilljs.com https://cdn.tailwindcss.com https://fonts.googleapis.com 'unsafe-inline'; \
-        img-src 'self' data: https://placehold.co; \
-        font-src 'self' https://fonts.gstatic.com; \
-        connect-src 'self';"
+    # AGGIORNAMENTO: Aggiunto 'http:' a img-src per consentire immagini da sorgenti HTTP.
+   Header set Content-Security-Policy "default-src 'self'; \
+   script-src 'self' https://cdn.tiny.cloud https://cdn.quilljs.com https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com https://cdn.ckeditor.com 'unsafe-inline' https://*.googletagmanager.com https://*.google-analytics.com; \
+   style-src 'self' https://cdn.tiny.cloud https://cdn.quilljs.com https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://fonts.googleapis.com https://cdn.jsdelivr.net https://unpkg.com 'unsafe-inline'; \
+   img-src 'self' https://cdn.tiny.cloud data: blob: https://placehold.co https://*.tile.openstreetmap.org https://*.openstreetmap.org https: http:; \
+   font-src 'self' https://cdn.tiny.cloud https://fonts.gstatic.com https://cdnjs.cloudflare.com; \
+   connect-src 'self' https://cdnjs.cloudflare.com https://cdn.tiny.cloud https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cdn.quilljs.com https://cdn.jsdelivr.net https://unpkg.com https://api.openrouteservice.org https://router.project-osrm.org https://cdn.ckeditor.com; \
+   frame-ancestors 'self'; \
+   object-src 'none'; \
+   base-uri 'self';"
 </IfModule>
 
 # Modulo di riscrittura URL (se non è già presente e necessario per il tuo routing)
@@ -32,3 +81,6 @@
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^(.*)$ index.php [QSA,L]
 </IfModule>
+<Files "traffic-advice">
+    ForceType application/trafficadvice+json
+</Files>

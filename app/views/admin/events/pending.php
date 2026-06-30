@@ -83,15 +83,7 @@
                                 </span>
 						</td>
 						<td class="px-5 py-5 border-b border-gray-200 bg-white text-sm whitespace-nowrap">
-							<a href="/admin/events/show/<?php echo htmlspecialchars($event['id']); ?>" class="text-blue-600 hover:text-blue-900 mr-2">Dettagli</a>
-							<?php if ($event['approvato'] == 0): ?>
-								<form action="/admin/events/approve/<?php echo htmlspecialchars($event['id']); ?>" method="POST" class="inline-block mr-2" onsubmit="return confirm('Sei sicuro di voler approvare questo evento?');">
-									<!-- CSRF Token per il form di approvazione -->
-									<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($data['csrf_token'] ?? ''); ?>">
-									<button type="submit" class="text-green-600 hover:text-green-900 focus:outline-none focus:underline">Approva</button>
-								</form>
-							<?php endif; ?>
-							<a href="/admin/events/edit/<?php echo htmlspecialchars($event['id']); ?>" class="text-indigo-600 hover:text-indigo-900 mr-2">Modifica</a>
+							<a href="/admin/events/edit/<?php echo htmlspecialchars($event['id']); ?>" class="text-green-600 hover:text-green-900 mr-2">Modifica</a>
 							<form action="/admin/events/delete/<?php echo htmlspecialchars($event['id']); ?>" method="POST" class="inline-block" onsubmit="return confirm('Sei sicuro di voler eliminare questo evento?');">
 								<!-- CSRF Token per il form di eliminazione -->
 								<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($data['csrf_token'] ?? ''); ?>">

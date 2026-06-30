@@ -4,12 +4,18 @@
 ?>
 
 <div class="container mx-auto p-6">
-	<div class="mb-6">
-		<a href="/admin/dashboard" class="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-300 transition duration-300 ease-in-out">
+	<div class="flex justify-between items-center mb-6">
+		<a href="/admin/dashboard"
+		   class="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-300 transition duration-300 ease-in-out">
 			<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
 			</svg>
 			Torna alla Dashboard
+		</a>
+
+		<a href="/admin/events/create"
+		   class="inline-flex items-center px-4 py-2 bg-blue-200 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-300 transition duration-300 ease-in-out">
+			Crea nuovo evento
 		</a>
 	</div>
 
@@ -38,6 +44,9 @@
 					<th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer sort" data-sort="titolo">
 						Titolo
 					</th>
+					<th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer sort" data-sort="titolo">
+						Size
+					</th>
 					<th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer sort" data-sort="data_inizio">
 						Data Inizio
 					</th>
@@ -64,6 +73,9 @@
 						<td class="titolo px-5 py-5 border-b border-gray-200 bg-white text-sm">
 							<?php echo htmlspecialchars($event['titolo']); ?>
 						</td>
+						<td class="titolo px-5 py-5 border-b border-gray-200 bg-white text-sm">
+							<?php echo htmlspecialchars($event['event_size']); ?>
+						</td>
 						<td class="data_inizio px-5 py-5 border-b border-gray-200 bg-white text-sm">
 							<?php echo htmlspecialchars(date('d/m/Y', strtotime($event['data_inizio']))); ?>
 						</td>
@@ -82,15 +94,7 @@
                                 </span>
 						</td>
 						<td class="px-5 py-5 border-b border-gray-200 bg-white text-sm whitespace-nowrap">
-							<a href="/admin/events/show/<?php echo htmlspecialchars($event['id']); ?>" class="text-blue-600 hover:text-blue-900 mr-2">Dettagli</a>
-							<?php if ($event['approvato'] == 0): ?>
-								<form action="/admin/events/approve/<?php echo htmlspecialchars($event['id']); ?>" method="POST" class="inline-block mr-2" onsubmit="return confirm('Sei sicuro di voler approvare questo evento?');">
-									<!-- CSRF Token per il form di approvazione -->
-									<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($data['csrf_token'] ?? ''); ?>">
-									<button type="submit" class="text-green-600 hover:text-green-900 focus:outline-none focus:underline">Approva</button>
-								</form>
-							<?php endif; ?>
-							<a href="/admin/events/edit/<?php echo htmlspecialchars($event['id']); ?>" class="text-indigo-600 hover:text-indigo-900 mr-2">Modifica</a>
+							<a href="/admin/events/edit/<?php echo htmlspecialchars($event['id']); ?>" class="text-green-600 hover:text-green-900 mr-2">Modifica</a>
 							<form action="/admin/events/delete/<?php echo htmlspecialchars($event['id']); ?>" method="POST" class="inline-block" onsubmit="return confirm('Sei sicuro di voler eliminare questo evento?');">
 								<!-- CSRF Token per il form di eliminazione -->
 								<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($data['csrf_token'] ?? ''); ?>">

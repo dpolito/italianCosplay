@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@layer base {
+
+	.prose ul {
+		@apply list-disc list-outside pl-6;
+	}
+
+	.prose h2 {
+		@apply border-l-[0.3rem]
+		border-l-[color:var(--color-green-700)]
+		text-[1.85rem]
+		tracking-[-0.5px]
+		leading-none
+		mt-5
+		mr-4
+		pl-[0.7rem]
+		rounded-[13px];
+	}
+
+	/* =========================
+	   ACCESSIBILITY SYSTEM
+	========================= */
+
+	html[data-font="large"] {
+		font-size: 18px;
+	}
+
+	html[data-font="xl"] {
+		font-size: 20px;
+	}
+
+	html[data-contrast="high"] {
+		filter: contrast(1.4) brightness(1.1);
+	}
+
+	html[data-contrast="dark"] {
+		@apply bg-gray-900 text-gray-100;
+	}
+
+	html[data-contrast="dark"] body {
+		@apply bg-gray-900 text-gray-100;
+	}
+
+	.reduce-motion * {
+		animation: none !important;
+		transition: none !important;
+	}
+
+	.dyslexia-font {
+		font-family: system-ui, Arial, sans-serif;
+		line-height: 1.6;
+		letter-spacing: 0.3px;
+	}
+
+	.strong-focus *:focus {
+		outline: 3px solid #2563eb !important;
+		outline-offset: 2px;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.reduce-motion * {
+			animation: none !important;
+			transition: none !important;
+		}
+	}
+}

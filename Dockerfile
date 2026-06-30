@@ -11,6 +11,19 @@ RUN apt-get update && apt-get install -y \
     a2enmod rewrite headers && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
+RUN apt-get update && apt-get install -y \
+    libjpeg62-turbo-dev \
+    libpng-dev \
+    libwebp-dev \
+    libfreetype6-dev
+
+RUN docker-php-ext-configure gd \
+    --with-jpeg \
+    --with-webp \
+    --with-freetype
+
+RUN docker-php-ext-install gd
+
 # Copia configurazione personalizzata di Apache
 COPY apache.conf /etc/apache2/sites-available/000-default.conf
 

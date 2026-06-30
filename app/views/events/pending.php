@@ -15,18 +15,20 @@
 		<tbody>
 		<?php foreach ($events as $event): ?>
 			<tr>
-				<td><?= htmlspecialchars($event['id']) ?></td>
-				<td><?= htmlspecialchars($event['titolo']) ?></td>
-				<td><?= htmlspecialchars(date('d/m/Y', strtotime($event['data_inizio']))) ?></td>
-				<td><?= htmlspecialchars($event['luogo']) ?></td>
-				<td><?= htmlspecialchars(date('d/m/Y H:i', strtotime($event['created_at']))) ?></td>
+				<td><?php echo  htmlspecialchars($event['id']) ?></td>
+				<td><?php echo  htmlspecialchars($event['titolo']) ?></td>
+				<td><?php echo  htmlspecialchars(date('d/m/Y', strtotime($event['data_inizio']))) ?></td>
+				<td><?php echo  htmlspecialchars($event['luogo']) ?></td>
+				<td><?php echo  htmlspecialchars(date('d/m/Y H:i', strtotime($event['created_at']))) ?></td>
 				<td>
-					<a href="/events/<?= htmlspecialchars($event['id']) ?>" class="btn">Dettagli</a>
-					<a href="/events/<?= htmlspecialchars($event['id']) ?>/edit" class="btn">Modifica</a>
-					<form action="/events/<?= htmlspecialchars($event['id']) ?>/approve" method="POST" style="display:inline-block;">
+					<a href="/events/<?php echo  htmlspecialchars($event['id']) ?>" class="btn">Dettagli</a>
+					<a href="/events/<?php echo  htmlspecialchars($event['id']) ?>/edit" class="btn">Modifica</a>
+					<form action="/events/<?php echo  htmlspecialchars($event['id']) ?>/approve" method="POST" style="display:inline-block;">
+						<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
 						<button type="submit" class="btn success">Approva</button>
 					</form>
-					<form action="/events/<?= htmlspecialchars($event['id']) ?>/delete" method="POST" style="display:inline-block;">
+					<form action="/events/<?php echo  htmlspecialchars($event['id']) ?>/delete" method="POST" style="display:inline-block;">
+						<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
 						<button type="submit" class="btn danger" onclick="return confirm('Sei sicuro di voler eliminare questo evento?');">Elimina</button>
 					</form>
 				</td>
