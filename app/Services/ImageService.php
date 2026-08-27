@@ -11,6 +11,9 @@ use function finfo_file;
 use function finfo_open;
 use function getimagesize;
 use function in_array;
+use function mkdir;
+use function copy;
+use function dirname;
 use function time;
 use function unlink;
 use function var_dump;
@@ -157,6 +160,68 @@ class ImageService
 			$altText,
 			true
 		);
+	}
+
+	public function duplicateEntityImages(string $entityType, int $sourceEntityId, int $targetEntityId): void
+	{
+		$stmt = $this->db->prepare("
+			SELECT *
+			FROM entity_images
+			WHERE entity_type = :type
+			  AND entity_id = :source_id
+			ORDER BY preset = 'original' DESC, preset = 'large' DESC, preset = 'medium' DESC, preset = 'thumb' DESC
+		");
+		$stmt->execute([
+			'type' => $entityType,
+			'source_id' => $sourceEntityId,
+		]);
+
+		$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+		if (!$rows) {
+			return;
+		}
+
+		$this->createFolders($entityType);
+
+		$cloned = [];
+		foreach ($rows as $row) {
+			$preset = (string) ($row['preset'] ?? 'original');
+			if (isset($cloned[$preset])) {
+				continue;
+			}
+
+			$sourcePath = APP_ROOT . '/public_assets' . ($row['path'] ?? '');
+			if (!file_exists($sourcePath)) {
+				continue;
+			}
+
+			$baseName = $entityType . '-' . $targetEntityId . '-' . time() . '-' . $preset;
+			$targetPath = $this->basePath . $entityType . '/' . $preset . '/' . $baseName . '.webp';
+			$targetDir = dirname($targetPath);
+			if (!is_dir($targetDir)) {
+				mkdir($targetDir, 0775, true);
+			}
+
+			if (!copy($sourcePath, $targetPath)) {
+				continue;
+			}
+
+			$this->insertImageRow(
+				$entityType,
+				$targetEntityId,
+				$row['file_name'] ?? basename($targetPath),
+				$row['alt_text'] ?? null,
+				$preset,
+				basename($targetPath),
+				'/uploads/' . $entityType . '/' . $preset . '/' . basename($targetPath),
+				(int) ($row['width'] ?? 0),
+				(int) ($row['height'] ?? 0),
+				(int) (filesize($targetPath) ?: 0),
+				(bool) ($row['is_primary'] ?? false)
+			);
+
+			$cloned[$preset] = true;
+		}
 	}
 
 	/**

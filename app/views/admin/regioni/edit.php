@@ -44,7 +44,7 @@
 	<?php endif; ?>
 
 	<div class="bg-white rounded-lg shadow-lg p-8">
-		<form id="eventForm" action="/admin/regioni/update/<?php echo htmlspecialchars($data['regione']['id'] ?? ''); ?>" method="POST" enctype="multipart/form-data">
+		<form id="eventForm" action="/admin/regioni/update/<?php echo htmlspecialchars($data['regione']['id'] ?? ''); ?>" method="POST" enctype="multipart/form-data" data-ajax-submit="true" data-success-redirect="/admin/regioni/edit/<?php echo htmlspecialchars($data['regione']['id'] ?? ''); ?>">
 			<input type="hidden" name="id" value="<?php echo htmlspecialchars($data['regione']['id'] ?? ''); ?>">
 			<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($data['csrf_token'] ?? ''); ?>">
 
@@ -56,48 +56,16 @@
 				</div>
 
 
-			<!-- Descrizione -->
+			<!-- Introduzione -->
 			<div class="mb-4">
-				<label for="seo_description" class="block text-gray-700 text-sm font-bold mb-2">Introduzione :</label>
-				<style>
-					.toolbar {
-						margin-bottom: 10px;
-					}
-
-					.toolbar button {
-						padding: 6px 12px;
-						cursor: pointer;
-					}
-
-					#htmlBox {
-						width: 100%;
-						height: 250px;
-						margin-top: 15px;
-						font-family: monospace;
-						display: none;
-					}
-				</style>
-				<div class="toolbar">
-					<button type="button" onclick="format('bold')"><b>B</b></button>
-
-					<button type="button" id="toggleHtml">
-						HTML
-					</button>
-				</div>
-
-				<div id="editor" contenteditable="true" class="block h-[300px] overflow-y-auto border rounded p-4 bg-white shadow-sm focus:outline-none">
-					<?php echo $data['regione']['intro_html'] ?? ''; ?>
-				</div>
-
-				<textarea id="htmlBox"></textarea>
-				<textarea name="intro_html" id="intro_html" hidden></textarea>
-
+				<label class="block text-gray-700 text-sm font-bold mb-2">Introduzione</label>
+				<div id="editor"></div>
 			</div>
 
-				<div>
-					<label for="seo_title" class="block text-gray-700 text-sm font-bold mb-2">Seo Title:</label>
-					<input type="text" id="seo_title" name="seo_title" value="<?php echo htmlspecialchars($data['regione']['seo_title'] ?? ''); ?>" required class="shadow border rounded-lg w-full py-2 px-3 text-gray-700 focus:border-green-500 focus:shadow-outline">
-				</div>
+		<div>
+			<label for="seo_title" class="block text-gray-700 text-sm font-bold mb-2">Seo Title:</label>
+			<input type="text" id="seo_title" name="seo_title" value="<?php echo htmlspecialchars($data['regione']['seo_title'] ?? ''); ?>" required class="shadow border rounded-lg w-full py-2 px-3 text-gray-700 focus:border-green-500 focus:shadow-outline">
+		</div>
 
 			<!-- Luogo -->
 			<div class="mb-4">
@@ -118,46 +86,10 @@
 	// --- Logica per le Dropdown Dinamiche (Regioni, Province, Comuni) ---
 	document.addEventListener('DOMContentLoaded', function(){
 
-		const form = document.getElementById('eventForm');
-		const editor = document.getElementById('editor');
-		const htmlBox = document.getElementById('htmlBox');
-		const toggleBtn = document.getElementById('toggleHtml');
-		const textarea = document.getElementById('intro_html');
-
-		function format(command){
-			document.execCommand(command, false, null);
-		}
-
-		let htmlMode = false;
-
-		toggleBtn.addEventListener('click', function(){
-
-			htmlMode = !htmlMode;
-
-			if(htmlMode){
-
-				htmlBox.value = editor.innerHTML;
-
-				editor.style.display = 'none';
-				htmlBox.style.display = 'block';
-
-				toggleBtn.textContent = 'Preview';
-
-			} else{
-
-				editor.innerHTML = htmlBox.value;
-
-				editor.style.display = 'block';
-				htmlBox.style.display = 'none';
-
-				toggleBtn.textContent = 'HTML';
-			}
+		WysiwygEditor.init('#editor', {
+			name: 'intro_html',
+			placeholder: 'Scrivi l’introduzione della regione...',
+			content: <?php echo json_encode($data['regione']['intro_html'] ?? '', JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>
 		});
-		form.addEventListener('submit', function(){
-
-			textarea.value = editor.innerHTML;
-
-		});
-
 	});
 </script>

@@ -6,12 +6,16 @@ if (php_sapi_name() !== 'cli') {
 	exit("CLI only");
 }
 
-if(!defined('APP_ROOT')){
-	define('APP_ROOT', '/var/www/html/');
+if (!defined('APP_ROOT')) {
+	define('APP_ROOT', dirname(__DIR__));
 }
 
 function import(){
 	// Includi i file necessari
+	$autoloadPath = APP_ROOT . '/vendor/autoload.php';
+	if (file_exists($autoloadPath)) {
+		require_once $autoloadPath;
+	}
 	require_once APP_ROOT . '/app/config/app.php';
 	require_once APP_ROOT . '/app/config/database.php';
 

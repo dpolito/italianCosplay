@@ -225,13 +225,19 @@ class Router
 					'AuthController_showRegisterForm' => 'register',
 					'EventController_create' => 'segnalazione-evento',
 					'EventController_weekend' => 'weekend',
+					'EventController_weekendSpecifico' => 'weekend_specifico',
 					'EventController_mese' => 'mese',
+					'EventController_meseSpecifico' => 'mese_specifico',
+					'EventController_masterIndex' => 'eventi-master-lista',
+					'EventController_masterShow' => 'eventi-master-dettaglio',
 					'EventController_segnalaEvento' => 'segnalaevento',
 					'GuestController_index' => 'ospiti_lista',
 					'GuestController_show' => 'ospiti_dettaglio',
 					'BlogController_index' => 'blog_lista',
 					'BlogController_show' => 'blog_dettaglio',
 					'BlogController_category' => 'blog_categoria',
+					'ProfileController_index' => 'profili-pubblici',
+					'ProfileController_publicProfile' => 'profilo-pubblico',
 				];
 				if (isset($this->controllerInstance) && method_exists($this->controllerInstance, 'getPageNameOverride')) {
 					$override = $this->controllerInstance->getPageNameOverride();
@@ -268,9 +274,13 @@ class Router
 					$description = "Consulta il calendario completo degli eventi cosplay in Italia: raduni, comics e fiere 2025 aggiornati su ItalianCosplay.";
 				}
 				break;
-			case 'weekend':
+			case 'weekend_specifico':
 				$title = "Eventi cosplay weekend ".$data['weekend']." : tutte le fiere in Italia | ItalianCosplay";
 				$description = "Scopri gli eventi cosplay del weekend ".$data['weekend'].": fiere del fumetto, comics, manga e cosplay in tutta Italia. Date, città ed eventi aggiornati.";
+				break;
+			case 'weekend':
+				$title = "Eventi Cosplay nel Weekend in Italia | Fiere e Raduni | ItalianCosplay";
+				$description = "Scopri gli eventi cosplay nel weekend in Italia: fiere del fumetto, convention, raduni, contest e appuntamenti nerd. Trova il prossimo weekend cosplay.";
 				break;
 			case 'blog_lista':
 				$title = "Notizie Cosplay e Guide per Cosplayer | ItalianCosplay";
@@ -297,8 +307,27 @@ class Router
 				$description = "Hai un evento cosplay da pubblicare? Segnalalo ora e aggiungilo al calendario di ItalianCosplay. È veloce, gratuito e aperto a tutti gli organizzatori.";
 				break;
 			case 'mese':
+				$title = "Eventi Cosplay Mese per Mese in Italia | Calendario 2026";
+				$description = "Scopri il calendario degli eventi cosplay in Italia mese per mese: fiere del fumetto, festival anime, raduni e appuntamenti nerd aggiornati.";
+				break;
+			case 'mese_specifico':
 				$title = "Eventi Cosplay ".$data['mese'].": i migliori eventi da non perdere in Italia";
 				$description = "Quali sono i migliori eventi cosplay di ".$data['mese']."? Scopri fiere, festival e raduni in tutta Italia: ecco i top eventi del mese e le novità più interessanti.";
+				break;
+			case 'eventi-master-lista':
+				$title = "Eventi e edizioni cosplay in Italia | ItalianCosplay";
+				$description = "Scopri gli eventi e le edizioni cosplay in Italia con tutte le varianti annuali collegate e le informazioni principali raccolte in un unico posto.";
+				break;
+			case 'eventi-master-dettaglio':
+				if (!empty($data['event_master'])) {
+					$eventMaster = $data['event_master'];
+					$editionsCount = (int) ($data['event_master_count'] ?? 0);
+					$title = ($eventMaster['nome'] ?? 'Evento e edizioni') . ($editionsCount > 0 ? " - " . $editionsCount . " edizioni" : '') . " | ItalianCosplay";
+					$description = "Scopri " . ($eventMaster['nome'] ?? 'questo evento') . ": edizioni collegate, informazioni utili, sito ufficiale e pagina dedicata.";
+				} else {
+					$title = "Evento e edizioni cosplay | ItalianCosplay";
+					$description = "Scopri un evento e tutte le sue edizioni collegate con informazioni principali e link utili.";
+				}
 				break;
 			case 'pagina-sconosciuta':
 				if (!empty($data['evento'])) {
@@ -394,6 +423,37 @@ class Router
 			case 'register':
 				$title = "Registrati | ItalianCosplay";
 				$description = "Crea il tuo account su ItalianCosplay per segnalare eventi, salvare fiere e partecipare alla community cosplay.";
+				break;
+
+			case 'profili-pubblici':
+				$title = "Profili cosplay pubblici in Italia | ItalianCosplay";
+				$description = "Scopri i profili pubblici della community cosplay italiana e filtra per nome, località, bio e visibilità.";
+				break;
+
+			case 'profilo-pubblico':
+				$profileUser = $data['user'] ?? [];
+				$profileHandle = $profileUser['username'] ?? 'cosplayer';
+				$profileName = trim(($profileUser['first_name'] ?? '') . ' ' . ($profileUser['last_name'] ?? ''));
+				$title = ($profileName !== '' ? $profileName . ' (@' . $profileHandle . ')' : '@' . $profileHandle) . ' | ItalianCosplay';
+				$description = 'Profilo pubblico di @' . $profileHandle . ' su ItalianCosplay: bio, social e informazioni della community cosplay italiana.';
+
+				$profileImage = $profileUser['profile_cover'] ?? ($profileUser['avatar'] ?? '');
+				if ($profileImage === '') {
+					$profileImage = 'https://www.italiancosplay.it/assets/img/default-avatar.png';
+				} elseif (!str_starts_with($profileImage, 'http')) {
+					$profileImage = 'https://www.italiancosplay.it' . $profileImage;
+				}
+
+				$meta_fb = '<meta property="og:type" content="profile">' . "\n"
+					. '<meta property="og:site_name" content="ItalianCosplay">' . "\n"
+					. '<meta property="og:title" content="' . htmlspecialchars($title, ENT_QUOTES, "UTF-8") . '">' . "\n"
+					. '<meta property="og:description" content="' . htmlspecialchars($description, ENT_QUOTES, "UTF-8") . '">' . "\n"
+					. '<meta property="og:url" content="' . htmlspecialchars($data['canonicalUrl'] ?? '', ENT_QUOTES, "UTF-8") . '">' . "\n"
+					. '<meta property="og:image" content="' . htmlspecialchars($profileImage, ENT_QUOTES, "UTF-8") . '">' . "\n"
+					. '<meta name="twitter:card" content="summary_large_image">' . "\n"
+					. '<meta name="twitter:title" content="' . htmlspecialchars($title, ENT_QUOTES, "UTF-8") . '">' . "\n"
+					. '<meta name="twitter:description" content="' . htmlspecialchars($description, ENT_QUOTES, "UTF-8") . '">' . "\n"
+					. '<meta name="twitter:image" content="' . htmlspecialchars($profileImage, ENT_QUOTES, "UTF-8") . '">';
 				break;
 
 			default:

@@ -105,7 +105,7 @@ $breadcrumbSchema['itemListElement'][] = [
 		</nav>
 
 		<!-- ================= FILTER (EVENTI STYLE IDENTICO) ================= -->
-		<section class="mb-8 rounded-xl bg-green-950 p-4 shadow-lg md:sticky md:top-20 md:p-6">
+		<section class="relative z-30 mb-8 rounded-xl bg-green-950 p-4 shadow-lg md:sticky md:top-20 md:p-6">
 
 			<h2 class="mb-4 text-xl font-bold text-white">Filtra articoli per categoria</h2>
 
@@ -173,7 +173,7 @@ $breadcrumbSchema['itemListElement'][] = [
 
 							<p class="mt-3 text-xs text-gray-500">
 								📅 <?php echo date('d/m/Y', strtotime($post['created_at'])); ?>
-								· 👁 <?php echo (int)$post['views']; ?> letture
+								· 👁 <?php echo (int)$post['total_views']; ?> letture
 							</p>
 
 							<span class="mt-4 inline-flex font-bold text-green-900 group-hover:underline">

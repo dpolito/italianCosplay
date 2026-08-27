@@ -2,8 +2,21 @@
 // app/config/app.php
 // Qui puoi definire costanti o configurazioni globali dell'applicazione
 // Esempio:
-define('APP_NAME', 'Italian Cosplay Events'); // <--- DEVE ESSERE QUI
-define('BASE_URL', 'https://www.italiancosplay.it/'); // O il tuo dominio reale
+if (!defined('APP_NAME')) {
+	define('APP_NAME', 'Italian Cosplay Events');
+}
+
+if (!defined('BASE_URL')) {
+	define('BASE_URL', 'https://www.italiancosplay.it/');
+}
+
+if (!defined('TELEGRAM_BOT_TOKEN')) {
+	define('TELEGRAM_BOT_TOKEN', '');
+}
+
+if (!defined('TELEGRAM_CHAT_ID')) {
+	define('TELEGRAM_CHAT_ID', '');
+}
 
 if (!function_exists('dd')) {
 	function dd(...$vars) {

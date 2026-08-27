@@ -5,7 +5,9 @@ use App\Core\Controller;
 use App\Core\Session;
 use App\Models\BlogCategory;
 use App\Models\BlogPost;
+use App\Services\AuditLogService;
 use App\Services\ImageService;
+use App\Support\AuditLogActionType;
 use function var_dump;
 
 class AdminBlogController extends Controller
@@ -13,12 +15,14 @@ class AdminBlogController extends Controller
 	private BlogPost $blogModel;
 	private BlogCategory $blogCategoryModel;
 	private ImageService $imageService;
+	private AuditLogService $auditLogService;
 
 	public function __construct()
 	{
 		$this->blogModel = new BlogPost();
 		$this->blogCategoryModel = new BlogCategory();
 		$this->imageService = new ImageService($this->blogModel->getDbConnection());
+		$this->auditLogService = new AuditLogService();
 	}
 
 	/**
@@ -38,6 +42,125 @@ class AdminBlogController extends Controller
 			'csrf_token' => $_SESSION['csrf_token'],
 			'breadcrumbs' => $breadcrumbs
 		], 'admin');
+	}
+
+	public function data(): void
+	{
+		header('Content-Type: application/json; charset=utf-8');
+
+		$posts = $this->blogModel->getAll();
+
+		$page = max((int) ($_GET['page'] ?? 1), 1);
+		$perPage = (int) ($_GET['perPage'] ?? 25);
+		if (!in_array($perPage, [10, 25, 50, 100], true)) {
+			$perPage = 25;
+		}
+
+		$search = trim($_GET['search'] ?? '');
+		$sort = $_GET['sort'] ?? 'created_at';
+		$direction = strtolower($_GET['direction'] ?? 'desc');
+		$allowedSorts = ['id', 'titolo', 'slug', 'status', 'views', 'created_at'];
+		if (!in_array($sort, $allowedSorts, true)) {
+			$sort = 'created_at';
+		}
+		if (!in_array($direction, ['asc', 'desc'], true)) {
+			$direction = 'desc';
+		}
+
+		$posts = array_values(array_filter($posts, static function (array $post) use ($search): bool {
+			if ($search === '') {
+				return true;
+			}
+
+			$haystack = strtolower(
+				implode(' ', [
+					$post['id'] ?? '',
+					$post['titolo'] ?? '',
+					$post['slug'] ?? '',
+					$post['status'] ?? '',
+				])
+			);
+
+			return str_contains($haystack, strtolower($search));
+		}));
+
+		usort($posts, static function (array $left, array $right) use ($sort, $direction): int {
+			$leftValue = $left[$sort] ?? '';
+			$rightValue = $right[$sort] ?? '';
+			$result = is_numeric($leftValue) && is_numeric($rightValue)
+				? ((float) $leftValue <=> (float) $rightValue)
+				: strcmp((string) $leftValue, (string) $rightValue);
+
+			return $direction === 'asc' ? $result : -$result;
+		});
+
+		$total = count($posts);
+		$pages = max((int) ceil($total / $perPage), 1);
+		$page = min($page, $pages);
+		$offset = ($page - 1) * $perPage;
+		$slice = array_slice($posts, $offset, $perPage);
+
+		$data = array_map(static function (array $post): array {
+			return [
+				'id' => $post['id'],
+				'titolo' => $post['titolo'],
+				'slug' => $post['slug'],
+				'status' => $post['status'] ?? 'draft',
+				'views' => (int) ($post['views'] ?? 0),
+				'created_at' => $post['created_at'] ?? null,
+				'_links' => [
+					'view' => '/blog/' . $post['slug'],
+					'edit' => '/admin/blog/edit/' . $post['id'],
+					'delete' => '/admin/blog/delete/' . $post['id'],
+				],
+			];
+		}, $slice);
+
+		echo json_encode([
+			'success' => true,
+			'data' => $data,
+			'meta' => [
+				'page' => $page,
+				'pages' => $pages,
+				'total' => $total,
+			],
+		]);
+		exit();
+	}
+
+	public function detail($params): void
+	{
+		header('Content-Type: application/json; charset=utf-8');
+		$id = (int) ($params[0] ?? 0);
+		$post = $this->blogModel->find($id);
+
+		if (!$post) {
+			echo json_encode(['success' => false, 'message' => 'Articolo non trovato']);
+			exit();
+		}
+
+		echo json_encode([
+			'success' => true,
+			'data' => [
+				'id' => $post['id'],
+				'titolo' => $post['titolo'],
+				'slug' => $post['slug'],
+				'excerpt' => $post['excerpt'] ?? '',
+				'status' => $post['status'] ?? 'draft',
+				'views' => (int) ($post['views'] ?? 0),
+				'created_at' => $post['created_at'] ?? null,
+				'updated_at' => $post['updated_at'] ?? null,
+				'categoria_id' => $post['categoria_id'] ?? null,
+				'meta_title' => $post['meta_title'] ?? '',
+				'meta_description' => $post['meta_description'] ?? '',
+				'_links' => [
+					'edit' => '/admin/blog/edit/' . $post['id'],
+					'view' => '/blog/' . $post['slug'],
+					'delete' => '/admin/blog/delete/' . $post['id'],
+				],
+			],
+		]);
+		exit();
 	}
 
 	/**
@@ -129,9 +252,27 @@ class AdminBlogController extends Controller
 			$coverImageId = $this->imageService->upload($_FILES['cover_image'], 'blog_post', $postId, $data['titolo'], true);
 			$data['cover_image_id'] = $coverImageId;
 		}
+		$this->auditLogService->logAudit([
+			'user_id' => $_SESSION['user_id'] ?? null,
+			'action_type' => AuditLogActionType::BLOG_POST_CREATED,
+			'entity_type' => 'blog_post',
+			'entity_id' => $postId,
+			'success' => 1,
+			'payload' => [
+				'title' => $data['titolo'],
+				'slug' => $data['slug'],
+				'status' => $data['status'],
+				'has_cover_image' => !empty($_FILES['cover_image']['name']),
+			],
+		]);
 
-		Session::setFlash('success', 'Articolo creato con successo!');
-		header('Location: /admin/blog/edit/' . $postId);
+		header('Content-Type: application/json; charset=utf-8');
+		echo json_encode([
+			'success' => true,
+			'message' => 'Articolo creato con successo!',
+			'redirect' => '/admin/blog/edit/' . $postId,
+			'id' => $postId,
+		]);
 		exit();
 	}
 
@@ -198,7 +339,9 @@ class AdminBlogController extends Controller
 	public function update($params)
 	{
 		if (!$this->validateCsrfToken()) {
-			header('Location: /admin/blog/all');
+			header('Content-Type: application/json; charset=utf-8');
+			http_response_code(403);
+			echo json_encode(['success' => false, 'message' => 'Token CSRF non valido.']);
 			exit();
 		}
 
@@ -206,16 +349,18 @@ class AdminBlogController extends Controller
 		$id = $params[0] ?? null;
 
 		if (!$id || !is_numeric($id)) {
-			Session::setFlash('error', 'ID non valido.');
-			header('Location: /admin/blog/all');
+			header('Content-Type: application/json; charset=utf-8');
+			http_response_code(400);
+			echo json_encode(['success' => false, 'message' => 'ID non valido.']);
 			exit();
 		}
 
 
 		$post = $this->blogModel->find($id);
 		if (!$post) {
-			Session::setFlash('error', 'Articolo non trovato.');
-			header('Location: /admin/blog/all');
+			header('Content-Type: application/json; charset=utf-8');
+			http_response_code(404);
+			echo json_encode(['success' => false, 'message' => 'Articolo non trovato.']);
 			exit();
 		}
 		$slug = $this->generateSlug($_POST['slug'] ?? $_POST['titolo']);
@@ -246,9 +391,25 @@ class AdminBlogController extends Controller
 		}
 
 		$this->blogModel->update($id, $data);
-		Session::setFlash('success', 'Articolo aggiornato con successo!');
-
-		header('Location: /admin/blog/edit/' . $id);
+		$this->auditLogService->logAudit([
+			'user_id' => $_SESSION['user_id'] ?? null,
+			'action_type' => AuditLogActionType::BLOG_POST_UPDATED,
+			'entity_type' => 'blog_post',
+			'entity_id' => (int) $id,
+			'success' => 1,
+			'payload' => [
+				'title' => $data['titolo'],
+				'slug' => $data['slug'],
+				'status' => $data['status'],
+				'has_cover_image' => !empty($_FILES['cover_image']['name']),
+			],
+		]);
+		header('Content-Type: application/json; charset=utf-8');
+		echo json_encode([
+			'success' => true,
+			'message' => 'Articolo aggiornato con successo!',
+			'id' => (int) $id,
+		]);
 		exit();
 	}
 
@@ -257,24 +418,40 @@ class AdminBlogController extends Controller
 	 */
 	public function delete($params)
 	{
+		header('Content-Type: application/json; charset=utf-8');
+
 		$id = $params[0] ?? null;
 
 		if (!$id || !is_numeric($id)) {
-			Session::setFlash('error', 'ID non valido.');
-			header('Location: /admin/blog/all');
+			http_response_code(400);
+			echo json_encode(['success' => false, 'message' => 'ID non valido.']);
 			exit();
 		}
 
 		if (!$this->validateCsrfToken()) {
-			header('Location: /admin/blog/all');
+			http_response_code(403);
+			echo json_encode(['success' => false, 'message' => 'Token CSRF non valido.']);
 			exit();
 		}
 
-		$this->blogModel->delete($id);
+		if ($this->blogModel->delete($id)) {
+			$this->auditLogService->logAudit([
+				'user_id' => $_SESSION['user_id'] ?? null,
+				'action_type' => AuditLogActionType::BLOG_POST_DELETED,
+				'entity_type' => 'blog_post',
+				'entity_id' => (int) $id,
+				'success' => 1,
+				'payload' => [
+					'title' => $post['titolo'] ?? null,
+					'slug' => $post['slug'] ?? null,
+				],
+			]);
+			echo json_encode(['success' => true, 'message' => 'Articolo eliminato.']);
+			exit();
+		}
 
-		Session::setFlash('success', 'Articolo eliminato.');
-
-		header('Location: /admin/blog/all');
+		http_response_code(500);
+		echo json_encode(['success' => false, 'message' => 'Errore durante l\'eliminazione dell\'articolo.']);
 		exit();
 	}
 

@@ -15,6 +15,15 @@
 			<?php use App\Core\Session;
 
 			if(isset($data['event']['id'])): ?>
+				<form action="<?php echo htmlspecialchars(URL_ROOT_SITE . '/admin/events/copy/' . $data['event']['id']); ?>" method="POST" class="inline-block mr-2" onsubmit="return confirm('Vuoi creare una copia di questo evento? La nuova edizione sarà in attesa di approvazione.');">
+					<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($data['csrf_token'] ?? ''); ?>">
+					<button type="submit" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-300 ease-in-out">
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M8 16h8M8 12h8m-7-8h5a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V8l3-4zM7 4v4h4"/>
+						</svg>
+						Copia evento
+					</button>
+				</form>
 				<form action="/admin/events/delete/<?php echo htmlspecialchars($data['event']['id']); ?>" method="POST" class="inline-block" onsubmit="return confirm('Sei sicuro di voler eliminare questo evento?');">
 					<!-- CSRF Token per il form di eliminazione -->
 					<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($data['csrf_token'] ?? ''); ?>">
@@ -44,7 +53,7 @@
 	<?php endif; ?>
 
 	<div class="bg-white rounded-lg shadow-lg p-8">
-		<form id="eventForm" action="/admin/events/update/<?php echo htmlspecialchars($data['event']['id'] ?? ''); ?>" method="POST" enctype="multipart/form-data">
+		<form id="eventForm" action="/admin/events/update/<?php echo htmlspecialchars($data['event']['id'] ?? ''); ?>" method="POST" enctype="multipart/form-data" data-ajax-submit="true" data-success-redirect="/admin/events/edit/<?php echo htmlspecialchars($data['event']['id'] ?? ''); ?>">
 			<input type="hidden" name="id" value="<?php echo htmlspecialchars($data['event']['id'] ?? ''); ?>">
 			<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($data['csrf_token'] ?? ''); ?>">
 			<input type="hidden" name="guest_ids" id="guest_ids">
@@ -55,6 +64,15 @@
 					<input type="text" id="titolo" name="titolo" value="<?php echo htmlspecialchars($data['event']['titolo'] ?? ''); ?>" required class="shadow border rounded-lg w-full py-2 px-3 text-gray-700 focus:border-green-500 focus:shadow-outline">
 				</div>
 				<div class="mb-4">
+					<label for="slug" class="block text-gray-700 text-sm font-bold mb-2">Slug SEO:</label>
+					<input type="text" id="slug" name="slug" value="<?php echo htmlspecialchars($data['event']['slug'] ?? ''); ?>" class="shadow border rounded-lg w-full py-2 px-3 text-gray-700 focus:border-green-500 focus:shadow-outline" placeholder="auto-generato se vuoto">
+					<p class="text-xs text-gray-500 mt-1">URL finale: /eventi/slug</p>
+				</div>
+				<div class="mb-4">
+					<label for="anno" class="block text-gray-700 text-sm font-bold mb-2">Anno:</label>
+					<input type="number" id="anno" name="anno" value="<?php echo htmlspecialchars((string) ($data['event']['year'] ?? date('Y'))); ?>" min="2000" max="2100" class="shadow border rounded-lg w-full py-2 px-3 text-gray-700 focus:border-green-500 focus:shadow-outline">
+				</div>
+				<div class="mb-4">
 					<label for="tipo_evento_id" class="block text-gray-700 text-sm font-bold mb-2">Tipo Evento:</label>
 					<select id="tipo_evento_id" name="tipo_evento_id" class="shadow border rounded-lg w-full py-2 px-3 text-gray-700 focus:border-green-500">
 						<option value="">Seleziona un tipo di evento</option>
@@ -63,6 +81,19 @@
 								<option value="<?php echo htmlspecialchars($tipo['id']); ?>"
 									<?php echo (isset($data['event']['tipo_evento_id']) && $data['event']['tipo_evento_id'] == $tipo['id']) ? 'selected' : ''; ?>>
 									<?php echo htmlspecialchars($tipo['nome']); ?>
+								</option>
+							<?php endforeach; endif; ?>
+					</select>
+				</div>
+				<div class="mb-4">
+					<label for="event_master_id" class="block text-gray-700 text-sm font-bold mb-2">Evento Master:</label>
+					<select id="event_master_id" name="event_master_id" class="shadow border rounded-lg w-full py-2 px-3 text-gray-700 focus:border-green-500">
+						<option value="">Seleziona un evento master</option>
+						<?php if(!empty($data['event_masters'])):
+							foreach($data['event_masters'] as $eventMaster): ?>
+								<option value="<?php echo htmlspecialchars($eventMaster['id']); ?>"
+									<?php echo (isset($data['event']['event_master_id']) && $data['event']['event_master_id'] == $eventMaster['id']) ? 'selected' : ''; ?>>
+									<?php echo htmlspecialchars($eventMaster['nome'] ?? $eventMaster['name'] ?? 'Evento master'); ?>
 								</option>
 							<?php endforeach; endif; ?>
 					</select>
@@ -82,40 +113,8 @@
 
 			<!-- Descrizione -->
 			<div class="mb-4">
-				<label for="descrizione" class="block text-gray-700 text-sm font-bold mb-2">Descrizione:</label>
-				<style>
-					.toolbar {
-						margin-bottom: 10px;
-					}
-
-					.toolbar button {
-						padding: 6px 12px;
-						cursor: pointer;
-					}
-
-					#htmlBox {
-						width: 100%;
-						height: 250px;
-						margin-top: 15px;
-						font-family: monospace;
-						display: none;
-					}
-				</style>
-				<div class="toolbar">
-					<button type="button" onclick="format('bold')"><b>B</b></button>
-
-					<button type="button" id="toggleHtml">
-						HTML
-					</button>
-				</div>
-
-				<div id="editor" contenteditable="true" class="block h-[300px] overflow-y-auto border rounded p-4 bg-white shadow-sm focus:outline-none">
-					<?php echo $data['event']['descrizione'] ?? ''; ?>
-				</div>
-
-				<textarea id="htmlBox"></textarea>
-				<textarea name="descrizione" id="descrizione" hidden></textarea>
-
+				<label class="block text-gray-700 text-sm font-bold mb-2">Descrizione:</label>
+				<div id="editor"></div>
 			</div>
 
 			<!-- Date (2 colonne) -->
@@ -349,7 +348,40 @@
 	</div>
 
 </div>
+<script src="/public_assets/js/wysiwyg-editor.js"></script>
+<script>
+	document.addEventListener('DOMContentLoaded', function () {
+		const titolo = document.getElementById('titolo');
+		const slug = document.getElementById('slug');
+		let slugEdited = slug.value.trim() !== '';
 
+		function makeSlug(value) {
+			return value
+				.toLowerCase()
+				.normalize('NFD')
+				.replace(/[\u0300-\u036f]/g, '')
+				.replace(/[^a-z0-9]+/g, '-')
+				.replace(/(^-|-$)/g, '');
+		}
+
+		slug.addEventListener('input', function () {
+			slugEdited = true;
+		});
+
+		titolo.addEventListener('input', function () {
+			if (!slugEdited) {
+				slug.value = makeSlug(titolo.value);
+			}
+		});
+	});
+</script>
+<script>
+	WysiwygEditor.init('#editor', {
+		name: 'descrizione',
+		placeholder: 'Scrivi qui il tuo testo...',
+		content: <?php echo json_encode($event['descrizione'] ?? '<p></p>', JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>
+	});
+</script>
 <script>
 	let selectedGuests = <?= json_encode($event['guests']) ?>;
 	renderGuests();
@@ -469,48 +501,6 @@
 
 	// --- Logica per le Dropdown Dinamiche (Regioni, Province, Comuni) ---
 	document.addEventListener('DOMContentLoaded', function(){
-
-		const form = document.getElementById('eventForm');
-		const editor = document.getElementById('editor');
-		const htmlBox = document.getElementById('htmlBox');
-		const toggleBtn = document.getElementById('toggleHtml');
-		const textarea = document.getElementById('descrizione');
-
-		function format(command){
-			document.execCommand(command, false, null);
-		}
-
-		let htmlMode = false;
-
-		toggleBtn.addEventListener('click', function(){
-
-			htmlMode = !htmlMode;
-
-			if(htmlMode){
-
-				htmlBox.value = editor.innerHTML;
-
-				editor.style.display = 'none';
-				htmlBox.style.display = 'block';
-
-				toggleBtn.textContent = 'Preview';
-
-			} else{
-
-				editor.innerHTML = htmlBox.value;
-
-				editor.style.display = 'block';
-				htmlBox.style.display = 'none';
-
-				toggleBtn.textContent = 'HTML';
-			}
-		});
-		form.addEventListener('submit', function(){
-
-			textarea.value = editor.innerHTML;
-
-		});
-
 		const regioneSelect = document.getElementById('regione_id');
 		const provinciaSelect = document.getElementById('provincia_id');
 		const comuneSelect = document.getElementById('comune_id');

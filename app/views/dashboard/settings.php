@@ -1,6 +1,7 @@
 <?php
 $user = $data['user'] ?? ($user ?? []);
 $settings = json_decode($user['profile_settings'] ?? '{}', true);
+$marketingOptIn = !empty($user['marketing_opted_in']);
 $avatar = $user['avatar'] ?? '/assets/img/default_avatar.png';
 $displayName = $user['username'] ?? $user['first_name'] ?? 'Cosplayer';
 
@@ -11,24 +12,24 @@ function checked($settings, $key)
 ?>
 
 <section class="mx-auto max-w-6xl space-y-6" aria-labelledby="settings-page-title">
-	<header class="rounded-2xl bg-white p-5 shadow-sm md:p-8">
-		<div class="grid gap-6 md:grid-cols-[minmax(0,1fr)_260px] md:items-center">
+	<header class="rounded-2xl bg-gradient-to-br from-green-900 via-green-800 to-emerald-700 p-5 text-white shadow-sm md:p-8">
+		<div class="grid gap-6 md:grid-cols-[minmax(0,1fr)_280px] md:items-center">
 			<div>
-				<p class="text-sm font-bold uppercase tracking-wide text-green-900">Impostazioni profilo</p>
-				<h1 id="settings-page-title" class="mt-2 text-3xl font-extrabold leading-tight text-gray-950 md:text-4xl">
+				<p class="text-sm font-bold uppercase tracking-wide text-emerald-100">Impostazioni profilo</p>
+				<h1 id="settings-page-title" class="mt-2 text-3xl font-extrabold leading-tight text-white md:text-4xl">
 					Privacy e visibilità
 				</h1>
-				<p class="mt-3 max-w-2xl text-base leading-relaxed text-gray-700">
+				<p class="mt-3 max-w-2xl text-base leading-relaxed text-emerald-50/90">
 					Scegli quali informazioni mostrare alla community ItalianCosplay nel tuo profilo pubblico.
 				</p>
 			</div>
 
-			<aside class="rounded-xl border border-green-100 bg-green-50 p-4" aria-label="Anteprima utente">
+			<aside class="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm" aria-label="Anteprima utente">
 				<div class="flex items-center gap-4">
-					<img src="<?php echo htmlspecialchars($avatar, ENT_QUOTES, 'UTF-8'); ?>" alt="Avatar di <?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?>" class="h-16 w-16 rounded-full object-cover shadow-md" width="64" height="64">
+					<img src="<?php echo htmlspecialchars($avatar, ENT_QUOTES, 'UTF-8'); ?>" alt="Avatar di <?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?>" class="h-16 w-16 rounded-full border-2 border-white object-cover shadow-md" width="64" height="64">
 					<div>
-						<p class="font-bold text-green-950"><?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?></p>
-						<p class="mt-1 text-sm text-gray-700">Controllo profilo pubblico</p>
+						<p class="font-bold text-white"><?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?></p>
+						<p class="mt-1 text-sm text-emerald-50/80">Controllo profilo pubblico</p>
 					</div>
 				</div>
 			</aside>
@@ -88,6 +89,14 @@ function checked($settings, $key)
 						</span>
 						<input type="checkbox" name="settings[show_comune]" value="1" class="h-6 w-6 flex-none accent-green-800" <?php echo checked($settings, 'show_comune'); ?>>
 					</label>
+
+					<label class="flex min-h-16 cursor-pointer items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4 transition hover:bg-amber-100">
+						<span>
+							<span class="block font-bold text-gray-950">Newsletter / marketing</span>
+							<span class="mt-1 block text-sm text-gray-600">Ricevi comunicazioni facoltative, offerte e aggiornamenti promozionali.</span>
+						</span>
+						<input type="checkbox" name="settings[newsletter_opt_in]" value="1" class="h-6 w-6 flex-none accent-amber-600" <?php echo $marketingOptIn ? 'checked' : ''; ?>>
+					</label>
 				</div>
 			</section>
 
@@ -144,6 +153,30 @@ function checked($settings, $key)
 						<span>Puoi modificare queste preferenze in qualsiasi momento.</span>
 					</li>
 				</ul>
+			</section>
+
+			<section class="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm" aria-labelledby="delete-account-title">
+				<h2 id="delete-account-title" class="text-xl font-bold text-red-950">Cancella account</h2>
+				<p class="mt-2 text-sm leading-relaxed text-red-900">
+					Se confermi, il tuo account verrà anonimizzato. I collegamenti interni resteranno validi, ma non potrai più accedere con queste credenziali.
+				</p>
+
+				<div class="mt-4 rounded-xl bg-white p-4 text-sm leading-relaxed text-gray-700">
+					<p class="font-bold text-gray-950">Cosa succede:</p>
+					<ul class="mt-2 space-y-2">
+						<li>username ed email vengono sostituiti con valori anonimi</li>
+						<li>password e token vengono azzerati</li>
+						<li>avatar, cover e dati pubblici vengono rimossi dal profilo</li>
+					</ul>
+				</div>
+
+				<form method="POST" action="/dashboard/delete-account" class="mt-5">
+					<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+					<button type="submit" class="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-red-700 px-6 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2" onclick="return confirm('Vuoi davvero anonimizzare il tuo account? Questa azione non si può annullare.');">
+						<i class="fa-solid fa-user-slash" aria-hidden="true"></i>
+						Annulla e anonimizza account
+					</button>
+				</form>
 			</section>
 		</aside>
 	</div>

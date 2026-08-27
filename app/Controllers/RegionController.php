@@ -45,6 +45,80 @@ class RegionController extends Controller
 		$this->view('admin/regioni/all', ['regioni' => $regioni, 'csrf_token' => $_SESSION['csrf_token']], 'admin');
 	}
 
+	public function data(): void
+	{
+		header('Content-Type: application/json; charset=utf-8');
+
+		$regioni = $this->regionModel->getAll();
+		$page = max((int) ($_GET['page'] ?? 1), 1);
+		$perPage = (int) ($_GET['perPage'] ?? 25);
+		if (!in_array($perPage, [10, 25, 50, 100], true)) {
+			$perPage = 25;
+		}
+		$search = trim($_GET['search'] ?? '');
+		$sort = $_GET['sort'] ?? 'nome';
+		$direction = strtolower($_GET['direction'] ?? 'asc');
+		$allowedSorts = ['id', 'nome'];
+		if (!in_array($sort, $allowedSorts, true)) {
+			$sort = 'nome';
+		}
+		if (!in_array($direction, ['asc', 'desc'], true)) {
+			$direction = 'asc';
+		}
+
+		$regioni = array_values(array_filter($regioni, static function (array $regione) use ($search): bool {
+			if ($search === '') {
+				return true;
+			}
+			return str_contains(strtolower(implode(' ', $regione)), strtolower($search));
+		}));
+		usort($regioni, static function (array $left, array $right) use ($sort, $direction): int {
+			$result = strcmp((string) ($left[$sort] ?? ''), (string) ($right[$sort] ?? ''));
+			return $direction === 'asc' ? $result : -$result;
+		});
+
+		$total = count($regioni);
+		$pages = max((int) ceil($total / $perPage), 1);
+		$page = min($page, $pages);
+		$slice = array_slice($regioni, ($page - 1) * $perPage, $perPage);
+
+		$data = array_map(static function (array $regione): array {
+			return [
+				'id' => $regione['id'],
+				'nome' => $regione['nome'],
+				'_links' => [
+					'edit' => '/admin/regioni/edit/' . $regione['id'],
+					'delete' => '/admin/regioni/delete/' . $regione['id'],
+				],
+			];
+		}, $slice);
+
+		echo json_encode([
+			'success' => true,
+			'data' => $data,
+			'meta' => ['page' => $page, 'pages' => $pages, 'total' => $total],
+		]);
+		exit();
+	}
+
+	public function detail($params): void
+	{
+		header('Content-Type: application/json; charset=utf-8');
+		$id = (int) ($params[0] ?? 0);
+		$regione = $this->regionModel->find($id);
+
+		if (!$regione) {
+			echo json_encode(['success' => false, 'message' => 'Regione non trovata']);
+			exit();
+		}
+
+		echo json_encode([
+			'success' => true,
+			'data' => $regione,
+		]);
+		exit();
+	}
+
 	public function edit($params): void
 	{
 		$id = $params[0] ?? null;
@@ -70,8 +144,9 @@ class RegionController extends Controller
 	public function update($params)
 	{
 		if (!$this->validateCsrfToken()) {
-			$id = $params[0] ?? null;
-			header('Location: /admin/regioni/edit/' . $id);
+			header('Content-Type: application/json; charset=utf-8');
+			http_response_code(403);
+			echo json_encode(['success' => false, 'message' => 'Token CSRF non valido.']);
 			exit();
 		}
 
@@ -104,23 +179,32 @@ class RegionController extends Controller
 
 
 			if (!empty($errors)) {
-				Session::setFlash('error', implode('<br>', $errors));
-
-				$this->view('admin/regioni/edit', array_merge($data, ['regione' => $regione, 'csrf_token' => $_SESSION['csrf_token']]), 'admin');
+				header('Content-Type: application/json; charset=utf-8');
+				http_response_code(422);
+				echo json_encode(['success' => false, 'message' => implode(' ', $errors)]);
 				return;
 			}
 
 			if ($this->regionModel->update($id, $data)) {
-				Session::setFlash('success', 'Regione aggiornata con successo!');
-				header("Location: /admin/regioni/edit/$id");
+				header('Content-Type: application/json; charset=utf-8');
+				echo json_encode([
+					'success' => true,
+					'message' => 'Regione aggiornata con successo!',
+					'id' => (int) $id,
+				]);
+				exit();
 
 
 			} else {
-				Session::setFlash('error', 'Errore durante l\'aggiornamento dell\'evento.');
-				$this->view('admin/regioni/edit', array_merge($data, ['regione' => $regione, 'csrf_token' => $_SESSION['csrf_token']]), 'admin');
+				header('Content-Type: application/json; charset=utf-8');
+				http_response_code(500);
+				echo json_encode(['success' => false, 'message' => 'Errore durante l\'aggiornamento della regione.']);
+				exit();
 			}
 		} else {
-			header('Location: ' . URL_ROOT . '/admin/regioni/all');
+			header('Content-Type: application/json; charset=utf-8');
+			http_response_code(405);
+			echo json_encode(['success' => false, 'message' => 'Metodo non consentito.']);
 			exit();
 		}
 	}
@@ -130,30 +214,34 @@ class RegionController extends Controller
 	 */
 	public function delete($params)
 	{
+		header('Content-Type: application/json; charset=utf-8');
+
 		$id = $params[0] ?? null;
 		if (!$id || !is_numeric($id)) {
-			Session::setFlash('error', 'ID evento non valido.');
-			header('Location: /admin/regioni/all');
+			http_response_code(400);
+			echo json_encode(['success' => false, 'message' => 'ID regione non valido.']);
 			exit();
 		}
 
 		if ($_SERVER['REQUEST_METHOD'] == 'POST' && !$this->validateCsrfToken()) {
-			header('Location: /admin/regioni/all');
+			http_response_code(403);
+			echo json_encode(['success' => false, 'message' => 'Token CSRF non valido.']);
 			exit();
 		}
 
 		$event = $this->regionModel->find($id);
 		if (!$event) {
-			Session::setFlash('error', 'Regione non trovata.');
-			header('Location: /admin/regioni/all');
+			http_response_code(404);
+			echo json_encode(['success' => false, 'message' => 'Regione non trovata.']);
 			exit();
 		}
 		if ($this->regionModel->delete($id)) {
-			Session::setFlash('success', 'Regione eliminata con successo!');
-		} else {
-			Session::setFlash('error', 'Errore durante l\'eliminazione della regione.');
+			echo json_encode(['success' => true, 'message' => 'Regione eliminata con successo!']);
+			exit();
 		}
-		header('Location: /admin/regioni/all');
+
+		http_response_code(500);
+		echo json_encode(['success' => false, 'message' => 'Errore durante l\'eliminazione della regione.']);
 		exit();
 	}
 

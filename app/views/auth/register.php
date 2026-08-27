@@ -1,90 +1,173 @@
-<div class="min-h-[70vh] flex items-center justify-center px-4 py-12">
-	<div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
-		<h1 class="text-3xl font-bold text-center text-gray-900 mb-1">Registrati</h1>
-		<p class="text-center text-gray-500 text-sm mb-6">
-			Crea il tuo account su Italian Cosplay
-		</p>
+<?php
+$old = is_array($data['old'] ?? null) ? $data['old'] : [];
+$errors = $data['errors'] ?? [];
 
-		<?php if (!empty($data['success'])): ?>
-			<div class="mb-5 rounded-lg border border-green-200 bg-green-50 text-green-700 px-4 py-3 text-sm">
-				<?php echo htmlspecialchars($data['success']); ?>
+if (is_string($errors)) {
+	$errors = [$errors];
+}
+?>
+
+<section class="mx-auto max-w-6xl px-4 py-10 md:py-14">
+	<div class="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
+		<div class="rounded-3xl bg-gradient-to-br from-emerald-950 via-green-900 to-teal-900 p-8 text-white shadow-2xl md:p-10">
+			<p class="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-200">ItalianCosplay account</p>
+			<h1 class="mt-3 text-3xl font-black leading-tight md:text-5xl">Crea il tuo profilo e vivi meglio gli eventi cosplay</h1>
+			<p class="mt-4 max-w-xl text-base leading-7 text-emerald-50/90 md:text-lg">
+				Con un account puoi salvare gli eventi che ti interessano, seguire il tuo profilo e tornare velocemente ai contenuti che ami.
+			</p>
+
+			<ul class="mt-8 space-y-3 text-sm md:text-base">
+				<li class="flex gap-3"><span class="mt-1 h-2.5 w-2.5 rounded-full bg-emerald-300"></span>Salva gli eventi cosplay che vuoi rivedere</li>
+				<li class="flex gap-3"><span class="mt-1 h-2.5 w-2.5 rounded-full bg-emerald-300"></span>Accedi alla tua dashboard personale</li>
+				<li class="flex gap-3"><span class="mt-1 h-2.5 w-2.5 rounded-full bg-emerald-300"></span>Ricevi aggiornamenti più rapidi sui contenuti che segui</li>
+			</ul>
+
+			<div class="mt-8 rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur">
+				<p class="text-sm font-semibold text-emerald-100">Già registrato?</p>
+				<a href="/login" class="mt-2 inline-flex items-center gap-2 font-bold text-white underline decoration-emerald-200 decoration-2 underline-offset-4">
+					Vai al login
+				</a>
 			</div>
-		<?php endif; ?>
+		</div>
 
-		<?php if (!empty($data['error'])): ?>
-			<div class="mb-5 rounded-lg border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm">
-				<?php echo htmlspecialchars($data['error']); ?>
-			</div>
-		<?php endif; ?>
-
-		<form action="/register" method="POST" class="space-y-5">
-			<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($data['csrf_token']); ?>">
-
-			<div>
-				<label for="username" class="block text-sm font-semibold text-gray-700 mb-1">Username</label>
-				<input type="text" name="username" id="username" value="<?php echo htmlspecialchars($data['old_username'] ?? ''); ?>" required
-				       class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm
-                              focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-green-800">
+		<div class="rounded-3xl bg-white p-6 shadow-xl md:p-8">
+			<div class="mb-6">
+				<h2 class="text-3xl font-black text-gray-950">Registrati</h2>
+				<p class="mt-2 text-sm leading-6 text-gray-600">
+					Compila i campi qui sotto. Ti servirà una email valida per confermare l'account.
+				</p>
 			</div>
 
-			<div>
-				<label for="email" class="block text-sm font-semibold text-gray-700 mb-1">Email</label>
-				<input type="email" name="email" id="email" value="<?php echo htmlspecialchars($data['old_email'] ?? ''); ?>" required
-				       class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm
-                              focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-green-800">
-			</div>
+			<?php if (!empty($data['success'])): ?>
+				<div class="mb-5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+					<?php echo htmlspecialchars($data['success'], ENT_QUOTES, 'UTF-8'); ?>
+				</div>
+			<?php endif; ?>
 
-			<div class="relative">
-				<label for="password" class="block text-sm font-semibold text-gray-700 mb-1">Password</label>
-				<input type="password" name="password" id="password" required
-				       class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm
-                              focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-green-800">
-				<button type="button" id="toggle-password" class="absolute right-2 top-9 text-gray-500 text-sm">
-					Mostra
+			<?php if (!empty($errors)): ?>
+				<div class="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+					<p class="font-semibold">Controlla questi campi:</p>
+					<ul class="mt-2 list-disc space-y-1 pl-5">
+						<?php foreach ($errors as $error): ?>
+							<li><?php echo htmlspecialchars((string) $error, ENT_QUOTES, 'UTF-8'); ?></li>
+						<?php endforeach; ?>
+					</ul>
+				</div>
+			<?php endif; ?>
+
+			<form action="/register" method="POST" class="space-y-5">
+				<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string) ($data['csrf_token'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
+
+				<div>
+					<label for="username" class="block text-sm font-semibold text-gray-800">Username</label>
+					<p class="mt-1 text-xs text-gray-500">Scegli un nome pubblico, senza spazi, che ti rappresenti nella community.</p>
+					<input type="text" name="username" id="username" value="<?php echo htmlspecialchars((string) ($old['username'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" required autocomplete="username" maxlength="50"
+					       class="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm shadow-sm focus:border-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-200">
+				</div>
+
+				<div>
+					<label for="email" class="block text-sm font-semibold text-gray-800">Email</label>
+					<p class="mt-1 text-xs text-gray-500">Usala per la verifica dell'account e per eventuali comunicazioni importanti.</p>
+					<input type="email" name="email" id="email" value="<?php echo htmlspecialchars((string) ($old['email'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" required autocomplete="email" inputmode="email"
+					       class="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm shadow-sm focus:border-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-200">
+				</div>
+
+				<div class="relative">
+					<label for="password" class="block text-sm font-semibold text-gray-800">Password</label>
+					<p class="mt-1 text-xs text-gray-500">Minimo 8 caratteri. Usa una password unica e sicura.</p>
+					<input type="password" name="password" id="password" required autocomplete="new-password" minlength="8"
+					       class="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 pr-20 text-sm shadow-sm focus:border-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-200">
+					<button type="button" id="toggle-password" class="absolute right-3 top-[3.1rem] rounded-full px-3 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-300">
+						Mostra
+					</button>
+				</div>
+
+				<div class="relative">
+					<label for="password_confirm" class="block text-sm font-semibold text-gray-800">Conferma password</label>
+					<p class="mt-1 text-xs text-gray-500">Serve a evitare errori di digitazione.</p>
+					<input type="password" name="password_confirm" id="password_confirm" required autocomplete="new-password" minlength="8"
+					       class="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 pr-20 text-sm shadow-sm focus:border-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-200">
+					<button type="button" id="toggle-password-confirm" class="absolute right-3 top-[3.1rem] rounded-full px-3 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-300">
+						Mostra
+					</button>
+				</div>
+
+				<div class="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+					<label class="flex cursor-pointer items-start gap-3 text-sm text-gray-700" for="privacy_accept">
+						<input type="checkbox" id="privacy_accept" name="privacy_accept" value="1" required
+						       class="mt-1 h-4 w-4 rounded border-gray-300 text-emerald-800 focus:ring-emerald-300">
+						<span>
+							Dichiaro di aver letto e accetto l'
+							<a href="/privacy" target="_blank" rel="noopener noreferrer" class="font-semibold text-emerald-800 hover:text-emerald-900 hover:underline">
+								informativa privacy
+							</a>
+							e acconsento al trattamento dei dati necessari alla registrazione.
+						</span>
+					</label>
+					<p class="mt-2 text-xs leading-5 text-gray-500">
+						Il consenso è richiesto per creare l'account e gestire la tua registrazione in sicurezza.
+					</p>
+				</div>
+
+				<div class="rounded-2xl border border-blue-200 bg-blue-50 p-4">
+					<label class="flex cursor-pointer items-start gap-3 text-sm text-gray-700" for="age_declaration">
+						<input type="checkbox" id="age_declaration" name="age_declaration" value="1" required
+						       <?php echo !empty($old['age_declaration']) ? 'checked' : ''; ?>
+						       class="mt-1 h-4 w-4 rounded border-gray-300 text-blue-800 focus:ring-blue-300">
+						<span>
+							Dichiaro di avere almeno 18 anni e di poter creare un account su ItalianCosplay.
+						</span>
+					</label>
+					<p class="mt-2 text-xs leading-5 text-gray-500">
+						Questa dichiarazione è separata dal consenso privacy ed è obbligatoria per completare la registrazione.
+					</p>
+				</div>
+
+				<div class="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+					<label class="flex cursor-pointer items-start gap-3 text-sm text-gray-700" for="newsletter_opt_in">
+						<input type="checkbox" id="newsletter_opt_in" name="newsletter_opt_in" value="1"
+						       <?php echo !empty($old['newsletter_opt_in']) ? 'checked' : ''; ?>
+						       class="mt-1 h-4 w-4 rounded border-gray-300 text-amber-700 focus:ring-amber-300">
+						<span>
+							Voglio ricevere in futuro email con novità, eventi in evidenza e aggiornamenti editoriali da ItalianCosplay.
+						</span>
+					</label>
+					<p class="mt-2 text-xs leading-5 text-gray-500">
+						Opzione facoltativa: non influenza la creazione dell'account e non è necessaria per registrarti.
+					</p>
+				</div>
+
+				<button type="submit" class="w-full rounded-xl bg-emerald-800 px-4 py-3.5 text-base font-bold text-white shadow-lg transition hover:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:ring-offset-2">
+					Crea account
 				</button>
-			</div>
 
-			<div class="relative">
-				<label for="password_confirm" class="block text-sm font-semibold text-gray-700 mb-1">Conferma Password</label>
-				<input type="password" name="password_confirm" id="password_confirm" required
-				       class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm
-                              focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-green-800">
-				<button type="button" id="toggle-password-confirm" class="absolute right-2 top-9 text-gray-500 text-sm">
-					Mostra
-				</button>
-			</div>
-
-			<button type="submit"
-			        class="w-full bg-green-800 hover:bg-green-900 text-white font-semibold py-2.5 rounded-lg transition duration-200">
-				Registrati
-			</button>
-
-			<div class="text-center text-sm text-gray-600 pt-2">
-				Hai già un account?
-				<a href="/login" class="font-medium text-green-800 hover:text-green-900 hover:underline">Accedi qui</a>
-			</div>
-		</form>
+				<p class="text-center text-sm text-gray-600">
+					Hai già un account?
+					<a href="/login" class="font-semibold text-emerald-800 hover:text-emerald-900 hover:underline">Accedi qui</a>
+				</p>
+			</form>
+		</div>
 	</div>
-</div>
+</section>
 
 <script>
-	document.addEventListener('DOMContentLoaded', function() {
-		const password = document.getElementById('password');
-		const toggle = document.getElementById('toggle-password');
+	document.addEventListener('DOMContentLoaded', function () {
+		const toggleVisibility = (inputId, buttonId) => {
+			const input = document.getElementById(inputId);
+			const button = document.getElementById(buttonId);
 
-		const passwordConfirm = document.getElementById('password_confirm');
-		const toggleConfirm = document.getElementById('toggle-password-confirm');
+			if (!input || !button) {
+				return;
+			}
 
-		toggle.addEventListener('click', function() {
-			const type = password.type === 'password' ? 'text' : 'password';
-			password.type = type;
-			toggle.textContent = type === 'password' ? 'Mostra' : 'Nascondi';
-		});
+			button.addEventListener('click', function () {
+				const type = input.type === 'password' ? 'text' : 'password';
+				input.type = type;
+				button.textContent = type === 'password' ? 'Mostra' : 'Nascondi';
+			});
+		};
 
-		toggleConfirm.addEventListener('click', function() {
-			const type = passwordConfirm.type === 'password' ? 'text' : 'password';
-			passwordConfirm.type = type;
-			toggleConfirm.textContent = type === 'password' ? 'Mostra' : 'Nascondi';
-		});
+		toggleVisibility('password', 'toggle-password');
+		toggleVisibility('password_confirm', 'toggle-password-confirm');
 	});
 </script>

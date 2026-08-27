@@ -3,16 +3,19 @@
 namespace App\Services;
 
 use App\Models\AdBanner;
+use App\Repositories\AdCampaignRepository;
 use App\Repositories\AdBannerRepository;
 use Exception;
 
 class AdBannerService
 {
 	private AdBannerRepository $bannerRepository;
+	private AdCampaignRepository $campaignRepository;
 
 	public function __construct()
 	{
 		$this->bannerRepository = new AdBannerRepository();
+		$this->campaignRepository = new AdCampaignRepository();
 	}
 
 	/**
@@ -39,6 +42,9 @@ class AdBannerService
 		$this->validateBaseData($data);
 
 		$imagePath = $this->handleImageUpload($data['image']);
+		$mobileImagePath = !empty($data['mobile_image'])
+			? $this->handleImageUpload($data['mobile_image'])
+			: null;
 
 		if (!$imagePath) {
 			throw new Exception("Errore upload immagine banner.");
@@ -49,10 +55,11 @@ class AdBannerService
 			'title'      => $data['title'],
 			'target_url' => $data['target_url'],
 			'type'       => $data['type'] ?? 'sponsor',
-			'image_path' => $imagePath
+			'image_path' => $imagePath,
+			'mobile_image_path' => $mobileImagePath,
 		]);
 
-		return $this->bannerRepository->create($banner);
+		return $this->bannerRepository->create($banner->toArray());
 	}
 
 	/**
@@ -74,6 +81,11 @@ class AdBannerService
 			$imagePath = $this->handleImageUpload($data['image']);
 		}
 
+		$mobileImagePath = null;
+		if (!empty($data['mobile_image'])) {
+			$mobileImagePath = $this->handleImageUpload($data['mobile_image']);
+		}
+
 		$updateData = [
 			'title'      => $data['title'],
 			'target_url' => $data['target_url'],
@@ -82,6 +94,9 @@ class AdBannerService
 
 		if ($imagePath) {
 			$updateData['image_path'] = $imagePath;
+		}
+		if ($mobileImagePath) {
+			$updateData['mobile_image_path'] = $mobileImagePath;
 		}
 
 		return $this->bannerRepository->update($id, $updateData);
@@ -92,6 +107,24 @@ class AdBannerService
 	 */
 	public function delete(int $id): bool
 	{
+		$banner = $this->bannerRepository->findById($id);
+
+		if (!$banner) {
+			throw new Exception('Banner non trovato.');
+		}
+
+		$campaigns = $this->campaignRepository->findByBannerId($id);
+
+		if (!empty($campaigns)) {
+			$status = (string)($campaigns[0]['status'] ?? '');
+
+			if ($status === 'active' || str_starts_with($status, 'pending')) {
+				throw new Exception('Non puoi eliminare questo banner: è collegato a una campagna attiva o in attesa di approvazione.');
+			}
+
+			throw new Exception('Non puoi eliminare questo banner: è già collegato a una campagna. Devi prima rimuovere o archiviare la campagna associata.');
+		}
+
 		return $this->bannerRepository->delete($id);
 	}
 
@@ -134,7 +167,7 @@ class AdBannerService
 		}
 
 		$ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-		$base = uniqid('banner_');
+		$base = 'banner_' . bin2hex(random_bytes(8));
 
 		$original = $base . '.' . $ext;
 		$webp     = $base . '.webp';
@@ -148,7 +181,9 @@ class AdBannerService
 			throw new Exception("Errore upload file.");
 		}
 
-		$this->convertToWebP($originalPath, $webpPath);
+		if (!$this->convertToWebP($originalPath, $webpPath)) {
+			throw new Exception("Errore conversione immagine banner.");
+		}
 
 		return '/public_assets/uploads/banners/' . $webp;
 	}

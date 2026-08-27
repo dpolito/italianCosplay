@@ -1,12 +1,17 @@
 <?php
 // Questo file è un frammento di HTML e deve essere incluso in un layout pubblico.
 // Non contiene i tag <html>, <head>, <body> completi.
+?>
+
+<?php
 
 $breadcrumbs = $data['breadcrumbs'] ?? [];
 $event = $data['event'] ?? null;
 $similarEvents = $data['similarEvents'] ?? ($similarEvents ?? []);
+$hasVisibleMaster = !empty($data['hasVisibleMaster']);
 $eventsBaseUrl = rtrim(URL_ROOT_SITE, '/') . '/eventi-cosplay';
 $siteBaseUrl = rtrim(URL_ROOT_SITE, '/');
+$featureFlags = (new \App\Services\SiteFeatureFlagService())->getEnabledMap();
 
 if (!function_exists('event_show_absolute_url')) {
 	function event_show_absolute_url(?string $url, string $siteBaseUrl): string
@@ -117,7 +122,8 @@ if (!function_exists('event_show_region_url')) {
 		: '#';
 	$shareText = trim($eventTitle . ($cityName ? ' a ' . $cityName : '') . ($eventYear ? ' ' . $eventYear : ''));
 	$shareUrlEncoded = rawurlencode($eventUrl);
-	$shareTextEncoded = rawurlencode($shareText);
+		$shareTextEncoded = rawurlencode($shareText);
+		$selectedPortfolioIds = array_map(static fn (array $selection): int => (int) ($selection['portfolio_id'] ?? 0), $cosplaySelections ?? []);
 
 	$schema = [
 		'@context' => 'https://schema.org',
@@ -183,6 +189,48 @@ if (!function_exists('event_show_region_url')) {
 				color: #333 !important;
 				background-color: #ddd;
 			}
+
+			.event-description {
+				min-width: 0;
+				overflow-wrap: anywhere;
+				word-break: break-word;
+			}
+
+			.event-description.is-collapsed {
+				display: -webkit-box;
+				overflow: hidden;
+				-webkit-box-orient: vertical;
+				-webkit-line-clamp: 10;
+			}
+
+			.event-description-toggle {
+				display: none;
+			}
+
+			@media (max-width: 767px) {
+				.event-description-toggle {
+					display: inline-flex;
+				}
+			}
+
+			.event-description img,
+			.event-description video,
+			.event-description iframe,
+			.event-description table {
+				max-width: 100%;
+			}
+
+			.event-description table {
+				display: block;
+				overflow-x: auto;
+			}
+
+			.event-description pre {
+				max-width: 100%;
+				overflow-x: auto;
+				white-space: pre-wrap;
+				word-break: break-word;
+			}
 		</style>
 	<?php endif; ?>
 
@@ -207,6 +255,8 @@ if (!function_exists('event_show_region_url')) {
 					<?php endforeach; ?>
 				</ol>
 			</nav>
+
+			<?php echo \App\Helpers\AdPlacement::render('event_header_sidebar', 'event_detail', 'mb-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md'); ?>
 
 			<article class="overflow-hidden rounded-xl bg-white shadow-lg">
 				<header class="grid gap-0 lg:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
@@ -276,9 +326,18 @@ if (!function_exists('event_show_region_url')) {
 							<h2 id="descrizione-evento" class="mb-4 text-2xl font-bold text-gray-900">
 								Descrizione evento
 							</h2>
-							<div class="prose max-w-none text-gray-800">
+							<div id="descrizione-evento-contenuto" class="event-description is-collapsed prose min-w-0 max-w-none break-words overflow-hidden text-gray-800">
 								<?php echo $event['descrizione'] ?? ''; ?>
 							</div>
+							<button
+								type="button"
+								class="event-description-toggle mt-4 items-center rounded-lg border border-green-800 px-4 py-2 font-semibold text-green-900 transition hover:bg-green-50"
+								data-description-toggle
+								aria-controls="descrizione-evento-contenuto"
+								aria-expanded="false"
+							>
+								Mostra di più
+							</button>
 
 							<p class="mt-5 text-gray-700">
 								Consulta anche la lista degli
@@ -287,6 +346,50 @@ if (!function_exists('event_show_region_url')) {
 								<a href="<?php echo htmlspecialchars($regionUrl, ENT_QUOTES, 'UTF-8'); ?>" class="font-semibold text-green-900 hover:underline">eventi cosplay in <?php echo htmlspecialchars($regionName ?: 'questa regione', ENT_QUOTES, 'UTF-8'); ?></a>.
 							</p>
 						</section>
+
+						<?php echo \App\Helpers\AdPlacement::render('event_after_description', 'event_detail', 'overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md'); ?>
+
+						<?php if (!empty($similarEvents)): ?>
+							<section aria-labelledby="eventi-correlati">
+								<h2 id="eventi-correlati" class="mb-5 text-2xl font-bold text-gray-900">
+									Eventi correlati
+								</h2>
+								<div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+									<?php foreach ($similarEvents as $similarEvent): ?>
+										<?php
+										$similarImage = event_show_absolute_url($similarEvent['immagine'] ?? '', $siteBaseUrl);
+										$similarTitle = $similarEvent['titolo'] ?? 'Evento cosplay';
+										$similarUrl = $eventsBaseUrl . '/' . rawurlencode((string)($similarEvent['slug'] ?? ''));
+										$similarDate = event_show_format_date($similarEvent['data_inizio'] ?? '');
+										$similarPlace = trim((string)($similarEvent['luogo'] ?? ''));
+										?>
+										<article class="min-w-0 overflow-hidden rounded-lg border border-gray-100 bg-white shadow-md transition hover:shadow-lg">
+											<a href="<?php echo htmlspecialchars($similarUrl, ENT_QUOTES, 'UTF-8'); ?>" title="<?php echo htmlspecialchars($similarTitle . ' evento cosplay', ENT_QUOTES, 'UTF-8'); ?>">
+												<?php if (!empty($similarImage)): ?>
+													<img
+															src="<?php echo htmlspecialchars($similarImage, ENT_QUOTES, 'UTF-8'); ?>"
+															class="h-40 w-full object-cover"
+															loading="lazy"
+															alt="<?php echo htmlspecialchars($similarTitle . ' evento cosplay', ENT_QUOTES, 'UTF-8'); ?>"
+													>
+												<?php endif; ?>
+												<div class="min-w-0 p-4">
+													<h3 class="mb-2 break-words text-lg font-bold text-gray-900">
+														<?php echo htmlspecialchars($similarTitle, ENT_QUOTES, 'UTF-8'); ?>
+													</h3>
+													<?php if ($similarDate): ?>
+														<p class="break-words text-sm text-gray-600">Data: <?php echo htmlspecialchars($similarDate, ENT_QUOTES, 'UTF-8'); ?></p>
+													<?php endif; ?>
+													<?php if ($similarPlace): ?>
+														<p class="mt-1 break-words text-sm text-gray-600">Luogo: <?php echo htmlspecialchars($similarPlace, ENT_QUOTES, 'UTF-8'); ?></p>
+													<?php endif; ?>
+												</div>
+											</a>
+										</article>
+									<?php endforeach; ?>
+								</div>
+							</section>
+						<?php endif; ?>
 
 						<?php if (!empty($event['latitudine']) && !empty($event['longitudine'])): ?>
 							<section aria-labelledby="mappa-evento">
@@ -312,42 +415,132 @@ if (!function_exists('event_show_region_url')) {
 							</section>
 						<?php endif; ?>
 
-						<?php if (!empty($similarEvents)): ?>
-							<section aria-labelledby="eventi-correlati">
-								<h2 id="eventi-correlati" class="mb-5 text-2xl font-bold text-gray-900">
-									Eventi correlati
-								</h2>
-								<div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-									<?php foreach ($similarEvents as $similarEvent): ?>
+						<?php echo \App\Helpers\AdPlacement::render('event_related_bottom', 'event_detail', 'overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md'); ?>
+
+						<?php if (!empty($publicCosplaySelections)): ?>
+							<section class="rounded-2xl border border-fuchsia-200 bg-fuchsia-50 p-5" aria-labelledby="cosplay-evento-pubblico">
+								<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+									<div>
+										<h2 id="cosplay-evento-pubblico" class="text-2xl font-bold text-gray-900">
+											Cosplay segnalati dagli utenti
+										</h2>
+										<p class="mt-1 text-sm text-gray-700">
+											Chi ha già detto che parteciperà o che forse ci sarà.
+										</p>
+									</div>
+									<span class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-fuchsia-800 shadow-sm">
+										<?php echo (int) count($publicCosplaySelections); ?> segnalazioni
+									</span>
+								</div>
+
+								<details class="rounded-2xl border border-fuchsia-200 bg-white p-4 shadow-sm">
+									<summary class="cursor-pointer list-none text-sm font-bold text-fuchsia-900">
+										Mostra / nascondi cosplay
+									</summary>
+									<div class="mt-4 space-y-5">
 										<?php
-										$similarImage = event_show_absolute_url($similarEvent['immagine'] ?? '', $siteBaseUrl);
-										$similarTitle = $similarEvent['titolo'] ?? 'Evento cosplay';
-										$similarUrl = $eventsBaseUrl . '/' . rawurlencode((string)($similarEvent['slug'] ?? ''));
-										$similarDate = event_show_format_date($similarEvent['data_inizio'] ?? '');
-										$similarPlace = trim((string)($similarEvent['luogo'] ?? ''));
+										$groupedSelections = [
+											'porterò' => [],
+											'forse' => [],
+										];
+										foreach ($publicCosplaySelections as $publicSelection) {
+											$statusKey = (($publicSelection['status'] ?? '') === 'forse') ? 'forse' : 'porterò';
+											$groupedSelections[$statusKey][] = $publicSelection;
+										}
+										$statusLabels = [
+											'porterò' => 'Porterò',
+											'forse' => 'Forse vado',
+										];
 										?>
-										<article class="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-md transition hover:shadow-lg">
-											<a href="<?php echo htmlspecialchars($similarUrl, ENT_QUOTES, 'UTF-8'); ?>" title="<?php echo htmlspecialchars($similarTitle . ' evento cosplay', ENT_QUOTES, 'UTF-8'); ?>">
-												<?php if (!empty($similarImage)): ?>
-													<img
-															src="<?php echo htmlspecialchars($similarImage, ENT_QUOTES, 'UTF-8'); ?>"
-															class="h-40 w-full object-cover"
-															loading="lazy"
-															alt="<?php echo htmlspecialchars($similarTitle . ' evento cosplay', ENT_QUOTES, 'UTF-8'); ?>"
-													>
-												<?php endif; ?>
-												<div class="p-4">
-													<h3 class="mb-2 text-lg font-bold text-gray-900">
-														<?php echo htmlspecialchars($similarTitle, ENT_QUOTES, 'UTF-8'); ?>
-													</h3>
-													<?php if ($similarDate): ?>
-														<p class="text-sm text-gray-600">Data: <?php echo htmlspecialchars($similarDate, ENT_QUOTES, 'UTF-8'); ?></p>
-													<?php endif; ?>
-													<?php if ($similarPlace): ?>
-														<p class="mt-1 text-sm text-gray-600">Luogo: <?php echo htmlspecialchars($similarPlace, ENT_QUOTES, 'UTF-8'); ?></p>
-													<?php endif; ?>
+										<?php foreach ($groupedSelections as $statusKey => $items): ?>
+											<div>
+												<div class="mb-3 flex items-center justify-between gap-3">
+													<h3 class="text-sm font-bold uppercase tracking-wide text-gray-700"><?php echo htmlspecialchars($statusLabels[$statusKey], ENT_QUOTES, 'UTF-8'); ?></h3>
+													<span class="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600"><?php echo (int) count($items); ?></span>
 												</div>
-											</a>
+												<?php if (!empty($items)): ?>
+													<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+														<?php foreach ($items as $publicSelection): ?>
+															<?php
+															$publicLabel = trim((string) ($publicSelection['custom_name'] ?? ''));
+															if ($publicLabel === '') {
+																$publicLabel = trim((string) ($publicSelection['name_full'] ?? 'Cosplay'));
+															}
+															$publicUser = trim((string) ($publicSelection['username'] ?? ''));
+															$publicImage = trim((string) ($publicSelection['reference_image'] ?? ''));
+															if ($publicImage === '') {
+																$publicImage = trim((string) ($publicSelection['image_large'] ?? ''));
+															}
+															$publicImageUrl = $publicImage !== '' ? (preg_match('/^https?:\\/\\//i', $publicImage) ? $publicImage : (URL_ROOT_SITE . '/public_assets/' . ltrim($publicImage, '/'))) : '';
+															?>
+															<div class="overflow-hidden rounded-2xl border border-fuchsia-100 bg-white shadow-sm">
+																<div class="aspect-[4/3] bg-gray-100">
+																	<?php if (!empty($publicImageUrl)): ?>
+																		<img src="<?php echo htmlspecialchars($publicImageUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($publicLabel, ENT_QUOTES, 'UTF-8'); ?>" class="h-full w-full object-cover">
+																	<?php else: ?>
+																		<div class="flex h-full items-center justify-center text-sm font-semibold text-gray-400">Nessuna immagine</div>
+																	<?php endif; ?>
+																</div>
+														<div class="space-y-2 p-4">
+															<p class="text-base font-bold text-gray-900"><?php echo htmlspecialchars($publicLabel, ENT_QUOTES, 'UTF-8'); ?></p>
+															<p class="text-sm text-gray-600">
+																di
+																<?php if (!empty($featureFlags['enable_public_profiles']) && $publicUser !== ''): ?>
+																	<a href="<?php echo htmlspecialchars(URL_ROOT_SITE . '/u/' . rawurlencode($publicUser), ENT_QUOTES, 'UTF-8'); ?>" class="font-semibold text-fuchsia-900 hover:underline">
+																		@<?php echo htmlspecialchars($publicUser, ENT_QUOTES, 'UTF-8'); ?>
+																	</a>
+																<?php else: ?>
+																	<span class="font-semibold text-gray-700"><?php echo htmlspecialchars($publicUser !== '' ? '@' . $publicUser : 'utente', ENT_QUOTES, 'UTF-8'); ?></span>
+																<?php endif; ?>
+															</p>
+														</div>
+													</div>
+												<?php endforeach; ?>
+													</div>
+												<?php else: ?>
+													<p class="text-sm text-gray-600">Nessun cosplay segnalato per questo stato.</p>
+												<?php endif; ?>
+											</div>
+										<?php endforeach; ?>
+									</div>
+								</details>
+							</section>
+						<?php endif; ?>
+
+						<?php if (!empty($eventMaster) && !empty($eventMasterEvents)): ?>
+							<section aria-labelledby="altre-edizioni">
+								<div class="mb-4 flex items-center justify-between gap-3">
+									<h2 id="altre-edizioni" class="text-2xl font-bold text-gray-900">
+										Altre edizioni dello stesso evento
+									</h2>
+									<?php if ($hasVisibleMaster): ?>
+										<a href="<?php echo htmlspecialchars(URL_ROOT_SITE . '/eventi-master/' . $eventMaster['slug'], ENT_QUOTES, 'UTF-8'); ?>" class="text-sm font-semibold text-green-900 hover:underline">
+											Vedi pagina master
+										</a>
+									<?php endif; ?>
+								</div>
+								<div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+									<?php foreach ($eventMasterEvents as $masterEvent): ?>
+										<?php
+										$masterEventTitle = $masterEvent['titolo'] ?? 'Evento cosplay';
+										$masterEventUrl = $eventsBaseUrl . '/' . rawurlencode((string)($masterEvent['slug'] ?? ''));
+										$masterEventDate = event_show_format_date($masterEvent['data_inizio'] ?? '');
+										$masterEventYear = !empty($masterEvent['year']) ? (string) $masterEvent['year'] : '';
+										?>
+										<article class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
+											<h3 class="text-lg font-bold text-gray-900">
+												<a href="<?php echo htmlspecialchars($masterEventUrl, ENT_QUOTES, 'UTF-8'); ?>" class="hover:text-green-900">
+													<?php echo htmlspecialchars($masterEventTitle, ENT_QUOTES, 'UTF-8'); ?>
+												</a>
+											</h3>
+											<p class="mt-2 text-sm text-gray-600">
+												<?php echo htmlspecialchars(trim($masterEventDate . ($masterEventYear ? ' - ' . $masterEventYear : '')), ENT_QUOTES, 'UTF-8'); ?>
+											</p>
+											<?php if (!empty($masterEvent['luogo'])): ?>
+												<p class="mt-1 text-sm text-gray-600">
+													Luogo: <?php echo htmlspecialchars($masterEvent['luogo'], ENT_QUOTES, 'UTF-8'); ?>
+												</p>
+											<?php endif; ?>
 										</article>
 									<?php endforeach; ?>
 								</div>
@@ -476,6 +669,165 @@ if (!function_exists('event_show_region_url')) {
 							</p>
 						</section>
 
+						<?php if (!empty($featureFlags['enable_favorites'])): ?>
+						<section class="rounded-xl border border-amber-200 bg-amber-50 p-5" aria-labelledby="preferiti-evento">
+							<h2 id="preferiti-evento" class="mb-4 text-xl font-bold text-gray-900">
+								Preferiti
+							</h2>
+							<p class="mb-4 text-sm leading-relaxed text-gray-700">
+								Salva questo evento per ritrovarlo più velocemente nella tua dashboard.
+							</p>
+							<?php if (!empty($_SESSION['user_id'])): ?>
+								<form method="post" action="/dashboard/favorites/toggle" class="js-favorite-toggle space-y-3">
+									<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+									<input type="hidden" name="entity_type" value="<?php echo htmlspecialchars($favoriteEntityType ?? 'event', ENT_QUOTES, 'UTF-8'); ?>">
+									<input type="hidden" name="entity_id" value="<?php echo (int)($event['id'] ?? 0); ?>">
+									<input type="hidden" name="redirect_to" value="<?php echo htmlspecialchars($eventUrl, ENT_QUOTES, 'UTF-8'); ?>">
+									<button type="submit" class="js-favorite-button inline-flex w-full items-center justify-center gap-2 rounded-lg <?php echo !empty($isFavorited) ? 'bg-amber-800 text-white hover:bg-amber-900' : 'bg-white text-amber-900 hover:bg-amber-100'; ?> px-4 py-3 font-bold border border-amber-300 transition" data-label-add="Salva tra i preferiti" data-label-remove="Rimuovi dai preferiti" data-icon-add="fa-bookmark" data-icon-remove="fa-bookmark-slash" data-active="<?php echo !empty($isFavorited) ? '1' : '0'; ?>">
+										<i class="fa-solid <?php echo !empty($isFavorited) ? 'fa-bookmark-slash' : 'fa-bookmark'; ?>" aria-hidden="true"></i>
+										<span><?php echo !empty($isFavorited) ? 'Rimuovi dai preferiti' : 'Salva tra i preferiti'; ?></span>
+									</button>
+								</form>
+							<?php else: ?>
+								<a href="/login" class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-800 px-4 py-3 font-bold text-white hover:bg-amber-900">
+									Accedi per salvare
+								</a>
+							<?php endif; ?>
+						</section>
+						<?php endif; ?>
+
+						<?php if (!empty($featureFlags['enable_personal_agenda'])): ?>
+						<section class="rounded-xl border border-blue-200 bg-blue-50 p-5" aria-labelledby="agenda-evento">
+							<h2 id="agenda-evento" class="mb-4 text-xl font-bold text-gray-900">
+								Agenda personale
+							</h2>
+							<p class="mb-4 text-sm leading-relaxed text-gray-700">
+								Segna questo evento come intento personale. Il badge comparirà anche nella lista eventi e nella tua dashboard.
+							</p>
+							<?php if (!empty($_SESSION['user_id'])): ?>
+								<div class="grid gap-2">
+									<?php
+									$agendaOptions = [
+										'mi_interessa' => ['label' => 'Mi interessa', 'class' => 'border-blue-300 bg-white text-blue-900 hover:bg-blue-100'],
+										'ci_vado' => ['label' => 'Ci vado', 'class' => 'border-emerald-300 bg-white text-emerald-900 hover:bg-emerald-100'],
+										'forse_vado' => ['label' => 'Forse vado', 'class' => 'border-amber-300 bg-white text-amber-900 hover:bg-amber-100'],
+									];
+									?>
+									<?php foreach ($agendaOptions as $agendaValue => $agendaMeta): ?>
+										<form method="post" action="/eventi-cosplay/agenda/update" class="js-agenda-toggle">
+											<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+											<input type="hidden" name="event_id" value="<?php echo (int)($event['id'] ?? 0); ?>">
+											<input type="hidden" name="status" value="<?php echo htmlspecialchars($agendaValue, ENT_QUOTES, 'UTF-8'); ?>">
+											<input type="hidden" name="redirect_to" value="<?php echo htmlspecialchars($eventUrl, ENT_QUOTES, 'UTF-8'); ?>">
+											<button type="submit" class="js-agenda-button inline-flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-bold transition <?php echo !empty($agendaStatus) && $agendaStatus === $agendaValue ? 'border-green-700 bg-green-700 text-white' : $agendaMeta['class']; ?>" data-agenda-status="<?php echo htmlspecialchars($agendaValue, ENT_QUOTES, 'UTF-8'); ?>" data-active="<?php echo (!empty($agendaStatus) && $agendaStatus === $agendaValue) ? '1' : '0'; ?>">
+												<?php echo htmlspecialchars($agendaMeta['label'], ENT_QUOTES, 'UTF-8'); ?>
+											</button>
+										</form>
+									<?php endforeach; ?>
+								</div>
+								<?php if (!empty($agendaStatus)): ?>
+									<p class="mt-4 text-xs font-semibold uppercase tracking-wide text-blue-900" data-agenda-current>
+										Stato attuale: <?php echo htmlspecialchars(str_replace('_', ' ', $agendaStatus), ENT_QUOTES, 'UTF-8'); ?>
+									</p>
+								<?php endif; ?>
+							<?php else: ?>
+								<a href="/login" class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-800 px-4 py-3 font-bold text-white hover:bg-blue-900">
+									Accedi per aggiungerlo all’agenda
+								</a>
+							<?php endif; ?>
+						</section>
+						<?php endif; ?>
+
+						<?php if (!empty($featureFlags['enable_cosplay_portfolio'])): ?>
+						<section class="rounded-xl border border-fuchsia-200 bg-fuchsia-50 p-5" aria-labelledby="cosplay-evento" data-cosplay-selection-box>
+							<h2 id="cosplay-evento" class="mb-4 text-xl font-bold text-gray-900">
+								Porterò questo cosplay
+							</h2>
+							<p class="mb-4 text-sm leading-relaxed text-gray-700">
+								Scegli dal tuo portfolio il personaggio che porterai a questo evento.
+							</p>
+							<?php if (!empty($_SESSION['user_id'])): ?>
+								<?php if (!empty($cosplaySelections)): ?>
+									<div class="mb-4 space-y-2" data-cosplay-selection-summary>
+										<p class="text-sm font-semibold text-fuchsia-900">Cosplay già associati</p>
+										<?php foreach ($cosplaySelections as $selectionItem): ?>
+											<div class="flex items-center justify-between gap-3 rounded-xl border border-fuchsia-200 bg-white p-3" data-cosplay-selection-row data-portfolio-id="<?php echo (int) ($selectionItem['portfolio_id'] ?? 0); ?>">
+												<div class="min-w-0">
+													<p class="truncate text-sm font-semibold text-gray-900" data-cosplay-selection-label>
+													<?php echo htmlspecialchars($selectionItem['custom_name'] ?: ($selectionItem['name_full'] ?? 'Cosplay'), ENT_QUOTES, 'UTF-8'); ?>
+													</p>
+													<p class="text-xs font-semibold uppercase tracking-wide text-fuchsia-900" data-cosplay-selection-status>
+														<?php echo htmlspecialchars(($selectionItem['status'] ?? 'porterò') === 'forse' ? 'Forse lo porterò' : 'Porterò', ENT_QUOTES, 'UTF-8'); ?>
+													</p>
+												</div>
+												<form method="post" action="/dashboard/cosplay/event/remove" class="js-cosplay-event-remove" data-confirm="Vuoi rimuovere questo collegamento?">
+													<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+													<input type="hidden" name="event_id" value="<?php echo (int)($event['id'] ?? 0); ?>">
+													<input type="hidden" name="portfolio_id" value="<?php echo (int) ($selectionItem['portfolio_id'] ?? 0); ?>">
+													<input type="hidden" name="redirect_to" value="<?php echo htmlspecialchars($eventUrl, ENT_QUOTES, 'UTF-8'); ?>">
+													<button type="submit" class="inline-flex rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-800 hover:bg-red-100">
+														Rimuovi
+													</button>
+												</form>
+											</div>
+										<?php endforeach; ?>
+									</div>
+								<?php endif; ?>
+
+								<?php if (!empty($cosplayPortfolio)): ?>
+									<div class="space-y-3">
+										<p class="block text-sm font-bold text-gray-900">Aggiungi dal portfolio</p>
+										<div class="grid gap-3">
+											<?php foreach ($cosplayPortfolio as $cosplayItem): ?>
+												<?php $isAlreadySelected = in_array((int) $cosplayItem['id'], $selectedPortfolioIds, true); ?>
+												<form
+													method="post"
+													action="/dashboard/cosplay/event/save"
+													class="js-cosplay-event-save rounded-xl border border-gray-200 bg-white p-4 <?php echo $isAlreadySelected ? 'hidden' : ''; ?>"
+													data-portfolio-card
+													data-portfolio-id="<?php echo (int) $cosplayItem['id']; ?>"
+													data-cosplay-label="<?php echo htmlspecialchars($cosplayItem['custom_name'] ?: ($cosplayItem['name_full'] ?? 'Cosplay'), ENT_QUOTES, 'UTF-8'); ?>"
+												>
+													<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+													<input type="hidden" name="event_id" value="<?php echo (int)($event['id'] ?? 0); ?>">
+													<input type="hidden" name="portfolio_id" value="<?php echo (int) $cosplayItem['id']; ?>">
+													<input type="hidden" name="redirect_to" value="<?php echo htmlspecialchars($eventUrl, ENT_QUOTES, 'UTF-8'); ?>">
+													<div class="flex items-center justify-between gap-3">
+														<div>
+															<p class="text-sm font-semibold text-gray-900">
+																<?php echo htmlspecialchars($cosplayItem['custom_name'] ?: ($cosplayItem['name_full'] ?? 'Cosplay'), ENT_QUOTES, 'UTF-8'); ?>
+															</p>
+															<p class="text-xs text-gray-500">
+																<?php echo htmlspecialchars($cosplayItem['name_full'] ?: 'Personaggio Anilist', ENT_QUOTES, 'UTF-8'); ?>
+															</p>
+														</div>
+														<div class="flex flex-wrap gap-2">
+															<button type="submit" name="status" value="porterò" class="inline-flex items-center justify-center rounded-lg bg-fuchsia-800 px-4 py-3 text-sm font-bold text-white hover:bg-fuchsia-900">
+																Porterò
+															</button>
+															<button type="submit" name="status" value="forse" class="inline-flex items-center justify-center rounded-lg border border-fuchsia-300 bg-white px-4 py-3 text-sm font-bold text-fuchsia-900 hover:bg-fuchsia-100">
+																Forse
+															</button>
+														</div>
+													</div>
+												</form>
+											<?php endforeach; ?>
+										</div>
+									</div>
+								<?php else: ?>
+									<p class="text-sm text-gray-700">Non hai ancora un portfolio cosplay.</p>
+									<a href="/dashboard/cosplay" class="mt-3 inline-flex w-full items-center justify-center rounded-lg bg-fuchsia-800 px-4 py-3 font-bold text-white hover:bg-fuchsia-900">
+										Crea il portfolio
+									</a>
+								<?php endif; ?>
+							<?php else: ?>
+								<a href="/login" class="inline-flex w-full items-center justify-center rounded-lg bg-fuchsia-800 px-4 py-3 font-bold text-white hover:bg-fuchsia-900">
+									Accedi per collegare un cosplay
+								</a>
+							<?php endif; ?>
+						</section>
+						<?php endif; ?>
+
 						<?php
 						$socialLinks = [
 							'Facebook' => $event['social_facebook'] ?? '',
@@ -601,6 +953,194 @@ if (!function_exists('event_show_region_url')) {
 			});
 		</script>
 	<?php endif; ?>
+	<script>
+		document.addEventListener('DOMContentLoaded', function() {
+			const selectionBox = document.querySelector('[data-cosplay-selection-box]');
+			if (!selectionBox) {
+				return;
+			}
+			const eventId = <?php echo json_encode((int) ($event['id'] ?? 0)); ?>;
+			const eventUrl = <?php echo json_encode($eventUrl); ?>;
+
+			const showToast = (message, success = true) => {
+				let toast = document.getElementById('cosplay-event-toast');
+				if (!toast) {
+					toast = document.createElement('div');
+					toast.id = 'cosplay-event-toast';
+					toast.className = 'fixed bottom-5 right-5 z-50 rounded-xl px-4 py-3 text-sm font-bold shadow-xl opacity-0 transition-opacity';
+					document.body.appendChild(toast);
+				}
+
+				toast.className = `fixed bottom-5 right-5 z-50 rounded-xl px-4 py-3 text-sm font-bold shadow-xl transition-opacity ${success ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`;
+				toast.textContent = message;
+				toast.style.opacity = '1';
+				window.clearTimeout(toast._hideTimer);
+				toast._hideTimer = window.setTimeout(() => {
+					toast.style.opacity = '0';
+				}, 2200);
+			};
+
+			const getSummary = () => {
+				let summary = selectionBox.querySelector('[data-cosplay-selection-summary]');
+				if (!summary) {
+					summary = document.createElement('div');
+					summary.className = 'mb-4 space-y-2';
+					summary.dataset.cosplaySelectionSummary = '1';
+					summary.innerHTML = '<p class="text-sm font-semibold text-fuchsia-900">Cosplay già associati</p>';
+					selectionBox.prepend(summary);
+				}
+				return summary;
+			};
+
+			const renderSelections = (selections) => {
+				const selected = Array.isArray(selections) ? selections : [];
+				const selectedIds = new Set(selected.map((item) => String(item.portfolio_id || '')));
+
+				selectionBox.querySelectorAll('[data-portfolio-card]').forEach((form) => {
+					const portfolioId = String(form.dataset.portfolioId || '');
+					form.classList.toggle('hidden', selectedIds.has(portfolioId));
+				});
+
+				let summary = selectionBox.querySelector('[data-cosplay-selection-summary]');
+				if (selected.length === 0) {
+					summary?.remove();
+					return;
+				}
+
+				summary = getSummary();
+				summary.innerHTML = '<p class="text-sm font-semibold text-fuchsia-900">Cosplay già associati</p>';
+
+				selected.forEach((item) => {
+					const portfolioId = String(item.portfolio_id || '');
+					const label = item.custom_name || item.name_full || 'Cosplay';
+					const statusLabel = item.status === 'forse' ? 'Forse lo porterò' : 'Porterò';
+					const row = document.createElement('div');
+					row.className = 'flex items-center justify-between gap-3 rounded-xl border border-fuchsia-200 bg-white p-3';
+					row.dataset.cosplaySelectionRow = '1';
+					row.dataset.portfolioId = portfolioId;
+
+					const textWrap = document.createElement('div');
+					textWrap.className = 'min-w-0';
+
+					const text = document.createElement('p');
+					text.className = 'truncate text-sm font-semibold text-gray-900';
+					text.dataset.cosplaySelectionLabel = '1';
+					text.textContent = label;
+
+					const status = document.createElement('p');
+					status.className = 'text-xs font-semibold uppercase tracking-wide text-fuchsia-900';
+					status.dataset.cosplaySelectionStatus = '1';
+					status.textContent = statusLabel;
+
+					textWrap.appendChild(text);
+					textWrap.appendChild(status);
+
+					const removeForm = document.createElement('form');
+					removeForm.method = 'post';
+					removeForm.action = '/dashboard/cosplay/event/remove';
+					removeForm.className = 'js-cosplay-event-remove';
+					removeForm.dataset.confirm = 'Vuoi rimuovere questo collegamento?';
+
+					removeForm.innerHTML = `
+						<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+						<input type="hidden" name="event_id" value="${eventId}">
+						<input type="hidden" name="portfolio_id" value="${portfolioId}">
+						<input type="hidden" name="redirect_to" value="${eventUrl}">
+						<button type="submit" class="inline-flex rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-800 hover:bg-red-100">Rimuovi</button>
+					`;
+
+					row.appendChild(textWrap);
+					row.appendChild(removeForm);
+					summary.appendChild(row);
+				});
+			};
+
+			document.addEventListener('submit', async (event) => {
+				const form = event.target;
+				if (!(form instanceof HTMLFormElement) || (!form.classList.contains('js-cosplay-event-save') && !form.classList.contains('js-cosplay-event-remove'))) {
+					return;
+				}
+
+				event.preventDefault();
+
+				const formData = new FormData(form);
+				if (event.submitter instanceof HTMLButtonElement && event.submitter.name) {
+					formData.set(event.submitter.name, event.submitter.value);
+				}
+
+				const response = await fetch(form.action, {
+					method: 'POST',
+					headers: {
+						'X-Requested-With': 'XMLHttpRequest',
+						'Accept': 'application/json',
+					},
+					body: formData,
+				});
+
+				const data = await response.json().catch(() => ({}));
+				if (!response.ok || !data.success) {
+					showToast(data.message || 'Operazione non riuscita.', false);
+					return;
+				}
+
+				renderSelections(Array.isArray(data.selections) ? data.selections : (Array.isArray(data.selection) ? data.selection : []));
+				showToast(data.message || 'Operazione completata.');
+			});
+		});
+	</script>
+	<script>
+		document.addEventListener('DOMContentLoaded', function() {
+			const description = document.getElementById('descrizione-evento-contenuto');
+			const toggle = document.querySelector('[data-description-toggle]');
+			const mobileQuery = window.matchMedia('(max-width: 767px)');
+
+			if (!description || !toggle) {
+				return;
+			}
+
+			let expandedScrollPosition = null;
+
+			const syncDescriptionToggle = () => {
+				if (!mobileQuery.matches) {
+					description.classList.remove('is-collapsed');
+					toggle.hidden = true;
+					return;
+				}
+
+				toggle.hidden = description.scrollHeight <= description.clientHeight;
+			};
+
+			toggle.addEventListener('click', function() {
+				const currentScrollPosition = window.scrollY;
+				const wasExpanded = !description.classList.contains('is-collapsed');
+
+				if (!wasExpanded) {
+					expandedScrollPosition = currentScrollPosition;
+				}
+
+				const isExpanded = !description.classList.toggle('is-collapsed');
+				toggle.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+				toggle.textContent = isExpanded ? 'Mostra meno' : 'Mostra di più';
+
+				// Mantiene l'utente sul punto di lettura quando il contenuto cambia altezza.
+				window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+					const targetScrollPosition = wasExpanded && expandedScrollPosition !== null
+						? expandedScrollPosition
+						: currentScrollPosition;
+
+					toggle.blur();
+					window.scrollTo(0, targetScrollPosition);
+
+					if (wasExpanded) {
+						expandedScrollPosition = null;
+					}
+				}));
+			});
+
+			syncDescriptionToggle();
+			window.addEventListener('resize', syncDescriptionToggle);
+		});
+	</script>
 	<script>
 		document.addEventListener('DOMContentLoaded', function() {
 			const copyButton = document.querySelector('.js-copy-event-link');

@@ -75,7 +75,6 @@
 # Modulo di riscrittura URL (se non è già presente e necessario per il tuo routing)
 <IfModule mod_rewrite.c>
     RewriteEngine On
-
     # Reindirizza tutto il traffico a index.php (front controller pattern)
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d

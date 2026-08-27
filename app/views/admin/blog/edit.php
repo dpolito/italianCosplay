@@ -33,7 +33,9 @@
 		<form action="/admin/blog/update/<?= htmlspecialchars($data['post']['id']) ?>"
 		      method="POST"
 		      enctype="multipart/form-data"
-		      id="blogForm" >
+		      id="blogForm"
+		      data-ajax-submit="true"
+		      data-success-redirect="/admin/blog/edit/<?= htmlspecialchars($data['post']['id']) ?>" >
 
 			<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($data['csrf_token']) ?>">
 			<input type="hidden" name="id" value="<?= (int)$data['post']['id'] ?>">
@@ -94,16 +96,20 @@
 			<div class="mb-6">
 				<label class="block text-gray-700 text-sm font-bold mb-2">Meta Description</label>
 				<textarea name="meta_description"
+				          id="meta_description"
 				          rows="2"
-				          class="shadow border rounded-lg w-full py-2 px-3 focus:border-green-500"><?= htmlspecialchars($data['post']['meta_description']) ?></textarea>
+				          class="shadow border rounded-lg w-full py-2 px-3 focus:border-green-500"
+				><?= htmlspecialchars($data['post']['meta_description'] ?? '') ?></textarea>
 			</div>
 
 			<!-- ================= EXCERPT ================= -->
 			<div class="mb-6">
 				<label class="block text-gray-700 text-sm font-bold mb-2">Excerpt</label>
 				<textarea name="excerpt"
+				          id="excerpt"
 				          rows="3"
-				          class="shadow border rounded-lg w-full py-2 px-3 focus:border-green-500"><?= htmlspecialchars($data['post']['excerpt']) ?></textarea>
+				          class="shadow border rounded-lg w-full py-2 px-3 focus:border-green-500"
+				><?= htmlspecialchars($data['post']['excerpt'] ?? '') ?></textarea>
 			</div>
 
 			<!-- ================= EVENT LINK ================= -->
@@ -171,20 +177,8 @@
 
 			<!-- ================= CONTENT EDITOR ================= -->
 			<div class="mb-6">
-
-				<label class="block text-gray-700 text-sm font-bold mb-2">
-					Contenuto *
-				</label>
-				<input type="hidden" name="contenuto" id="contenuto">
-				<style>
-					.ck-editor__editable {
-						min-height: 70vh;
-					}
-				</style>
-				<div id="editor-wrapper" style="min-height: 600px;">
-					<div id="editor"></div>
-				</div>
-
+				<label class="block text-gray-700 text-sm font-bold mb-2">Contenuto *</label>
+				<div id="editor"></div>
 			</div>
 
 			<!-- ================= BUTTONS ================= -->
@@ -206,29 +200,12 @@
 	</div>
 </div>
 
-<!-- ================= JS ================= -->
-<script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js"></script>
+<script src="/public_assets/js/wysiwyg-editor.js"></script>
 <script>
-	ClassicEditor
-		.create(document.querySelector('#editor'))
-		.then(editor => {
-			window.editor = editor;
-
-			// carica contenuto iniziale
-			editor.setData(`<?= $data['post']['contenuto'] ?? '' ?>`);
-
-			// sync con hidden input
-			editor.model.document.on('change:data', () => {
-				document.querySelector('#contenuto').value = editor.getData();
-			});
-		})
-		.catch(error => {
-			console.error(error);
-		});
-</script>
-<script>
-	document.getElementById('blogForm').addEventListener('submit', function () {
-		document.querySelector('#contenuto').value = window.editor.getData();
+	WysiwygEditor.init('#editor', {
+		name: 'contenuto',
+		placeholder: 'Scrivi qui il tuo testo...',
+		content: <?php echo json_encode($data['post']['contenuto'] ?? '<p></p>', JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>
 	});
 </script>
 <script>
@@ -242,9 +219,6 @@
 		const seoTitle = document.getElementById('seoTitle');
 		const seoSlug = document.getElementById('seoSlug');
 		const seoDesc = document.getElementById('seoDesc');
-
-		const editor = document.getElementById('editor');
-		const textarea = document.getElementById('contenuto');
 
 		function makeSlug(str) {
 			return str

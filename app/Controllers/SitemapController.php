@@ -5,6 +5,7 @@ use App\Models\BlogCategory;
 use App\Models\BlogPost;
 use App\Models\Comune;
 use App\Models\Event;
+use App\Models\EventMaster;
 use App\Models\Provincia;
 use App\Models\Regione;
 use function date;
@@ -20,6 +21,7 @@ class SitemapController extends Controller
 	private Comune $comuneModel;
 	private BlogPost $blogPostModel;
 	private BlogCategory $blogCategoryModel;
+	private EventMaster $eventMasterModel;
 
 	public function __construct()
 	{
@@ -29,6 +31,7 @@ class SitemapController extends Controller
 		$this->comuneModel = new Comune();
 		$this->blogPostModel = new BlogPost();
 		$this->blogCategoryModel = new BlogCategory();
+		$this->eventMasterModel = new EventMaster();
 	}
 	public function index()
 	{
@@ -48,6 +51,7 @@ class SitemapController extends Controller
 		// EVENTS SITEMAP
 		// =========================
 		$xml .= $this->addSitemap($base . '/sitemap-events.xml');
+		$xml .= $this->addSitemap($base . '/sitemap-events-master.xml');
 
 		// =========================
 		// GEOGRAPHY SITEMAP
@@ -108,6 +112,34 @@ class SitemapController extends Controller
 				: date('Y-m-d');
 
 			$xml .= $this->addUrl($url, '0.8', $lastmod);
+		}
+
+		$xml .= '</urlset>';
+
+		echo $xml;
+	}
+
+	public function events_master()
+	{
+		header('Content-Type: application/xml; charset=utf-8');
+
+		$eventMasters = $this->eventMasterModel->getAll();
+
+		$xml  = '<?xml version="1.0" encoding="UTF-8"?>' . PHP_EOL;
+		$xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . PHP_EOL;
+
+		foreach ($eventMasters as $eventMaster) {
+			$eventCount = $this->eventMasterModel->countEvents((int) $eventMaster['id']);
+			if ($eventCount < 2) {
+				continue;
+			}
+
+			$url = 'https://www.italiancosplay.it/eventi-master/' . $eventMaster['slug'];
+			$lastmod = !empty($eventMaster['updated_at'])
+				? date('Y-m-d', strtotime($eventMaster['updated_at']))
+				: date('Y-m-d');
+
+			$xml .= $this->addUrl($url, '0.6', $lastmod);
 		}
 
 		$xml .= '</urlset>';

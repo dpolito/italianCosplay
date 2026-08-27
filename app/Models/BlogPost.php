@@ -145,6 +145,7 @@ LIMIT 5;");
 		$stmt = $this->db->prepare("
 		SELECT 
 			p.*,
+			 COALESCE(v.views, 0) AS total_views,
 			COALESCE(
 				i_medium.path,
 				i_thumb.path,
@@ -171,6 +172,11 @@ COALESCE(
 			) AS alt_text_image
 
 		FROM blog_posts p
+		    LEFT JOIN (
+            SELECT blog_post_id, SUM(views) AS views
+            FROM blog_post_views
+            GROUP BY blog_post_id
+        ) v ON v.blog_post_id = p.id
 
 		JOIN blog_categories pc 
 			ON pc.id = p.categoria_id
@@ -298,8 +304,15 @@ COALESCE(
 	public function getAll(): array
 	{
 		$stmt = $this->db->prepare("
-		SELECT bp.*
+		SELECT bp.*,COALESCE(v.views, 0) AS views
 		FROM blog_posts bp
+		 LEFT JOIN (
+            SELECT blog_post_id, SUM(views) AS views
+            FROM blog_post_views
+            GROUP BY blog_post_id
+        ) v ON v.blog_post_id = bp.id
+		
+		
 		WHERE bp.deleted_at IS NULL
 		ORDER BY bp.created_at DESC
 	");

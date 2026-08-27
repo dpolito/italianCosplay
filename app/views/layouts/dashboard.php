@@ -2,7 +2,26 @@
 // layouts/default.php
 // Non chiudere mai il tag PHP per evitare output prematuro
 
-use App\Models\User;$user = $user ?? [];
+use App\Models\User;
+use App\Services\CookiePolicyService;
+use App\Services\NotificationService;
+use App\Services\SiteFeatureFlagService;
+$user = $user ?? [];
+$featureFlags = (new SiteFeatureFlagService())->getEnabledMap();
+$cookiePolicy = (new CookiePolicyService())->getCurrentPolicy();
+$cookiePolicySummary = 'Questo sito utilizza cookie tecnici e, con il tuo consenso, cookie di profilazione e di terze parti.';
+if (!empty($cookiePolicy['content'])) {
+	$plainCookieContent = trim(preg_replace('/\s+/', ' ', strip_tags((string) $cookiePolicy['content'])));
+	if ($plainCookieContent !== '') {
+		$cookiePolicySummary = mb_strlen($plainCookieContent) > 220
+			? mb_substr($plainCookieContent, 0, 220) . '...'
+			: $plainCookieContent;
+	}
+}
+$notificationCount = 0;
+if (isset($_SESSION['user_id'])) {
+	$notificationCount = (new NotificationService())->getUnreadCount((int) $_SESSION['user_id']);
+}
 
 ?><!DOCTYPE html>
 <html lang="it">
@@ -11,8 +30,7 @@ use App\Models\User;$user = $user ?? [];
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<!-- Tailwind & Fonts -->
 	<link rel="stylesheet" href="/public_assets/css/tailwind.css">
-	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-	<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet">
+	<link href="/public_assets/vendor/fontawesome/css/all.min.css" rel="stylesheet">
 
 	<!-- Favicon -->
 	<link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -23,8 +41,24 @@ use App\Models\User;$user = $user ?? [];
 	<link href="/public_assets/cookie-banner.css" rel="stylesheet">
 
 	<style>
+		@font-face {
+			font-family: 'InterLocal';
+			font-style: normal;
+			font-weight: 300 700;
+			font-display: swap;
+			src: url('/public_assets/fonts/inter/Inter-Variable.ttf') format('truetype');
+		}
+
+		@font-face {
+			font-family: 'InterLocal';
+			font-style: italic;
+			font-weight: 300 700;
+			font-display: swap;
+			src: url('/public_assets/fonts/inter/Inter-Variable.ttf') format('truetype');
+		}
+
 		body {
-			font-family: 'Inter', sans-serif;
+			font-family: 'InterLocal', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 			background-color: #f3f4f6;
 			color: #333;
 		}
@@ -117,6 +151,18 @@ use App\Models\User;$user = $user ?? [];
 							<?php
 						}else{ ?>
 							<li><a href="/dashboard" class="text-black hover:text-gray-500 transition">La Mia Dashboard</a></li>
+							<?php if (!empty($featureFlags['enable_notifications'])): ?>
+								<li>
+									<a href="/dashboard/notifications" class="relative inline-flex items-center text-black hover:text-gray-500 transition" aria-label="Notifiche">
+										<i class="fa-solid fa-bell"></i>
+										<?php if ($notificationCount > 0): ?>
+											<span class="absolute -right-2 -top-2 inline-flex min-w-5 justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+												<?php echo (int) $notificationCount; ?>
+											</span>
+										<?php endif; ?>
+									</a>
+								</li>
+							<?php endif; ?>
 						<?php }} ?>
 					<li>
 						<form action="/logout" method="POST" class="inline">
@@ -148,6 +194,7 @@ use App\Models\User;$user = $user ?? [];
 
 
 </header>
+<div id="favorite-toast" class="fixed right-4 top-4 z-50 hidden rounded-xl bg-green-900 px-4 py-3 text-sm font-semibold text-white shadow-lg" role="status" aria-live="polite"></div>
 <div class="container mx-auto p-4 md:flex gap-6 relative">
 
 	<!-- SIDEBAR -->
@@ -203,7 +250,27 @@ use App\Models\User;$user = $user ?? [];
 			<a href="/dashboard/change_password" class="block px-4 py-2 rounded hover:bg-green-800 transition">Cambio Password</a>
 			<a href="/dashboard/avatar" class="block px-4 py-2 rounded hover:bg-green-800 transition">Cambio avatar</a>
 			<a href="/dashboard/cover" class="block px-4 py-2 rounded hover:bg-green-800 transition">Cambio Cover</a>
-			<a href="/dashboard/events" class="block px-4 py-2 rounded hover:bg-green-800 transition">I miei eventi</a>
+			<?php if (!empty($featureFlags['enable_favorites'])): ?>
+				<a href="/dashboard/favorites" class="block px-4 py-2 rounded hover:bg-green-800 transition">Preferiti</a>
+			<?php endif; ?>
+			<?php if (!empty($featureFlags['enable_cosplay_portfolio'])): ?>
+				<a href="/dashboard/cosplay" class="block px-4 py-2 rounded hover:bg-green-800 transition">Portfolio cosplay</a>
+			<?php endif; ?>
+			<?php if (!empty($featureFlags['enable_personal_agenda'])): ?>
+				<a href="/dashboard/events" class="block px-4 py-2 rounded hover:bg-green-800 transition">I miei eventi</a>
+			<?php endif; ?>
+			<?php if (!empty($featureFlags['enable_notifications'])): ?>
+				<a href="/dashboard/notifications" class="block px-4 py-2 rounded hover:bg-green-800 transition">Notifiche</a>
+			<?php endif; ?>
+			<?php if (!empty($featureFlags['enable_advertising'])): ?>
+				<div class="mt-4 pt-4 border-t border-green-800">
+					<p class="px-4 text-xs font-bold uppercase tracking-wide text-green-200">Advertising</p>
+					<a href="/dashboard/ads" class="mt-2 block px-4 py-2 rounded hover:bg-green-800 transition">Panoramica adv</a>
+					<a href="/dashboard/ads/campaigns" class="block px-4 py-2 rounded hover:bg-green-800 transition">Campagne</a>
+					<a href="/dashboard/ads/banners" class="block px-4 py-2 rounded hover:bg-green-800 transition">Banner</a>
+					<a href="/dashboard/ads/campaigns/create" class="block px-4 py-2 rounded hover:bg-green-800 transition">Compra spazio</a>
+				</div>
+			<?php endif; ?>
 			<a href="/dashboard/settings" class="block px-4 py-2 rounded hover:bg-green-800 transition">Impostazioni</a>
 		</nav>
 
@@ -233,12 +300,14 @@ use App\Models\User;$user = $user ?? [];
 <div id="cookie-banner">
 	<div class="cookie-banner-content">
 		<h3>Informativa sui Cookie</h3>
-		<p>Questo sito utilizza cookie tecnici e, con il tuo consenso, cookie di profilazione e di terze parti. <a href="/cookies">Leggi la policy</a>.</p>
+		<p><?php echo htmlspecialchars($cookiePolicySummary, ENT_QUOTES, 'UTF-8'); ?> <a href="/cookies">Leggi la policy</a>.</p>
 		<div class="cookie-options">
 			<h4>Personalizza</h4>
 			<label><input type="checkbox" id="consent-necessary" checked disabled> Necessari</label>
 			<label><input type="checkbox" id="consent-analytics" class="consent-choice"> Analitici</label>
-			<label><input type="checkbox" id="consent-marketing" class="consent-choice"> Marketing</label>
+			<?php if (!empty($featureFlags['enable_marketing'])): ?>
+				<label><input type="checkbox" id="consent-marketing" class="consent-choice"> Marketing</label>
+			<?php endif; ?>
 		</div>
 		<div class="cookie-actions">
 			<button id="btn-accept-selected">Accetta Selezionati</button>
@@ -247,13 +316,108 @@ use App\Models\User;$user = $user ?? [];
 	</div>
 </div>
 
-<script src="/public_assets/cookie-consent.js"></script>
 <script>
-	document.addEventListener('DOMContentLoaded', function(){
+	document.addEventListener('DOMContentLoaded', () => {
+		function getCookie(name) {
+			const value = `; ${document.cookie}`;
+			const parts = value.split(`; ${name}=`);
+			if (parts.length === 2) {
+				return parts.pop().split(';').shift();
+			}
+			return null;
+		}
+
+		const consentBanner = document.getElementById('cookie-banner');
+		const btnAcceptAll = document.getElementById('btn-accept-all');
+		const btnAcceptSelected = document.getElementById('btn-accept-selected');
+		const manageButton = document.getElementById('manage-consent');
+
+		function showConsentBanner() {
+			if (consentBanner) consentBanner.style.display = 'block';
+		}
+
+		function hideConsentBanner() {
+			if (consentBanner) consentBanner.style.display = 'none';
+		}
+
+		async function saveConsent(details) {
+			try {
+				const response = await fetch('/save-consent.php', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(details),
+				});
+
+				const result = await response.json();
+				if (result.status === 'success') {
+					hideConsentBanner();
+					activateScripts(details);
+				}
+			} catch (error) {
+				console.error('Errore di rete:', error);
+			}
+		}
+
+		function activateScripts(consentDetails) {
+			document.querySelectorAll('script[data-consent-category]').forEach((script) => {
+				const category = script.dataset.consentCategory;
+				if (consentDetails[category]) {
+					const newScript = document.createElement('script');
+					for (let i = 0; i < script.attributes.length; i++) {
+						const attr = script.attributes[i];
+						newScript.setAttribute(attr.name, attr.value);
+					}
+					newScript.type = 'text/javascript';
+					newScript.innerHTML = script.innerHTML;
+					script.parentNode.replaceChild(newScript, script);
+				}
+			});
+		}
+
+		const marketingEnabled = <?php echo !empty($featureFlags['enable_marketing']) ? 'true' : 'false'; ?>;
+
+		if (btnAcceptAll) {
+			btnAcceptAll.addEventListener('click', () => {
+				saveConsent({ analytics: true, marketing: marketingEnabled });
+			});
+		}
+
+		if (btnAcceptSelected) {
+			btnAcceptSelected.addEventListener('click', () => {
+				const consentDetails = {
+					analytics: document.getElementById('consent-analytics').checked,
+					marketing: marketingEnabled ? document.getElementById('consent-marketing').checked : false,
+				};
+				saveConsent(consentDetails);
+			});
+		}
+
+		if (manageButton) {
+			manageButton.addEventListener('click', (event) => {
+				event.preventDefault();
+				showConsentBanner();
+			});
+		}
+
+		const consentCookie = getCookie('user_cookie_consent');
+		if (consentCookie) {
+			try {
+				const decodedConsent = decodeURIComponent(consentCookie);
+				const consentDetails = JSON.parse(decodedConsent);
+				activateScripts(consentDetails);
+				hideConsentBanner();
+			} catch (e) {
+				console.error('Errore nel parsing del cookie di consenso:', e);
+				showConsentBanner();
+			}
+		} else {
+			showConsentBanner();
+		}
+
 		const hamburgerButton = document.getElementById('hamburger-button');
 		const mobileMenu = document.getElementById('mobile-menu');
-		if(hamburgerButton && mobileMenu){
-			hamburgerButton.addEventListener('click', function(){
+		if (hamburgerButton && mobileMenu) {
+			hamburgerButton.addEventListener('click', () => {
 				mobileMenu.classList.toggle('active');
 			});
 		}

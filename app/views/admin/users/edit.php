@@ -28,7 +28,7 @@
 	?>
 
 	<div class="bg-white rounded-lg shadow-lg p-8">
-		<form action="/admin/users/update/<?php echo htmlspecialchars($data['user']['id'] ?? ''); ?>" method="POST">
+		<form action="/admin/users/update/<?php echo htmlspecialchars($data['user']['id'] ?? ''); ?>" method="POST" data-ajax-submit="true" data-success-redirect="/admin/users">
 			<input type="hidden" name="id" value="<?php echo htmlspecialchars($data['user']['id'] ?? ''); ?>">
 			<!-- Campo CSRF Token -->
 			<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($data['csrf_token'] ?? ''); ?>">

@@ -17,13 +17,15 @@ class AdCampaignRepository
 	public function findById(int $id): ?array
 	{
 		$stmt = $this->db->prepare("
-			SELECT c.*, p.name AS position_name, p.code AS position_code, p.page AS position_page,
+			SELECT c.*, u.username,
+				   p.name AS position_name, p.code AS position_code, p.page AS position_page,
 				   p.width, p.height, p.mobile_width, p.mobile_height,
 				   b.title AS banner_title, b.image_path, b.target_url, b.description AS banner_description,
 				   b.sponsor_name, b.creative_type
 			FROM ad_campaigns c
 			INNER JOIN ad_positions p ON p.id = c.position_id
 			INNER JOIN ad_banners b ON b.id = c.banner_id
+			INNER JOIN users u ON u.id = c.user_id
 			WHERE c.id = ?
 			LIMIT 1
 		");
@@ -36,10 +38,11 @@ class AdCampaignRepository
 	public function findByUser(int $userId): array
 	{
 		$stmt = $this->db->prepare("
-			SELECT c.*, p.name AS position_name, p.code AS position_code, b.title AS banner_title, b.image_path
+			SELECT c.*, u.username, p.name AS position_name, p.code AS position_code, b.title AS banner_title, b.image_path
 			FROM ad_campaigns c
 			INNER JOIN ad_positions p ON p.id = c.position_id
 			INNER JOIN ad_banners b ON b.id = c.banner_id
+			INNER JOIN users u ON u.id = c.user_id
 			WHERE c.user_id = ?
 			ORDER BY c.created_at DESC
 		");
@@ -48,10 +51,25 @@ class AdCampaignRepository
 		return $stmt->fetchAll(PDO::FETCH_ASSOC);
 	}
 
+	public function findByBannerId(int $bannerId): array
+	{
+		$stmt = $this->db->prepare("
+			SELECT id, status, approval_status, start_date, end_date
+			FROM ad_campaigns
+			WHERE banner_id = ?
+			ORDER BY created_at DESC
+		");
+		$stmt->execute([$bannerId]);
+
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
 	public function findAllForAdmin(): array
 	{
 		$stmt = $this->db->query("
-			SELECT c.*, p.name AS position_name, b.title AS banner_title, u.username
+			SELECT c.*, p.name AS position_name, b.title AS banner_title, u.username,
+				   (SELECT COUNT(*) FROM ad_impressions i WHERE i.campaign_id = c.id) AS impressions,
+				   (SELECT COUNT(*) FROM ad_clicks cl WHERE cl.campaign_id = c.id) AS clicks
 			FROM ad_campaigns c
 			INNER JOIN ad_positions p ON p.id = c.position_id
 			INNER JOIN ad_banners b ON b.id = c.banner_id
@@ -107,14 +125,16 @@ class AdCampaignRepository
 	{
 		$stmt = $this->db->prepare("
 			INSERT INTO ad_campaigns
-			(user_id, position_id, banner_id, start_date, end_date, price, currency, status, approval_status, notes, created_at)
+			(user_id, position_id, target_type, target_value, banner_id, start_date, end_date, price, currency, status, approval_status, notes, created_at)
 			VALUES
-			(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+			(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
 		");
 
 		$stmt->execute([
 			$data['user_id'],
 			$data['position_id'],
+			$data['target_type'] ?? 'national',
+			$data['target_value'] ?? null,
 			$data['banner_id'],
 			$data['start_date'],
 			$data['end_date'],

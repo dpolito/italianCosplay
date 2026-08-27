@@ -7,25 +7,119 @@ use App\Core\Session;
 use App\Services\AdPositionService;
 use Exception;
 
-class AdPositionController extends Controller
+class AdPositionController extends AdminAdsController
 {
 	private AdPositionService $positionService;
 
 	public function __construct()
 	{
 		$this->positionService = new AdPositionService();
-
-		if (!isset($_SESSION['csrf_token'])) {
-			$_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-		}
+		$this->ensureCsrfToken();
 	}
 
 	public function index(): void
 	{
 		$this->view('admin/ads/positions/index', [
-			'positions' => $this->positionService->getAll(),
 			'csrf_token' => $_SESSION['csrf_token'],
 		], 'admin');
+	}
+
+	public function data(): void
+	{
+		header('Content-Type: application/json; charset=utf-8');
+
+		$positions = $this->positionService->getAll();
+		$page = max((int)($_GET['page'] ?? 1), 1);
+		$perPage = (int)($_GET['perPage'] ?? 25);
+		if (!in_array($perPage, [10, 25, 50, 100], true)) {
+			$perPage = 25;
+		}
+		$search = trim($_GET['search'] ?? '');
+		$sort = $_GET['sort'] ?? 'name';
+		$direction = strtolower($_GET['direction'] ?? 'asc');
+		$allowedSorts = ['id', 'name', 'code', 'page', 'width', 'height', 'max_slots', 'base_price', 'sort_order'];
+		if (!in_array($sort, $allowedSorts, true)) {
+			$sort = 'name';
+		}
+		if (!in_array($direction, ['asc', 'desc'], true)) {
+			$direction = 'asc';
+		}
+
+		$positions = array_values(array_filter($positions, static function (array $position) use ($search): bool {
+			if ($search === '') {
+				return true;
+			}
+			return str_contains(strtolower(implode(' ', $position)), strtolower($search));
+		}));
+
+		usort($positions, static function (array $left, array $right) use ($sort, $direction): int {
+			$leftValue = $left[$sort] ?? '';
+			$rightValue = $right[$sort] ?? '';
+			$result = strcmp((string)$leftValue, (string)$rightValue);
+			return $direction === 'asc' ? $result : -$result;
+		});
+
+		$total = count($positions);
+		$pages = max((int)ceil($total / $perPage), 1);
+		$page = min($page, $pages);
+		$slice = array_slice($positions, ($page - 1) * $perPage, $perPage);
+
+		$data = array_map(static function (array $position): array {
+			return [
+				'id' => $position['id'],
+				'name' => $position['name'] ?? '',
+				'code' => $position['code'] ?? '',
+				'page' => $position['page'] ?? '',
+				'width' => $position['width'] ?? 0,
+				'height' => $position['height'] ?? 0,
+				'mobile_width' => $position['mobile_width'] ?? 0,
+				'mobile_height' => $position['mobile_height'] ?? 0,
+				'max_slots' => $position['max_slots'] ?? 1,
+				'base_price' => $position['base_price'] ?? 0,
+				'rotation_type' => $position['rotation_type'] ?? 'random',
+				'is_active' => $position['is_active'] ?? 0,
+				'_links' => [
+					'view' => '/admin/ads/positions/edit/' . $position['id'],
+					'edit' => '/admin/ads/positions/edit/' . $position['id'],
+					'delete' => '/admin/ads/positions/delete/' . $position['id'],
+				],
+			];
+		}, $slice);
+
+		echo json_encode([
+			'success' => true,
+			'data' => $data,
+			'meta' => ['page' => $page, 'pages' => $pages, 'total' => $total],
+		]);
+		exit();
+	}
+
+	public function detail(array $params): void
+	{
+		$position = $this->positionService->findById((int)($params[0] ?? 0));
+		if (!$position) {
+			$this->jsonResponse(false, 'Posizione non trovata.', [], 404);
+		}
+
+		$this->jsonResponse(true, '', [
+			'id' => $position['id'],
+			'name' => $position['name'] ?? '',
+			'code' => $position['code'] ?? '',
+			'page' => $position['page'] ?? '',
+			'description' => $position['description'] ?? '',
+			'width' => $position['width'] ?? 0,
+			'height' => $position['height'] ?? 0,
+			'mobile_width' => $position['mobile_width'] ?? 0,
+			'mobile_height' => $position['mobile_height'] ?? 0,
+			'max_slots' => $position['max_slots'] ?? 1,
+			'base_price' => $position['base_price'] ?? 0,
+			'rotation_type' => $position['rotation_type'] ?? 'random',
+			'is_active' => $position['is_active'] ?? 0,
+			'prices' => $this->positionService->getPrices((int)$position['id']),
+			'_links' => [
+				'edit' => '/admin/ads/positions/edit/' . $position['id'],
+			],
+		]);
 	}
 
 	public function create(): void
@@ -92,8 +186,12 @@ class AdPositionController extends Controller
 
 	public function delete(array $params): void
 	{
-		$this->guardCsrf('/admin/ads/positions');
+		$this->guardCsrfOrJson('/admin/ads/positions');
 		$this->positionService->delete((int)($params[0] ?? 0));
+
+		if ($this->isJsonRequest()) {
+			$this->jsonResponse(true, 'Posizione disattivata.');
+		}
 
 		Session::setFlash('success', 'Posizione disattivata.');
 		header('Location: /admin/ads/positions');
@@ -131,19 +229,16 @@ class AdPositionController extends Controller
 		];
 	}
 
-	private function guardCsrf(string $redirect): void
+	private function guardCsrfOrJson(string $redirect): void
 	{
-		if (!$this->isValidCsrfToken()) {
-			Session::setFlash('error', 'Token CSRF non valido.');
-			header('Location: ' . $redirect);
-			exit();
+		if ($this->csrfIsValid()) {
+			return;
 		}
-	}
 
-	private function isValidCsrfToken(): bool
-	{
-		return !empty($_POST['csrf_token'])
-			&& !empty($_SESSION['csrf_token'])
-			&& hash_equals($_SESSION['csrf_token'], $_POST['csrf_token']);
+		if ($this->isJsonRequest()) {
+			$this->jsonResponse(false, 'Token CSRF non valido.', [], 403);
+		}
+
+		$this->flashAndRedirect('error', 'Token CSRF non valido.', $redirect);
 	}
 }

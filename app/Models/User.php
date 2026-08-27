@@ -101,7 +101,33 @@ class User{
 	 * @return array|null L'utente come array associativo o null se non trovato
 	 */
 	public function find($id){
-		$stmt = $this->db->prepare("SELECT " . $this->table . ".*, comuni.nome as comune_name FROM " . $this->table . " left join comuni on comuni.id = " . $this->table . ".comune_id WHERE " . $this->table . ".id = :id");
+		$sql = "
+			SELECT u.*,
+			       comuni.nome AS comune_name,
+		       privacy_accept.accepted_at AS privacy_accepted_at,
+		       privacy_accept.privacy_policy_version_id AS privacy_policy_version_id,
+		       marketing_consent.opted_in AS marketing_opted_in,
+		       marketing_consent.opted_in_at AS marketing_opted_in_at,
+		       age_declaration.declared_adult AS age_declared_adult,
+		       age_declaration.declared_at AS age_declared_at
+			FROM " . $this->table . " u
+			LEFT JOIN comuni ON comuni.id = u.comune_id
+			LEFT JOIN (
+				SELECT pa.user_id, pa.privacy_policy_version_id, pa.accepted_at
+				FROM privacy_policy_acceptances pa
+				INNER JOIN (
+					SELECT user_id, MAX(accepted_at) AS max_accepted_at
+					FROM privacy_policy_acceptances
+					WHERE user_id IS NOT NULL
+					GROUP BY user_id
+				) latest_pa
+					ON latest_pa.user_id = pa.user_id
+				   AND latest_pa.max_accepted_at = pa.accepted_at
+			) privacy_accept ON privacy_accept.user_id = u.id
+			LEFT JOIN user_marketing_consents marketing_consent ON marketing_consent.user_id = u.id
+			LEFT JOIN user_age_declarations age_declaration ON age_declaration.user_id = u.id
+			WHERE u.id = :id";
+		$stmt = $this->db->prepare($sql);
 		$stmt->bindParam(':id', $id, PDO::PARAM_INT);
 		$stmt->execute();
 
@@ -144,9 +170,119 @@ class User{
 	 * @return array Array di utenti
 	 */
 	public function getAllUsers(){
-		$stmt = $this->db->query("SELECT * FROM " . $this->table);
+		$sql = "
+			SELECT u.*,
+		       privacy_accept.accepted_at AS privacy_accepted_at,
+		       privacy_accept.privacy_policy_version_id AS privacy_policy_version_id,
+		       marketing_consent.opted_in AS marketing_opted_in,
+		       marketing_consent.opted_in_at AS marketing_opted_in_at,
+		       age_declaration.declared_adult AS age_declared_adult,
+		       age_declaration.declared_at AS age_declared_at
+			FROM " . $this->table . " u
+			LEFT JOIN (
+				SELECT pa.user_id, pa.privacy_policy_version_id, pa.accepted_at
+				FROM privacy_policy_acceptances pa
+				INNER JOIN (
+					SELECT user_id, MAX(accepted_at) AS max_accepted_at
+					FROM privacy_policy_acceptances
+					WHERE user_id IS NOT NULL
+					GROUP BY user_id
+				) latest_pa
+					ON latest_pa.user_id = pa.user_id
+				   AND latest_pa.max_accepted_at = pa.accepted_at
+			) privacy_accept ON privacy_accept.user_id = u.id
+			LEFT JOIN user_marketing_consents marketing_consent ON marketing_consent.user_id = u.id
+			LEFT JOIN user_age_declarations age_declaration ON age_declaration.user_id = u.id";
+		$stmt = $this->db->query($sql);
 
 		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
+	public function searchPublicProfiles(array $filters = []): array
+	{
+		$sql = "SELECT u.*, comuni.nome AS comune_name
+				FROM users u
+				LEFT JOIN comuni ON comuni.id = u.comune_id
+				LEFT JOIN user_roles ur ON ur.id = u.role_id
+				WHERE 1=1
+				AND u.verified = 1
+				AND (ur.name IS NULL OR ur.name <> 'admin')";
+
+		$params = [];
+
+		if (!empty($filters['q'])) {
+			$sql .= " AND (u.username LIKE :q OR u.first_name LIKE :q OR u.last_name LIKE :q OR u.bio LIKE :q)";
+			$params[':q'] = '%' . $filters['q'] . '%';
+		}
+
+		if (!empty($filters['location'])) {
+			$sql .= " AND (comuni.nome LIKE :location)";
+			$params[':location'] = '%' . $filters['location'] . '%';
+		}
+
+		if (!empty($filters['has_bio'])) {
+			$sql .= " AND u.bio IS NOT NULL AND u.bio <> ''";
+		}
+
+		$sort = $filters['sort'] ?? 'recent';
+		$direction = strtoupper($filters['direction'] ?? 'DESC') === 'ASC' ? 'ASC' : 'DESC';
+		$orderBy = match ($sort) {
+			'username' => 'u.username',
+			'created_old' => 'u.created_at',
+			default => 'u.created_at',
+		};
+
+		$sql .= " ORDER BY {$orderBy} {$direction}";
+
+		$page = max(1, (int) ($filters['page'] ?? 1));
+		$perPage = min(24, max(6, (int) ($filters['per_page'] ?? 12)));
+		$offset = ($page - 1) * $perPage;
+
+		$sql .= " LIMIT :limit OFFSET :offset";
+
+		$stmt = $this->db->prepare($sql);
+		foreach ($params as $key => $value) {
+			$stmt->bindValue($key, $value, PDO::PARAM_STR);
+		}
+		$stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+		$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+		$stmt->execute();
+
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
+	public function countPublicProfiles(array $filters = []): int
+	{
+		$sql = "SELECT COUNT(*)
+				FROM users u
+				LEFT JOIN comuni ON comuni.id = u.comune_id
+				LEFT JOIN user_roles ur ON ur.id = u.role_id
+				WHERE 1=1
+				AND u.verified = 1
+				AND (ur.name IS NULL OR ur.name <> 'admin')";
+		$params = [];
+
+		if (!empty($filters['q'])) {
+			$sql .= " AND (u.username LIKE :q OR u.first_name LIKE :q OR u.last_name LIKE :q OR u.bio LIKE :q)";
+			$params[':q'] = '%' . $filters['q'] . '%';
+		}
+
+		if (!empty($filters['location'])) {
+			$sql .= " AND (comuni.nome LIKE :location)";
+			$params[':location'] = '%' . $filters['location'] . '%';
+		}
+
+		if (!empty($filters['has_bio'])) {
+			$sql .= " AND u.bio IS NOT NULL AND u.bio <> ''";
+		}
+
+		$stmt = $this->db->prepare($sql);
+		foreach ($params as $key => $value) {
+			$stmt->bindValue($key, $value, PDO::PARAM_STR);
+		}
+		$stmt->execute();
+
+		return (int) $stmt->fetchColumn();
 	}
 
 	/**
@@ -361,6 +497,42 @@ class User{
 		return $stmt->execute([
 			'settings' => json_encode($settings),
 			'id' => $id
+		]);
+	}
+
+	public function anonymizeAccount(int $id): bool
+	{
+		$anonymousSuffix = bin2hex(random_bytes(8));
+		$anonymousUsername = 'deleted_user_' . $id . '_' . $anonymousSuffix;
+		$anonymousEmail = 'deleted_user_' . $id . '_' . $anonymousSuffix . '@anon.local';
+
+		$sql = "UPDATE users SET
+				username = :username,
+				email = :email,
+				password = :password,
+				verified = 0,
+				verification_token = NULL,
+				first_name = '',
+				last_name = '',
+				website = '',
+				bio = '',
+				social = '{}',
+				avatar = '',
+				profile_cover = '',
+				cover_position_x = 50,
+				cover_position_y = 50,
+				comune_id = NULL,
+				profile_settings = '{}',
+				updated_at = NOW()
+			WHERE id = :id";
+
+		$stmt = $this->db->prepare($sql);
+
+		return $stmt->execute([
+			'username' => $anonymousUsername,
+			'email' => $anonymousEmail,
+			'password' => password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT),
+			'id' => $id,
 		]);
 	}
 }

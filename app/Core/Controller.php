@@ -1,14 +1,37 @@
 <?php
 namespace App\Core;
+use App\Services\SiteFeatureFlagService;
 use App\Models\user;
 use function file_exists;
 use function var_dump;
 
 class Controller
 {
+	private static ?array $featureFlagCache = null;
+
 	protected function userId(): ?int
 	{
 		return $_SESSION['user_id'] ?? null;
+	}
+
+	protected function featureEnabled(string $flagKey): bool
+	{
+		if (self::$featureFlagCache === null) {
+			self::$featureFlagCache = (new SiteFeatureFlagService())->getEnabledMap();
+		}
+
+		return !empty(self::$featureFlagCache[$flagKey]);
+	}
+
+	protected function requireFeature(string $flagKey, string $message = 'Funzionalità temporaneamente disattivata.'): void
+	{
+		if ($this->featureEnabled($flagKey)) {
+			return;
+		}
+
+		Session::setFlash('error', $message);
+		header('Location: /');
+		exit();
 	}
 	protected function requirePermission(string $permission): void
 	{

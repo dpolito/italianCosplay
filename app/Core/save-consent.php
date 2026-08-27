@@ -9,14 +9,20 @@ require_once APP_ROOT . '/app/Core/Database.php';
 
 use App\Core\Database;
 use App\Models\BaseModel;
+use App\Repositories\CookiePolicyRepository;
 
 
 require_once APP_ROOT . '/app/Models/BaseModel.php'; // La classe BaseModel
+$cookiePolicyRepositoryPath = APP_ROOT . '/app/Repositories/CookiePolicyRepository.php';
+if (file_exists($cookiePolicyRepositoryPath)) {
+	require_once $cookiePolicyRepositoryPath;
+}
 $config = require APP_ROOT . '/app/config/database.php';
 
 Database::getInstance($config);
 $baseModel = new BaseModel();
 $dbConnection = $baseModel->getDbConnection();
+$cookiePolicyRepository = class_exists(CookiePolicyRepository::class) ? new CookiePolicyRepository() : null;
 
 // Impostazioni dei cookie
 $cookieName = 'user_cookie_consent';
@@ -37,6 +43,13 @@ if (!$input) {
 $consentLevel = $input['level'] ?? 'necessary';
 $consentDetails = $input['details'] ?? ['analytics' => false, 'marketing' => false];
 $userId = $_COOKIE['user_consent_id'] ?? uniqid('consent_', true);
+$cookiePolicyVersionId = null;
+if ($cookiePolicyRepository !== null) {
+	$currentCookiePolicy = $cookiePolicyRepository->getLatestActiveVersion() ?? $cookiePolicyRepository->getLatestVersion();
+	if (!empty($currentCookiePolicy['id'])) {
+		$cookiePolicyVersionId = (int) $currentCookiePolicy['id'];
+	}
+}
 
 // 1. Imposta i cookie per le decisioni immediate
 // Cookie principale con le scelte dettagliate
@@ -48,9 +61,10 @@ setcookie('user_consent_id', $userId, $cookieExpiry, $cookiePath);
 try {
 	// Controlla se l'utente esiste già (UPSERT)
 	$stmt = $dbConnection->prepare(
-		"INSERT INTO cookie_consent (user_id, consent_level, consent_details)
-         VALUES (:user_id, :consent_level, :consent_details)
+		"INSERT INTO cookie_consent_logs (user_id, cookie_policy_version_id, consent_level, consent_details)
+         VALUES (:user_id, :cookie_policy_version_id, :consent_level, :consent_details)
          ON DUPLICATE KEY UPDATE
+         cookie_policy_version_id = VALUES(cookie_policy_version_id),
          consent_level = VALUES(consent_level),
          consent_details = VALUES(consent_details),
          updated_at = CURRENT_TIMESTAMP"
@@ -58,6 +72,7 @@ try {
 
 	$stmt->execute([
 		'user_id' => $userId,
+		'cookie_policy_version_id' => $cookiePolicyVersionId,
 		'consent_level' => $consentLevel,
 		'consent_details' => json_encode($consentDetails)
 	]);

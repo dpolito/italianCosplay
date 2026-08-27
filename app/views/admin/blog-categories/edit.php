@@ -39,7 +39,9 @@
 
 		<form action="/admin/blog-categories/update/<?= (int)$data['category']['id'] ?>"
 		      method="POST"
-		      id="categoryForm">
+		      id="categoryForm"
+		      data-ajax-submit="true"
+		      data-success-redirect="/admin/blog-categories/edit/<?= (int)$data['category']['id'] ?>">
 
 			<input type="hidden" name="csrf_token"
 			       value="<?= htmlspecialchars($data['csrf_token']) ?>">
@@ -108,29 +110,22 @@
 
 			<!-- ================= ROW 3 ================= -->
 			<div class="mb-6">
-
-				<label class="block text-gray-700 text-sm font-bold mb-2">
-					SEO Description
-				</label>
-
+				<label class="block text-gray-700 text-sm font-bold mb-2">SEO Description</label>
 				<textarea name="seo_description"
 				          id="seo_description"
 				          rows="3"
-				          class="shadow border rounded-lg w-full py-2 px-3 focus:border-green-500"><?= htmlspecialchars($data['category']['seo_description'] ?? '') ?></textarea>
-
+				          class="shadow border rounded-lg w-full py-2 px-3 focus:border-green-500"
+				><?= htmlspecialchars($data['category']['seo_description'] ?? '') ?></textarea>
 			</div>
 
 			<!-- ================= ROW 4 ================= -->
 			<div class="mb-6">
-
-				<label class="block text-gray-700 text-sm font-bold mb-2">
-					Descrizione Categoria
-				</label>
-
+				<label class="block text-gray-700 text-sm font-bold mb-2">Descrizione Categoria</label>
 				<textarea name="description"
+				          id="description"
 				          rows="4"
-				          class="shadow border rounded-lg w-full py-2 px-3 focus:border-green-500"><?= htmlspecialchars($data['category']['description'] ?? '') ?></textarea>
-
+				          class="shadow border rounded-lg w-full py-2 px-3 focus:border-green-500"
+				><?= htmlspecialchars($data['category']['description'] ?? '') ?></textarea>
 			</div>
 
 			<!-- ================= SEO PREVIEW ================= -->

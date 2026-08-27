@@ -17,18 +17,38 @@ $router->post('/logout', [
 	'uses' => ['AuthController', 'logout'],
 	'middlewares' => [AuthMiddleware::class]
 ]);
+
+$router->get('/dashboard/favorites', [
+	'uses' => ['DashboardController', 'favorites'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->post('/dashboard/favorites/toggle', [
+	'uses' => ['DashboardController', 'toggleFavorite'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->post('/eventi-cosplay/agenda/update', [
+	'uses' => ['EventController', 'updateAgendaStatus'],
+	'middlewares' => [AuthMiddleware::class]
+]);
 $router->get('/privacy', ['uses' => ['HomeController', 'privacy']]);
 $router->get('/cookies', ['uses' => ['HomeController', 'cookies']]);
 $router->get('/sitemap.xml', ['uses' => ['SitemapController', 'index']]);
 $router->get('/sitemap-static.xml', ['uses' => ['SitemapController', 'static']]);
 $router->get('/sitemap-events.xml', ['uses' => ['SitemapController', 'events']]);
+$router->get('/sitemap-events-master.xml', ['uses' => ['SitemapController', 'events_master']]);
 $router->get('/sitemap-locations.xml', ['uses' => ['SitemapController', 'locations']]);
 $router->get('/sitemap-blog-categorie.xml', ['uses' => ['SitemapController', 'blog_categorie']]);
 $router->get('/sitemap-blog-post.xml', ['uses' => ['SitemapController', 'blog_post']]);
 
+// Advertising pubblico
+$router->get('/ads/click/{campaignId}', ['uses' => ['AdCampaignController', 'click']]);
+
 // Eventi Cosplay
+$router->get('/eventi-master', ['uses' => ['EventController', 'masterIndex']]);
+$router->get('/eventi-master/{slug}', ['uses' => ['EventController', 'masterShow']]);
 $router->get('/eventi-cosplay', ['uses' => ['EventController', 'index']]);
 $router->get('/eventi-cosplay/create', ['uses' => ['EventController', 'create']]);
+$router->post('/eventi-cosplay/report/track', ['uses' => ['EventController', 'trackReportForm']]);
 $router->post('/eventi-cosplay/store', ['uses' => ['EventController', 'store']]);
 
 // Filtri avanzati per eventi
@@ -57,9 +77,82 @@ $router->get('/admin/dashboard', [
 		[PermissionMiddleware::class, 'view_admin_dashboard']
 	]
 ]);
+$router->get('/admin/setup', [
+	'uses' => ['AdminController', 'setup'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'view_admin_dashboard']
+	]
+]);
+$router->post('/admin/setup', [
+	'uses' => ['AdminController', 'updateSetup'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'view_admin_dashboard']
+	]
+]);
+
+$router->get('/admin/privacy', [
+	'uses' => ['AdminPrivacyPolicyController', 'index'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+	$router->get('/admin/cookies', [
+	'uses' => ['AdminCookiePolicyController', 'index'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->get('/admin/cookies/data', [
+	'uses' => ['AdminCookiePolicyController', 'data'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->get('/admin/cookies/create', [
+	'uses' => ['AdminCookiePolicyController', 'create'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->post('/admin/cookies/store', [
+	'uses' => ['AdminCookiePolicyController', 'store'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->get('/admin/cookies/edit/{id}', [
+	'uses' => ['AdminCookiePolicyController', 'edit'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->post('/admin/cookies/update/{id}', [
+	'uses' => ['AdminCookiePolicyController', 'update'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->post('/admin/cookies/activate/{id}', [
+	'uses' => ['AdminCookiePolicyController', 'activate'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->get('/admin/privacy/data', [
+	'uses' => ['AdminPrivacyPolicyController', 'data'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->get('/admin/privacy/create', [
+	'uses' => ['AdminPrivacyPolicyController', 'create'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->post('/admin/privacy/store', [
+	'uses' => ['AdminPrivacyPolicyController', 'store'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->get('/admin/privacy/edit/{id}', [
+	'uses' => ['AdminPrivacyPolicyController', 'edit'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->post('/admin/privacy/update/{id}', [
+	'uses' => ['AdminPrivacyPolicyController', 'update'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->post('/admin/privacy/activate/{id}', [
+	'uses' => ['AdminPrivacyPolicyController', 'activate'],
+	'middlewares' => [AuthMiddleware::class]
+]);
 
 // Gestione Utenti (CRUD admin)
 $router->get('/admin/users', ['uses' => ['AdminController', 'users'], 'middlewares' => [AuthMiddleware::class]]);
+$router->get('/admin/users/data', ['uses' => ['AdminController', 'usersData'], 'middlewares' => [AuthMiddleware::class]]);
+$router->get('/admin/users/detail/{id}', ['uses' => ['AdminController', 'userDetail'], 'middlewares' => [AuthMiddleware::class]]);
 $router->get('/admin/users/create', ['uses' => ['AdminController', 'createUser'], 'middlewares' => [AuthMiddleware::class]]);
 $router->post('/admin/users/store', ['uses' => ['AdminController', 'storeUser'], 'middlewares' => [AuthMiddleware::class]]);
 $router->get('/admin/users/edit/{id}',
@@ -93,6 +186,126 @@ $router->get('/admin/events/pending', [
 		[PermissionMiddleware::class, 'manage_events'] // il permesso corretto dal DB
 	]
 ]);
+$router->get('/admin/events/pending/data', [
+	'uses' => ['EventController', 'pendingData'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'manage_events'] // il permesso corretto dal DB
+	]
+]);
+$router->get('/admin/events/data', [
+	'uses' => ['EventController', 'data'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'manage_events'] // il permesso corretto dal DB
+	]
+]);
+$router->get('/admin/blog/data', [
+	'uses' => ['AdminBlogController', 'data'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'manage_events'] // il permesso corretto dal DB
+	]
+]);
+$router->get('/admin/blog/detail/{id}', [
+	'uses' => ['AdminBlogController', 'detail'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'manage_events'] // il permesso corretto dal DB
+	]
+]);
+$router->get('/admin/blog-categories/data', [
+	'uses' => ['AdminBlogCategoryController', 'data'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'manage_events'] // il permesso corretto dal DB
+	]
+]);
+$router->get('/admin/blog-categories/detail/{id}', [
+	'uses' => ['AdminBlogCategoryController', 'detail'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'manage_events'] // il permesso corretto dal DB
+	]
+]);
+
+$router->get('/admin/ads/campaigns/data', ['uses' => ['AdminAdCampaignController', 'data'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->get('/admin/ads/banners/{id}/edit', ['uses' => ['AdminAdBannerController', 'edit'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->post('/admin/ads/banners/{id}/update', ['uses' => ['AdminAdBannerController', 'update'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->get('/admin/ads/campaigns/detail/{id}', ['uses' => ['AdminAdCampaignController', 'detail'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->get('/admin/ads/campaigns', ['uses' => ['AdminAdCampaignController', 'index'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->get('/admin/ads/campaigns/{id}', ['uses' => ['AdminAdCampaignController', 'show'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->get('/admin/ads/payments/logs', ['uses' => ['AdminAdCampaignController', 'paymentLogs'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->get('/admin/ads/payments/logs/data', ['uses' => ['AdminAdCampaignController', 'paymentLogsData'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->post('/admin/ads/campaigns/{id}/approve', ['uses' => ['AdminAdCampaignController', 'approve'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->post('/admin/ads/campaigns/{id}/reject', ['uses' => ['AdminAdCampaignController', 'reject'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->post('/admin/ads/campaigns/{id}/request-changes', ['uses' => ['AdminAdCampaignController', 'requestChanges'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->get('/admin/ads/positions/data', ['uses' => ['AdPositionController', 'data'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->get('/admin/ads/positions/detail/{id}', ['uses' => ['AdPositionController', 'detail'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->get('/admin/ads/positions', ['uses' => ['AdPositionController', 'index'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->get('/admin/ads/positions/create', ['uses' => ['AdPositionController', 'create'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->post('/admin/ads/positions/store', ['uses' => ['AdPositionController', 'store'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->get('/admin/ads/positions/edit/{id}', ['uses' => ['AdPositionController', 'edit'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->post('/admin/ads/positions/update/{id}', ['uses' => ['AdPositionController', 'update'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->post('/admin/ads/positions/delete/{id}', ['uses' => ['AdPositionController', 'delete'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+
 $router->get('/admin/events/all', ['uses' => ['EventController', 'allEvents'], 'middlewares' => [
 	AuthMiddleware::class,
 	[PermissionMiddleware::class, 'manage_events'] // il permesso corretto dal DB
@@ -108,6 +321,14 @@ $router->post('/admin/events/store', ['uses' => ['EventController', 'adminStore'
 $router->get('/admin/events/edit/{id}', ['uses' => ['EventController', 'edit'], 'middlewares' => [
 	AuthMiddleware::class,
 	[PermissionMiddleware::class, 'manage_events'] // il permesso corretto dal DB
+]]);
+$router->get('/admin/events/detail/{id}', ['uses' => ['EventController', 'detail'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'manage_events'] // il permesso corretto dal DB
+]]);
+$router->post('/admin/events/copy/{id}', ['uses' => ['EventController', 'copy'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'manage_events']
 ]]);
 $router->post('/admin/events/update/{id}', ['uses' => ['EventController', 'update'], 'middlewares' => [
 	AuthMiddleware::class,
@@ -126,7 +347,48 @@ $router->get('/admin/events/show/{id}', ['uses' => ['EventController', 'adminSho
 	[PermissionMiddleware::class, 'manage_events'] // il permesso corretto dal DB
 ]]);
 
+$router->get('/admin/events-master', ['uses' => ['AdminEventMasterController', 'index'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'manage_events']
+]]);
+$router->get('/admin/events-master/data', ['uses' => ['AdminEventMasterController', 'data'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'manage_events']
+]]);
+$router->get('/admin/events-master/detail/{id}', ['uses' => ['AdminEventMasterController', 'detail'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'manage_events']
+]]);
+$router->get('/admin/events-master/create', ['uses' => ['AdminEventMasterController', 'create'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'manage_events']
+]]);
+$router->post('/admin/events-master/store', ['uses' => ['AdminEventMasterController', 'store'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'manage_events']
+]]);
+$router->get('/admin/events-master/edit/{id}', ['uses' => ['AdminEventMasterController', 'edit'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'manage_events']
+]]);
+$router->post('/admin/events-master/update/{id}', ['uses' => ['AdminEventMasterController', 'update'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'manage_events']
+]]);
+$router->post('/admin/events-master/delete/{id}', ['uses' => ['AdminEventMasterController', 'delete'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'manage_events']
+]]);
+
 $router->get('/admin/regioni/all', ['uses' => ['RegionController', 'all'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'manage_region'] // il permesso corretto dal DB
+]]);
+$router->get('/admin/regioni/data', ['uses' => ['RegionController', 'data'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'manage_region'] // il permesso corretto dal DB
+]]);
+$router->get('/admin/regioni/detail/{id}', ['uses' => ['RegionController', 'detail'], 'middlewares' => [
 	AuthMiddleware::class,
 	[PermissionMiddleware::class, 'manage_region'] // il permesso corretto dal DB
 ]]);
@@ -179,12 +441,68 @@ $router->get('/dashboard/events', ['uses' => ['DashboardController', 'events'], 
 	AuthMiddleware::class,
 	[PermissionMiddleware::class, 'access_dashboard'] // il permesso corretto dal DB
 ]]);
+$router->get('/dashboard/cosplay', ['uses' => ['DashboardController', 'cosplay'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->get('/dashboard/cosplay/events', ['uses' => ['DashboardController', 'searchCosplayEvents'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->get('/dashboard/cosplay/characters', ['uses' => ['DashboardController', 'searchCosplayCharacters'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->post('/dashboard/cosplay/save', ['uses' => ['DashboardController', 'saveCosplayPortfolio'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->post('/dashboard/cosplay/delete', ['uses' => ['DashboardController', 'deleteCosplayPortfolio'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->post('/dashboard/cosplay/toggle-visibility', ['uses' => ['DashboardController', 'toggleCosplayPortfolioVisibility'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->post('/dashboard/cosplay/event/save', ['uses' => ['DashboardController', 'saveEventCosplaySelection'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->post('/dashboard/cosplay/event/remove', ['uses' => ['DashboardController', 'removeEventCosplaySelection'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->get('/dashboard/notifications', ['uses' => ['DashboardController', 'notifications'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard'] // il permesso corretto dal DB
+]]);
+$router->get('/dashboard/notifiche', ['uses' => ['DashboardController', 'notifications'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->post('/dashboard/notifications/read', ['uses' => ['DashboardController', 'markNotificationRead'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->post('/dashboard/notifications/delete', ['uses' => ['DashboardController', 'deleteNotification'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->post('/dashboard/notifications/read-all', ['uses' => ['DashboardController', 'markAllNotificationsRead'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
 $router->get('/dashboard/settings', ['uses' => ['DashboardController', 'settings'], 'middlewares' => [
 	AuthMiddleware::class,
 	[PermissionMiddleware::class, 'access_dashboard'] // il permesso corretto dal DB
 ]]);
 
 $router->post('/dashboard/profile/update', ['uses' => ['DashboardController', 'updateProfile'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard'] // il permesso corretto dal DB
+]]);
+$router->post('/dashboard/delete-account', ['uses' => ['DashboardController', 'deleteAccount'], 'middlewares' => [
 	AuthMiddleware::class,
 	[PermissionMiddleware::class, 'access_dashboard'] // il permesso corretto dal DB
 ]]);
@@ -205,13 +523,16 @@ $router->post('/dashboard/updatesettings', ['uses' => ['DashboardController', 'u
 	[PermissionMiddleware::class, 'access_dashboard'] // il permesso corretto dal DB
 ]]);
 
+$router->get('/u', ['uses' => ['ProfileController', 'index']]);
 $router->get('/u/{username}', ['uses' => ['ProfileController', 'publicProfile']]);
 
 $router->get('/user/{username}', ['uses' => ['UserController', 'show']]);
 $router->post('/event/scrape', ['uses' => ['EventController', 'scrape']]);
 $router->get('/event/stats', ['uses' => ['AdminController', 'stats']]);
 $router->get('/eventi-cosplay-weekend', ['uses' => ['EventController', 'weekend']]);
+$router->get('/eventi-cosplay-weekend/{slug}', ['uses' => ['EventController', 'weekendSpecifico']]);
 $router->get('/eventi-cosplay-mese', ['uses' => ['EventController', 'mese']]);
+$router->get('/eventi-cosplay-mese/{slug}', ['uses' => ['EventController', 'meseSpecifico']]);
 $router->get('/aggiornamento_ranking', ['uses' => ['EventController', 'updateAllScores']]);
 $router->get('/eventImageMigrationService', ['uses' => ['EventController', 'eventImageMigrationService']]);
 
@@ -253,6 +574,51 @@ $router->get('/admin/blog/show/{id}', ['uses' => ['AdminBlogController', 'show']
 	[PermissionMiddleware::class, 'manage_events'] // il permesso corretto dal DB
 ]]);
 
+$router->get('/admin/ads/campaigns', ['uses' => ['AdminAdCampaignController', 'index'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->get('/admin/ads/campaigns/{id}', ['uses' => ['AdminAdCampaignController', 'show'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->post('/admin/ads/campaigns/{id}/approve', ['uses' => ['AdminAdCampaignController', 'approve'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->post('/admin/ads/campaigns/{id}/reject', ['uses' => ['AdminAdCampaignController', 'reject'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->post('/admin/ads/campaigns/{id}/request-changes', ['uses' => ['AdminAdCampaignController', 'requestChanges'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->get('/admin/ads/positions', ['uses' => ['AdPositionController', 'index'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->get('/admin/ads/positions/create', ['uses' => ['AdPositionController', 'create'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->post('/admin/ads/positions/store', ['uses' => ['AdPositionController', 'store'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->get('/admin/ads/positions/edit/{id}', ['uses' => ['AdPositionController', 'edit'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->post('/admin/ads/positions/update/{id}', ['uses' => ['AdPositionController', 'update'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+$router->post('/admin/ads/positions/delete/{id}', ['uses' => ['AdPositionController', 'delete'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'ads.manage']
+]]);
+
 $router->get('/admin/blog-categories/all', ['uses' => ['AdminBlogCategoryController', 'all'], 'middlewares' => [
 	AuthMiddleware::class,
 	[PermissionMiddleware::class, 'manage_events'] // il permesso corretto dal DB
@@ -290,6 +656,14 @@ $router->get('/admin/guests/all', ['uses' => ['AdminGuestController', 'all'], 'm
 	AuthMiddleware::class,
 	[PermissionMiddleware::class, 'manage_events'] // il permesso corretto dal DB
 ]]);
+$router->get('/admin/guests/data', ['uses' => ['AdminGuestController', 'data'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'manage_events'] // il permesso corretto dal DB
+]]);
+$router->get('/admin/guests/detail/{id}', ['uses' => ['AdminGuestController', 'detail'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'manage_events'] // il permesso corretto dal DB
+]]);
 $router->get('/admin/guests/create', ['uses' => ['AdminGuestController', 'create'], 'middlewares' => [
 	AuthMiddleware::class,
 	[PermissionMiddleware::class, 'manage_events'] // il permesso corretto dal DB
@@ -313,50 +687,90 @@ $router->post('/admin/guests/delete/{id}', ['uses' => ['AdminGuestController', '
 $router->get('/ospiti', ['GuestController', 'index']);
 $router->get('/ospiti/{slug}', ['GuestController', 'show']);
 
-
+$router->get('/dashboard/ads', ['uses' => ['AdCampaignController', 'index'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->get('/dashboard/ads/campaigns', ['uses' => ['AdCampaignController', 'index'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
 $router->get('/dashboard/ads/campaigns/index', ['uses' => ['AdCampaignController', 'index'], 'middlewares' => [
 	AuthMiddleware::class,
-	[PermissionMiddleware::class, 'access_dashboard'] // il permesso corretto dal DB
+	[PermissionMiddleware::class, 'access_dashboard']
 ]]);
 $router->get('/dashboard/ads/campaigns/create', ['uses' => ['AdCampaignController', 'create'], 'middlewares' => [
 	AuthMiddleware::class,
-	[PermissionMiddleware::class, 'access_dashboard'] // il permesso corretto dal DB
+	[PermissionMiddleware::class, 'access_dashboard']
 ]]);
 $router->post('/dashboard/ads/campaigns/store', ['uses' => ['AdCampaignController', 'store'], 'middlewares' => [
 	AuthMiddleware::class,
-	[PermissionMiddleware::class, 'access_dashboard'] // il permesso corretto dal DB
+	[PermissionMiddleware::class, 'access_dashboard']
 ]]);
 $router->get('/dashboard/ads/campaigns/{slug}/review', ['uses' => ['AdCampaignController', 'review'], 'middlewares' => [
 	AuthMiddleware::class,
-	[PermissionMiddleware::class, 'access_dashboard'] // il permesso corretto dal DB
+	[PermissionMiddleware::class, 'access_dashboard']
 ]]);
-$router->get('/dashboard/ads/campaigns/{slug}/stats', ['uses' => ['AdCampaignController', 'stats'], 'middlewares' => [
+$router->get('/dashboard/ads/campaigns/{slug}/stats', ['uses' => ['AdStatsController', 'campaign'], 'middlewares' => [
 	AuthMiddleware::class,
-	[PermissionMiddleware::class, 'access_dashboard'] // il permesso corretto dal DB
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->get('/dashboard/ads/stats', ['uses' => ['AdStatsController', 'overview'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->get('/dashboard/ads/stats/{id}', ['uses' => ['AdStatsController', 'campaign'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
 ]]);
 $router->get('/dashboard/ads/campaigns/checkout', ['uses' => ['AdCampaignController', 'checkout'], 'middlewares' => [
 	AuthMiddleware::class,
-	[PermissionMiddleware::class, 'access_dashboard'] // il permesso corretto dal DB
+	[PermissionMiddleware::class, 'access_dashboard']
 ]]);
 $router->post('/dashboard/ads/campaigns/{slug}/cancel', ['uses' => ['AdCampaignController', 'cancel'], 'middlewares' => [
 	AuthMiddleware::class,
-	[PermissionMiddleware::class, 'access_dashboard'] // il permesso corretto dal DB
+	[PermissionMiddleware::class, 'access_dashboard']
 ]]);
 $router->post('/dashboard/ads/campaigns/{slug}/checkout', ['uses' => ['AdCampaignController', 'checkout'], 'middlewares' => [
 	AuthMiddleware::class,
-	[PermissionMiddleware::class, 'access_dashboard'] // il permesso corretto dal DB
+	[PermissionMiddleware::class, 'access_dashboard']
 ]]);
-$router->post('/dashboard/ads/payments/{slug}/status', ['uses' => ['AdCampaignController', 'checkout'], 'middlewares' => [
+$router->get('/dashboard/ads/payments/{slug}/status', ['uses' => ['AdPaymentController', 'status'], 'middlewares' => [
 	AuthMiddleware::class,
-	[PermissionMiddleware::class, 'access_dashboard'] // il permesso corretto dal DB
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->post('/dashboard/ads/payments/{slug}/status', ['uses' => ['AdPaymentController', 'status'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
 ]]);
 $router->get('/dashboard/ads/campaigns/estimatePrice', ['uses' => ['AdCampaignController', 'estimatePrice'], 'middlewares' => [
 	AuthMiddleware::class,
-	[PermissionMiddleware::class, 'access_dashboard'] // il permesso corretto dal DB
+	[PermissionMiddleware::class, 'access_dashboard']
 ]]);
-$router->get('/ashboard/ads/campaigns/estimatePrice', ['uses' => ['AdCampaignController', 'estimatePrice'], 'middlewares' => [
+$router->get('/dashboard/ads/banners', ['uses' => ['AdBannerController', 'index'], 'middlewares' => [
 	AuthMiddleware::class,
-	[PermissionMiddleware::class, 'access_dashboard'] // il permesso corretto dal DB
+	[PermissionMiddleware::class, 'access_dashboard']
 ]]);
+$router->get('/dashboard/ads/banners/create', ['uses' => ['AdBannerController', 'create'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->post('/dashboard/ads/banners/store', ['uses' => ['AdBannerController', 'store'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->get('/dashboard/ads/banners/edit/{id}', ['uses' => ['AdBannerController', 'edit'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->post('/dashboard/ads/banners/update/{id}', ['uses' => ['AdBannerController', 'update'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->post('/dashboard/ads/banners/delete/{id}', ['uses' => ['AdBannerController', 'delete'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+
 
 // Fine rotte

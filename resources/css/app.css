@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+@source "../../app/**/*.php";
+@source "../../public_assets/**/*.js";
+
 @layer base {
 
 	.prose ul {

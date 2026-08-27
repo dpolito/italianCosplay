@@ -4,7 +4,9 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Core\Session;
 use App\Models\Guest;
+use App\Services\AuditLogService;
 use App\Services\ImageService;
+use App\Support\AuditLogActionType;
 use function date;
 use function file_get_contents;
 use function header;
@@ -17,11 +19,13 @@ class AdminGuestController extends Controller
 {
 	private Guest $guestModel;
 	private ImageService $imageService;
+	private AuditLogService $auditLogService;
 
 	public function __construct()
 	{
 		$this->guestModel = new Guest();
 		$this->imageService = new ImageService($this->guestModel->getDbConnection());
+		$this->auditLogService = new AuditLogService();
 	}
 
 	/**
@@ -41,6 +45,102 @@ class AdminGuestController extends Controller
 			'csrf_token' => $_SESSION['csrf_token'],
 			'breadcrumbs' => $breadcrumbs
 		], 'admin');
+	}
+
+	public function data(): void
+	{
+		header('Content-Type: application/json; charset=utf-8');
+
+		$guests = $this->guestModel->getAll();
+		$page = max((int) ($_GET['page'] ?? 1), 1);
+		$perPage = (int) ($_GET['perPage'] ?? 25);
+		if (!in_array($perPage, [10, 25, 50, 100], true)) {
+			$perPage = 25;
+		}
+		$search = trim($_GET['search'] ?? '');
+		$sort = $_GET['sort'] ?? 'created_at';
+		$direction = strtolower($_GET['direction'] ?? 'desc');
+		$allowedSorts = ['id', 'name', 'slug', 'created_at'];
+		if (!in_array($sort, $allowedSorts, true)) {
+			$sort = 'created_at';
+		}
+		if (!in_array($direction, ['asc', 'desc'], true)) {
+			$direction = 'desc';
+		}
+
+		$guests = array_values(array_filter($guests, static function (array $guest) use ($search): bool {
+			if ($search === '') {
+				return true;
+			}
+			return str_contains(
+				strtolower(implode(' ', $guest)),
+				strtolower($search)
+			);
+		}));
+		usort($guests, static function (array $left, array $right) use ($sort, $direction): int {
+			$leftValue = $left[$sort] ?? '';
+			$rightValue = $right[$sort] ?? '';
+			$result = strcmp((string) $leftValue, (string) $rightValue);
+			return $direction === 'asc' ? $result : -$result;
+		});
+
+		$total = count($guests);
+		$pages = max((int) ceil($total / $perPage), 1);
+		$page = min($page, $pages);
+		$slice = array_slice($guests, ($page - 1) * $perPage, $perPage);
+
+		$data = array_map(static function (array $guest): array {
+			return [
+				'id' => $guest['id'],
+				'name' => $guest['name'],
+				'slug' => $guest['slug'],
+				'created_at' => $guest['created_at'] ?? null,
+				'_links' => [
+					'edit' => '/admin/guests/edit/' . $guest['id'],
+					'delete' => '/admin/guests/delete/' . $guest['id'],
+				],
+			];
+		}, $slice);
+
+		echo json_encode([
+			'success' => true,
+			'data' => $data,
+			'meta' => ['page' => $page, 'pages' => $pages, 'total' => $total],
+		]);
+		exit();
+	}
+
+	public function detail($params): void
+	{
+		header('Content-Type: application/json; charset=utf-8');
+		$id = (int) ($params[0] ?? 0);
+		$guest = $this->guestModel->find($id);
+
+		if (!$guest) {
+			echo json_encode(['success' => false, 'message' => 'Guest non trovato']);
+			exit();
+		}
+
+		echo json_encode([
+			'success' => true,
+			'data' => [
+				'id' => $guest['id'],
+				'name' => $guest['name'],
+				'slug' => $guest['slug'],
+				'bio' => $guest['bio'] ?? '',
+				'website' => $guest['website'] ?? '',
+				'instagram' => $guest['instagram'] ?? '',
+				'tiktok' => $guest['tiktok'] ?? '',
+				'youtube' => $guest['youtube'] ?? '',
+				'created_at' => $guest['created_at'] ?? null,
+				'updated_at' => $guest['updated_at'] ?? null,
+				'_links' => [
+					'edit' => '/admin/guests/edit/' . $guest['id'],
+					'delete' => '/admin/guests/delete/' . $guest['id'],
+				],
+			],
+		]);
+		exit();
 	}
 
 	/**
@@ -136,12 +236,30 @@ try{
 	$data['cover_image_id'] = $coverImageId;
 }catch (\Exception $exception){
 	var_dump($exception->getMessage());
-}
+			}
 
 		}
 
-		Session::setFlash('success', 'Guest creato con successo!');
-		header('Location: /admin/guests/edit/' . $postId);
+		$this->auditLogService->logAudit([
+			'user_id' => $_SESSION['user_id'] ?? null,
+			'action_type' => AuditLogActionType::GUEST_CREATED,
+			'entity_type' => 'guest',
+			'entity_id' => $postId,
+			'success' => 1,
+			'payload' => [
+				'name' => $data['name'],
+				'slug' => $data['slug'],
+				'has_cover_image' => !empty($_FILES['cover_image']['name']),
+			],
+		]);
+
+		header('Content-Type: application/json; charset=utf-8');
+		echo json_encode([
+			'success' => true,
+			'message' => 'Guest creato con successo!',
+			'redirect' => '/admin/guests/edit/' . $postId,
+			'id' => $postId,
+		]);
 		exit();
 	}
 
@@ -203,23 +321,27 @@ try{
 	public function update($params)
 	{
 		if (!$this->validateCsrfToken()) {
-			header('Location: /admin/guests/all');
+			header('Content-Type: application/json; charset=utf-8');
+			http_response_code(403);
+			echo json_encode(['success' => false, 'message' => 'Token CSRF non valido.']);
 			exit();
 		}
 
 
 		$id = $params[0] ?? null;
 		if (!$id || !is_numeric($id)) {
-			Session::setFlash('error', 'ID non valido.');
-			header('Location: /admin/guests/all');
+			header('Content-Type: application/json; charset=utf-8');
+			http_response_code(400);
+			echo json_encode(['success' => false, 'message' => 'ID non valido.']);
 			exit();
 		}
 
 
 		$post = $this->guestModel->find($id);
 		if (!$post) {
-			Session::setFlash('error', 'Guest non trovato.');
-			header('Location: /admin/guests/all');
+			header('Content-Type: application/json; charset=utf-8');
+			http_response_code(404);
+			echo json_encode(['success' => false, 'message' => 'Guest non trovato.']);
 			exit();
 		}
 
@@ -254,9 +376,24 @@ try{
 		}
 
 		$this->guestModel->update($id, $data);
-		Session::setFlash('success', 'Articolo aggiornato con successo!');
-
-		header('Location: /admin/guests/edit/' . $id);
+		$this->auditLogService->logAudit([
+			'user_id' => $_SESSION['user_id'] ?? null,
+			'action_type' => AuditLogActionType::GUEST_UPDATED,
+			'entity_type' => 'guest',
+			'entity_id' => (int) $id,
+			'success' => 1,
+			'payload' => [
+				'name' => $data['name'],
+				'slug' => $data['slug'],
+				'has_cover_image' => !empty($_FILES['cover_image']['name']),
+			],
+		]);
+		header('Content-Type: application/json; charset=utf-8');
+		echo json_encode([
+			'success' => true,
+			'message' => 'Guest aggiornato con successo!',
+			'id' => (int) $id,
+		]);
 		exit();
 	}
 
@@ -265,24 +402,39 @@ try{
 	 */
 	public function delete($params)
 	{
+		header('Content-Type: application/json; charset=utf-8');
+
 		$id = $params[0] ?? null;
 
 		if (!$id || !is_numeric($id)) {
-			Session::setFlash('error', 'ID non valido.');
-			header('Location: /admin/guests/all');
+			http_response_code(400);
+			echo json_encode(['success' => false, 'message' => 'ID non valido.']);
 			exit();
 		}
 
 		if (!$this->validateCsrfToken()) {
-			header('Location: /admin/guests/all');
+			http_response_code(403);
+			echo json_encode(['success' => false, 'message' => 'Token CSRF non valido.']);
 			exit();
 		}
 
-		$this->guestModel->delete($id);
+		if ($this->guestModel->delete($id)) {
+			$this->auditLogService->logAudit([
+				'user_id' => $_SESSION['user_id'] ?? null,
+				'action_type' => AuditLogActionType::GUEST_DELETED,
+				'entity_type' => 'guest',
+				'entity_id' => (int) $id,
+				'success' => 1,
+				'payload' => [
+					'id' => (int) $id,
+				],
+			]);
+			echo json_encode(['success' => true, 'message' => 'Guest eliminato.']);
+			exit();
+		}
 
-		Session::setFlash('success', 'Articolo eliminato.');
-
-		header('Location: /admin/guests/all');
+		http_response_code(500);
+		echo json_encode(['success' => false, 'message' => 'Errore durante l\'eliminazione del guest.']);
 		exit();
 	}
 

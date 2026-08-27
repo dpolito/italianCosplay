@@ -15,6 +15,34 @@ $currentLabel = $breadcrumbs ? ($breadcrumbs[array_key_last($breadcrumbs)]['labe
 $locationName = $selectedComune['nome'] ?? $selectedProvincia['nome'] ?? $selectedRegione['nome'] ?? 'Italia';
 $pageTitle = $currentLabel;
 $eventCount = count($events);
+$currentLocationFavorite = null;
+$featureFlags = (new \App\Services\SiteFeatureFlagService())->getEnabledMap();
+
+if (!empty($selectedComune)) {
+	$currentLocationFavorite = [
+		'label' => 'Salva questo comune',
+		'entity_type' => 'comune',
+		'entity_id' => (int) ($selectedComune['id'] ?? 0),
+		'url' => $eventsBasePath . '/' . rawurlencode((string) ($selectedRegione['slug'] ?? '')) . '/' . rawurlencode((string) ($selectedProvincia['slug'] ?? '')) . '/' . rawurlencode((string) ($selectedComune['slug'] ?? '')),
+		'description' => ($selectedComune['nome'] ?? 'Comune') . (!empty($selectedProvincia['nome']) ? ' · ' . $selectedProvincia['nome'] : ''),
+	];
+} elseif (!empty($selectedProvincia)) {
+	$currentLocationFavorite = [
+		'label' => 'Salva questa provincia',
+		'entity_type' => 'provincia',
+		'entity_id' => (int) ($selectedProvincia['id'] ?? 0),
+		'url' => $eventsBasePath . '/' . rawurlencode((string) ($selectedRegione['slug'] ?? '')) . '/' . rawurlencode((string) ($selectedProvincia['slug'] ?? '')),
+		'description' => ($selectedProvincia['nome'] ?? 'Provincia') . (!empty($selectedRegione['nome']) ? ' · ' . $selectedRegione['nome'] : ''),
+	];
+} elseif (!empty($selectedRegione)) {
+	$currentLocationFavorite = [
+		'label' => 'Salva questa regione',
+		'entity_type' => 'regione',
+		'entity_id' => (int) ($selectedRegione['id'] ?? 0),
+		'url' => $eventsBasePath . '/' . rawurlencode((string) ($selectedRegione['slug'] ?? '')),
+		'description' => $selectedRegione['nome'] ?? 'Regione',
+	];
+}
 
 if (!function_exists('event_index_h')) {
 	function event_index_h($value): string
@@ -166,27 +194,110 @@ foreach (array_slice($events, 0, 24) as $index => $event) {
 					<h1 class="text-3xl font-extrabold leading-tight text-gray-950 md:text-5xl">
 						<?php echo event_index_h($pageTitle); ?>
 					</h1>
-					<div class="mt-4 max-w-4xl text-lg leading-relaxed text-gray-700">
-						<?php if (!empty($data['testo_descrittivo'])): ?>
-							<?php echo $data['testo_descrittivo']; ?>
-						<?php else: ?>
-							<p><?php echo event_index_h($introFallback); ?></p>
-						<?php endif; ?>
+					<div class="mt-5 flex flex-wrap gap-3">
+						<a href="#eventi-cosplay" class="inline-flex items-center rounded-full bg-green-800 px-5 py-3 text-sm font-bold text-white shadow hover:bg-green-900">
+							Vedi gli eventi
+						</a>
+						<a href="#filtra-eventi" class="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-5 py-3 text-sm font-bold text-green-900 hover:bg-green-100">
+							Filtra per località
+						</a>
+					</div>
+
+					<div class="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+						<div class="max-w-4xl text-sm leading-7 text-gray-700 md:text-base">
+							<div id="eventi-descrizione-corta">
+								<?php
+								$introText = !empty($data['testo_descrittivo'])
+									? strip_tags((string) $data['testo_descrittivo'])
+									: $introFallback;
+								$introShort = mb_strimwidth(trim(preg_replace('/\s+/', ' ', $introText)), 0, 260, '...');
+								?>
+								<p><?php echo event_index_h($introShort); ?></p>
+							</div>
+							<div id="eventi-descrizione-completa" class="hidden">
+								<?php if (!empty($data['testo_descrittivo'])): ?>
+									<?php echo $data['testo_descrittivo']; ?>
+								<?php else: ?>
+									<p><?php echo event_index_h($introFallback); ?></p>
+								<?php endif; ?>
+							</div>
+						</div>
+						<button
+							type="button"
+							class="mt-3 inline-flex items-center rounded-full border border-green-200 bg-white px-4 py-2 text-sm font-bold text-green-900 hover:bg-green-50"
+							data-toggle-text
+							data-label-show="Mostra tutto"
+							data-label-hide="Mostra meno"
+							aria-expanded="false"
+							aria-controls="eventi-descrizione-completa"
+						>
+							Mostra tutto
+						</button>
 					</div>
 				</div>
 
-				<aside class="rounded-lg border border-green-100 bg-green-50 p-4" aria-label="Riepilogo eventi">
-					<p class="text-sm font-semibold text-green-900">Eventi trovati</p>
-					<p class="mt-1 text-4xl font-extrabold text-gray-950"><?php echo (int)$eventCount; ?></p>
-					<p class="mt-2 text-sm text-gray-700">
-						<?php echo event_index_h($locationName); ?>, aggiornati con date, luoghi e schede evento.
-					</p>
-					<a href="/segnala-evento-cosplay" class="mt-4 inline-flex w-full items-center justify-center rounded-lg bg-green-800 px-4 py-3 font-bold text-white shadow hover:bg-green-900">
-						Segnala un evento
-					</a>
-				</aside>
+				<div class="grid gap-4 lg:grid-cols-2">
+					<aside class="rounded-lg border border-green-100 bg-green-50 p-4" aria-label="Riepilogo eventi">
+						<p class="text-sm font-semibold text-green-900">Eventi trovati</p>
+						<p class="mt-1 text-4xl font-extrabold text-gray-950"><?php echo (int)$eventCount; ?></p>
+						<p class="mt-2 text-sm text-gray-700">
+							<?php echo event_index_h($locationName); ?>, aggiornati con date, luoghi e schede evento.
+						</p>
+						<a href="/segnala-evento-cosplay" class="mt-4 inline-flex w-full items-center justify-center rounded-lg bg-green-800 px-4 py-3 font-bold text-white shadow hover:bg-green-900">
+							Segnala un evento
+						</a>
+					</aside>
+					<?php if (!empty($featureFlags['enable_favorites']) && !empty($_SESSION['user_id']) && !empty($currentLocationFavorite)): ?>
+						<aside class="rounded-lg border border-amber-100 bg-amber-50 p-4" aria-label="Preferiti location">
+							<p class="text-sm font-semibold text-amber-900">Salva la località</p>
+							<p class="mt-1 text-sm text-gray-700">Regione, provincia e comune possono essere salvati separatamente.</p>
+							<div class="mt-4">
+								<form method="post" action="/dashboard/favorites/toggle" class="js-favorite-toggle">
+									<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+									<input type="hidden" name="entity_type" value="<?php echo event_index_h($currentLocationFavorite['entity_type']); ?>">
+									<input type="hidden" name="entity_id" value="<?php echo (int) $currentLocationFavorite['entity_id']; ?>">
+									<input type="hidden" name="redirect_to" value="<?php echo event_index_h($currentLocationFavorite['url']); ?>">
+									<button type="submit" class="js-favorite-button inline-flex w-full items-center justify-center gap-2 rounded-lg border border-amber-300 bg-white px-4 py-3 text-sm font-bold text-amber-900 transition hover:bg-amber-100" data-label-add="Salva tra i preferiti" data-label-remove="Rimuovi dai preferiti" data-icon-add="fa-bookmark" data-icon-remove="fa-bookmark-slash" data-active="0">
+										<i class="fa-solid fa-bookmark" aria-hidden="true"></i>
+										<span>Salva <?php echo event_index_h($currentLocationFavorite['label'] ?? 'location'); ?></span>
+									</button>
+								</form>
+							</div>
+						</aside>
+					<?php endif; ?>
+				</div>
 			</div>
 		</header>
+
+		<?php
+		$eventsTopPlacement = null;
+		$eventsInlinePlacement = null;
+
+		if (empty($selectedComune)) {
+			$eventsTopPlacement = 'events_national_top';
+			$eventsInlinePlacement = 'events_national_inline';
+			$adContext = ['page_type' => 'national'];
+
+			if (!empty($selectedProvincia)) {
+				$eventsTopPlacement = 'events_province_top';
+				$eventsInlinePlacement = 'events_province_inline';
+				$adContext = [
+					'page_type' => 'province',
+					'regione_slug' => $selectedRegione['slug'] ?? null,
+					'provincia_slug' => $selectedProvincia['slug'] ?? null,
+				];
+			} elseif (!empty($selectedRegione)) {
+				$eventsTopPlacement = 'events_region_top';
+				$eventsInlinePlacement = 'events_region_inline';
+				$adContext = [
+					'page_type' => 'region',
+					'regione_slug' => $selectedRegione['slug'] ?? null,
+				];
+			}
+
+			echo \App\Helpers\AdPlacement::render($eventsTopPlacement, 'events', 'mb-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md', '', $adContext);
+		}
+		?>
 
 		<nav class="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Navigazione rapida eventi">
 			<a href="<?php echo event_index_h($eventsBasePath); ?>" class="rounded-lg bg-white p-4 font-semibold text-green-900 shadow hover:bg-green-50">
@@ -209,8 +320,12 @@ foreach (array_slice($events, 0, 24) as $index => $event) {
 			<?php endif; ?>
 		</nav>
 
-		<section class="mb-8 rounded-xl bg-green-950 p-4 shadow-lg md:sticky md:top-20 md:p-6">
-			<h2 id="filtra-eventi" class="mb-4 text-xl font-bold text-white">Filtra eventi cosplay per località</h2>
+		<?php if (!empty($eventsInlinePlacement)): ?>
+			<?php echo \App\Helpers\AdPlacement::render($eventsInlinePlacement, 'events', 'mb-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md', '', $adContext ?? ['page_type' => 'national']); ?>
+		<?php endif; ?>
+
+		<section id="filtra-eventi" class="relative z-30 mb-8 rounded-xl bg-green-950 p-4 shadow-lg md:sticky md:top-4 md:p-6">
+			<h2 class="mb-4 text-xl font-bold text-white">Filtra eventi cosplay per località</h2>
 			<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
 				<div>
 					<label for="filter_regione" class="mb-1 block text-sm font-semibold text-white">Regione</label>
@@ -278,6 +393,12 @@ foreach (array_slice($events, 0, 24) as $index => $event) {
 						$description = mb_strimwidth(trim(preg_replace('/\s+/', ' ', strip_tags(html_entity_decode($event['descrizione'] ?? '', ENT_QUOTES, 'UTF-8')))), 0, 150, '...');
 						$loading = ($index < 3) ? 'eager' : 'lazy';
 						$fetchPriority = ($index === 0) ? 'high' : 'auto';
+						$agendaStatus = $agendaStates[$event['id']] ?? null;
+						$agendaLabels = [
+							'mi_interessa' => ['label' => 'Mi interessa', 'class' => 'bg-blue-100 text-blue-800'],
+							'ci_vado' => ['label' => 'Ci vado', 'class' => 'bg-emerald-100 text-emerald-800'],
+							'forse_vado' => ['label' => 'Forse vado', 'class' => 'bg-amber-100 text-amber-900'],
+						];
 						?>
 						<article class="group overflow-hidden rounded-xl bg-white shadow-md transition hover:-translate-y-0.5 hover:shadow-xl focus-within:ring-2 focus-within:ring-green-700">
 							<a href="<?php echo event_index_h($eventUrl); ?>" class="block" title="<?php echo event_index_h($cardTitle); ?>">
@@ -300,6 +421,11 @@ foreach (array_slice($events, 0, 24) as $index => $event) {
 									<span class="absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-bold <?php echo event_index_h($status['class']); ?>">
 										<?php echo event_index_h($status['label']); ?>
 									</span>
+									<?php if (!empty($agendaStatus) && isset($agendaLabels[$agendaStatus])): ?>
+										<span data-agenda-badge class="absolute right-3 top-3 rounded-full px-3 py-1 text-xs font-bold <?php echo event_index_h($agendaLabels[$agendaStatus]['class']); ?>">
+											<?php echo event_index_h($agendaLabels[$agendaStatus]['label']); ?>
+										</span>
+									<?php endif; ?>
 								</div>
 
 								<div class="p-5">
@@ -327,6 +453,28 @@ foreach (array_slice($events, 0, 24) as $index => $event) {
 									</span>
 								</div>
 							</a>
+							<?php if (!empty($featureFlags['enable_personal_agenda']) && !empty($_SESSION['user_id'])): ?>
+								<div class="border-t border-gray-100 bg-gray-50 p-4">
+									<p class="mb-3 text-xs font-bold uppercase tracking-wide text-gray-500">Agenda personale</p>
+									<div class="grid grid-cols-3 gap-2">
+										<?php foreach ([
+											'mi_interessa' => 'Mi interessa',
+											'ci_vado' => 'Ci vado',
+											'forse_vado' => 'Forse vado',
+										] as $agendaValue => $agendaLabel): ?>
+											<form method="post" action="/eventi-cosplay/agenda/update" class="js-agenda-toggle">
+												<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+												<input type="hidden" name="event_id" value="<?php echo (int) $event['id']; ?>">
+												<input type="hidden" name="status" value="<?php echo event_index_h($agendaValue); ?>">
+												<input type="hidden" name="redirect_to" value="<?php echo event_index_h($eventUrl); ?>">
+												<button type="submit" class="js-agenda-button w-full rounded-lg border px-3 py-2 text-xs font-bold transition <?php echo ($agendaStatus === $agendaValue) ? 'border-green-700 bg-green-700 text-white' : 'border-gray-200 bg-white text-gray-700 hover:bg-green-50'; ?>" data-agenda-status="<?php echo event_index_h($agendaValue); ?>" data-active="<?php echo ($agendaStatus === $agendaValue) ? '1' : '0'; ?>">
+													<?php echo event_index_h($agendaLabel); ?>
+												</button>
+											</form>
+										<?php endforeach; ?>
+									</div>
+								</div>
+							<?php endif; ?>
 						</article>
 					<?php endforeach; ?>
 				</div>
@@ -416,9 +564,31 @@ foreach (array_slice($events, 0, 24) as $index => $event) {
 	const filterProvincia = document.getElementById('filter_provincia');
 	const filterComune = document.getElementById('filter_comune');
 	const eventsBasePath = '<?php echo $eventsBasePath; ?>';
+	const toggleTextButton = document.querySelector('[data-toggle-text]');
+	const shortDescription = document.getElementById('eventi-descrizione-corta');
+	const fullDescription = document.getElementById('eventi-descrizione-completa');
 
 	function redirect(url) {
 		window.location.href = url;
+	}
+
+	if (toggleTextButton && shortDescription && fullDescription) {
+		toggleTextButton.addEventListener('click', function () {
+			const isOpen = !fullDescription.classList.contains('hidden');
+
+			if (isOpen) {
+				fullDescription.classList.add('hidden');
+				shortDescription.classList.remove('hidden');
+				toggleTextButton.textContent = toggleTextButton.dataset.labelShow || 'Mostra tutto';
+				toggleTextButton.setAttribute('aria-expanded', 'false');
+				return;
+			}
+
+			shortDescription.classList.add('hidden');
+			fullDescription.classList.remove('hidden');
+			toggleTextButton.textContent = toggleTextButton.dataset.labelHide || 'Mostra meno';
+			toggleTextButton.setAttribute('aria-expanded', 'true');
+		});
 	}
 
 	function resetProvince() {

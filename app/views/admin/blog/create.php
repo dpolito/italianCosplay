@@ -34,7 +34,7 @@
 
 	<div class="bg-white rounded-lg shadow-lg p-8">
 
-		<form action="/admin/blog/store" method="POST" enctype="multipart/form-data" id="blogForm" onsubmit="syncEditor()">
+		<form action="/admin/blog/store" method="POST" enctype="multipart/form-data" id="blogForm" onsubmit="syncEditor()" data-ajax-submit="true" data-success-redirect="/admin/blog/all">
 
 			<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($data['csrf_token']) ?>">
 
@@ -94,6 +94,7 @@
 			<div class="mb-6">
 				<label class="block text-gray-700 text-sm font-bold mb-2">Meta Description</label>
 				<textarea name="meta_description"
+				          id="meta_description"
 				          rows="2"
 				          class="shadow border rounded-lg w-full py-2 px-3 focus:border-green-500"
 				          placeholder="Descrizione che appare su Google (max 155-160 caratteri)"></textarea>
@@ -103,6 +104,7 @@
 			<div class="mb-6">
 				<label class="block text-gray-700 text-sm font-bold mb-2">Excerpt (Anteprima articolo)</label>
 				<textarea name="excerpt"
+				          id="excerpt"
 				          rows="3"
 				          class="shadow border rounded-lg w-full py-2 px-3 focus:border-green-500"
 				          placeholder="Riassunto breve che appare nelle liste articoli"></textarea>
@@ -170,20 +172,8 @@
 
 			<!-- ================= ROW 9: CONTENUTO EDITOR ================= -->
 			<div class="mb-6">
-
-				<label class="block text-gray-700 text-sm font-bold mb-2">
-					Contenuto articolo *
-				</label>
-				<input type="hidden" name="contenuto" id="contenuto">
-<style>
-	.ck-editor__editable {
-		min-height: 70vh;
-	}
-</style>
-				<div id="editor-wrapper" style="min-height: 600px;">
-					<div id="editor"></div>
-				</div>
-
+				<label class="block text-gray-700 text-sm font-bold mb-2">Contenuto articolo *</label>
+				<div id="editor"></div>
 			</div>
 
 			<!-- ================= SUBMIT ================= -->
@@ -205,29 +195,12 @@
 	</div>
 </div>
 
-<!-- ================= JS SEO + EDITOR ================= -->
-<script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js"></script>
+<script src="/public_assets/js/wysiwyg-editor.js"></script>
 <script>
-	ClassicEditor
-		.create(document.querySelector('#editor'))
-		.then(editor => {
-			window.editor = editor;
-
-			// carica contenuto iniziale
-			editor.setData(`<?= $data['post']['contenuto'] ?? '' ?>`);
-
-			// sync con hidden input
-			editor.model.document.on('change:data', () => {
-				document.querySelector('#contenuto').value = editor.getData();
-			});
-		})
-		.catch(error => {
-			console.error(error);
-		});
-</script>
-<script>
-	document.getElementById('blogForm').addEventListener('submit', function () {
-		document.querySelector('#contenuto').value = window.editor.getData();
+	WysiwygEditor.init('#editor', {
+		name: 'contenuto',
+		placeholder: 'Scrivi qui il tuo testo...',
+		content: '<p>Testo <b>in grassetto</b>, <i>in corsivo</i> e <u>sottolineato</u>.</p>'
 	});
 </script>
 <script>
@@ -241,9 +214,6 @@
 		const seoTitle = document.getElementById('seoTitle');
 		const seoSlug = document.getElementById('seoSlug');
 		const seoDesc = document.getElementById('seoDesc');
-
-		const editor = document.getElementById('editor');
-		const textarea = document.getElementById('contenuto');
 
 		function makeSlug(str) {
 			return str

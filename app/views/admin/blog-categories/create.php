@@ -37,7 +37,7 @@
 
 	<div class="bg-white rounded-lg shadow-lg p-8">
 
-		<form action="/admin/blog-categories/store" method="POST" id="categoryForm">
+		<form action="/admin/blog-categories/store" method="POST" id="categoryForm" data-ajax-submit="true" data-success-redirect="/admin/blog-categories/all">
 
 			<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($data['csrf_token']) ?>">
 
@@ -96,31 +96,22 @@
 
 			<!-- ================= ROW 3 ================= -->
 			<div class="mb-6">
-
-				<label class="block text-gray-700 text-sm font-bold mb-2">
-					SEO Description
-				</label>
-
+				<label class="block text-gray-700 text-sm font-bold mb-2">SEO Description</label>
 				<textarea name="seo_description"
 				          id="seo_description"
 				          rows="3"
 				          class="shadow border rounded-lg w-full py-2 px-3 focus:border-green-500"
 				          placeholder="Descrizione che appare su Google"></textarea>
-
 			</div>
 
 			<!-- ================= ROW 4 ================= -->
 			<div class="mb-6">
-
-				<label class="block text-gray-700 text-sm font-bold mb-2">
-					Descrizione Categoria
-				</label>
-
+				<label class="block text-gray-700 text-sm font-bold mb-2">Descrizione Categoria</label>
 				<textarea name="description"
+				          id="description"
 				          rows="4"
 				          class="shadow border rounded-lg w-full py-2 px-3 focus:border-green-500"
 				          placeholder="Descrizione interna della categoria"></textarea>
-
 			</div>
 
 			<!-- ================= SEO PREVIEW ================= -->

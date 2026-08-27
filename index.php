@@ -26,6 +26,9 @@ $base_url_path = str_replace('/public', '', $script_dir);
 // Questo è il punto cruciale se il tuo problema è qui.
 define('URL_ROOT', rtrim($protocol . '://' . $host . $base_url_path, '/'));
 define('URL_ROOT_SITE', rtrim($protocol . '://' . $host , '/'));
+
+// Carica la configurazione applicativa condivisa.
+require_once APP_ROOT . '/app/config/app.php';
 // Carica il file dell'autoloader di Composer, se presente.
 // Questo è il metodo preferito per gestire le dipendenze.
 
@@ -43,6 +46,7 @@ if (file_exists(APP_ROOT . '/vendor/autoload.php')) {
 	require_once APP_ROOT . '/app/Models/BaseModel.php'; // I modelli estendono questa classe
 	require_once APP_ROOT . '/app/Models/User.php'; // Per AuthController e AdminController
 	require_once APP_ROOT . '/app/Models/Event.php'; // Per EventController
+	require_once APP_ROOT . '/app/Models/EventMaster.php'; // Per AdminEventMasterController
 	require_once APP_ROOT . '/app/Models/TipoEvento.php'; // Per EventController
 	require_once APP_ROOT . '/app/Models/Regione.php'; // Per EventController e ApiController
 	require_once APP_ROOT . '/app/Models/Provincia.php'; // Per EventController e ApiController
@@ -50,6 +54,7 @@ if (file_exists(APP_ROOT . '/vendor/autoload.php')) {
 	require_once APP_ROOT . '/app/Controllers/HomeController.php'; // Controller specifici
 	require_once APP_ROOT . '/app/Controllers/AuthController.php';
 	require_once APP_ROOT . '/app/Controllers/AdminController.php';
+	require_once APP_ROOT . '/app/Controllers/AdminEventMasterController.php';
 	require_once APP_ROOT . '/app/Controllers/EventController.php';
 	require_once APP_ROOT . '/app/Controllers/ApiController.php';
 }

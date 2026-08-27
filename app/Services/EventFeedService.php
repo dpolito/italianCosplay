@@ -4,8 +4,11 @@ namespace App\Services;
 use App\Core\Database;
 use App\Models\Event;
 use DateTime;
+use DateTimeInterface;
 use IntlDateFormatter;
 use function array_map;
+use function array_slice;
+use function usort;
 
 class EventFeedService
 {
@@ -109,7 +112,139 @@ class EventFeedService
 			'label' => $this->formatWeekendLabel($saturday, $sunday)
 		];
 	}
+	public function getSpecificWeekend(DateTimeInterface $from, DateTimeInterface $to): array
+	{
 
+		$events = $this->eventModel->getEventsByDateRange($from, $to);
+
+		// 👉 views tutte in una botta sola
+		$viewsMap = $this->eventSignalService->getViews7d();
+
+		$enhanced = [];
+
+		foreach ($events as $event) {
+			$views7d = $viewsMap[$event['id']] ?? 0;
+
+			$event['final_score'] = $this->eventScoreService->calculate($event, $views7d);
+
+			$enhanced[] = $event;
+		}
+
+		// 🔥 ordinamento globale
+		usort($enhanced, fn($a, $b) => $b['final_score'] <=> $a['final_score']);
+
+		// =========================
+		// 🧠 DEDUP ENGINE
+		// =========================
+		$usedIds = [];
+
+		// 🔥 TOP 3
+		$top3 = array_slice($enhanced, 0, 3);
+		foreach ($top3 as $e) {
+			$usedIds[$e['id']] = true;
+		}
+
+		// 🏆 BIG (escludo già usati)
+		$big = [];
+		foreach ($enhanced as $e) {
+			if (!isset($usedIds[$e['id']]) && ($e['event_size'] ?? 0) >= 4) {
+				$big[] = $e;
+				$usedIds[$e['id']] = true;
+			}
+		}
+
+		// 🆕 NUOVI (escludo già usati)
+		$new = [];
+		foreach ($enhanced as $e) {
+			if (!isset($usedIds[$e['id']]) && $e['final_score'] > 120) {
+				$new[] = $e;
+				$usedIds[$e['id']] = true;
+			}
+		}
+
+		// 📋 TUTTI (solo quelli NON usati)
+		$all = [];
+		foreach ($enhanced as $e) {
+			if (!isset($usedIds[$e['id']])) {
+				$all[] = $e;
+			}
+		}
+
+		return [
+			'all' => $all,
+			'new' => $new,
+			'big' => $big,
+			'top3' => $top3,
+			'label' => $this->formatWeekendLabel($from, $to)
+		];
+	}
+
+	public function getMonthSpecific (DateTimeInterface $start, DateTimeInterface $end): array
+	{
+
+		$events = $this->eventModel->getEventsByDateRange($start, $end);
+
+		// 👉 views tutte in una botta sola
+		$viewsMap = $this->eventSignalService->getViews7d();
+
+		$enhanced = [];
+
+		foreach ($events as $event) {
+			$views7d = $viewsMap[$event['id']] ?? 0;
+
+			$event['final_score'] = $this->eventScoreService->calculate($event, $views7d);
+
+			$enhanced[] = $event;
+		}
+
+		// 🔥 ordinamento globale
+		usort($enhanced, fn($a, $b) => $b['final_score'] <=> $a['final_score']);
+
+		// =========================
+		// 🧠 DEDUP ENGINE
+		// =========================
+		$usedIds = [];
+
+		// 🔥 TOP 3
+		$top3 = array_slice($enhanced, 0, 3);
+		foreach ($top3 as $e) {
+			$usedIds[$e['id']] = true;
+		}
+
+		// 🏆 BIG (escludo già usati)
+		$big = [];
+		foreach ($enhanced as $e) {
+			if (!isset($usedIds[$e['id']]) && ($e['event_size'] ?? 0) >= 4) {
+				$big[] = $e;
+				$usedIds[$e['id']] = true;
+			}
+		}
+
+		// 🆕 NUOVI (escludo già usati)
+		$new = [];
+		foreach ($enhanced as $e) {
+			if (!isset($usedIds[$e['id']]) && $e['final_score'] > 120) {
+				$new[] = $e;
+				$usedIds[$e['id']] = true;
+			}
+		}
+
+		// 📋 TUTTI (solo quelli NON usati)
+		$all = [];
+		foreach ($enhanced as $e) {
+			if (!isset($usedIds[$e['id']])) {
+				$all[] = $e;
+			}
+		}
+
+		return [
+			'all' => $all,
+			'new' => $new,
+			'big' => $big,
+			'top3' => $top3,
+			'label' => $this->formatMonthLabel($start)
+		];
+	}
 	public function getMonth(): array
 	{
 		$today = new DateTime();
@@ -180,7 +315,7 @@ class EventFeedService
 			'label' => $this->formatMonthLabel($start)
 		];
 	}
-	private function formatWeekendLabel(DateTime $saturday, DateTime $sunday): string
+	private function formatWeekendLabel(DateTimeInterface $saturday, DateTimeInterface $sunday): string
 	{
 		$formatter = new IntlDateFormatter(
 			'it_IT',
@@ -190,7 +325,7 @@ class EventFeedService
 
 		return $saturday->format('d') . ' - ' . $formatter->format($sunday);
 	}
-	public function formatMonthLabel(DateTime $date): string
+	public function formatMonthLabel(DateTimeInterface $date): string
 	{
 		$formatter = new IntlDateFormatter(
 			'it_IT',

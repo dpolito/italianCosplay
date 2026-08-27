@@ -2,19 +2,24 @@
 
 namespace App\Services;
 
+use App\Services\AuditLogService;
 use App\Repositories\AdOrderRepository;
 use App\Repositories\AdPaymentRepository;
+use App\Support\AuditLogActionType;
+use App\ValueObjects\Money;
 use Exception;
 
 class AdPaymentService
 {
 	private AdPaymentRepository $paymentRepository;
 	private AdOrderRepository $orderRepository;
+	private AuditLogService $auditLogService;
 
 	public function __construct()
 	{
 		$this->paymentRepository = new AdPaymentRepository();
 		$this->orderRepository = new AdOrderRepository();
+		$this->auditLogService = new AuditLogService();
 	}
 
 	public function createCheckoutSession(array $campaign): string
@@ -23,7 +28,8 @@ class AdPaymentService
 			throw new Exception('Campagna non valida.');
 		}
 
-		if ((float)$campaign['price'] <= 0) {
+		$amount = Money::fromDecimal($campaign['price'] ?? 0, $campaign['currency'] ?? 'EUR');
+		if (!$amount->isGreaterThanZero()) {
 			throw new Exception('Prezzo non valido.');
 		}
 
@@ -32,9 +38,25 @@ class AdPaymentService
 			'order_id' => $orderId,
 			'campaign_id' => $campaign['id'],
 			'provider' => 'adyen',
-			'amount' => $campaign['price'],
-			'currency' => $campaign['currency'] ?? 'EUR',
+			'amount' => $amount->toDecimal(),
+			'currency' => $amount->getCurrency(),
 			'status' => 'pending',
+		]);
+
+		$this->auditLogService->logAudit([
+			'user_id' => $campaign['user_id'] ?? null,
+			'action_type' => AuditLogActionType::AD_PAYMENT_CREATED,
+			'entity_type' => 'ad_payment',
+			'entity_id' => $paymentId,
+			'success' => 1,
+			'payload' => [
+				'campaign_id' => $campaign['id'],
+				'order_id' => $orderId,
+				'provider' => 'adyen',
+				'amount' => $amount->toDecimal(),
+				'currency' => $amount->getCurrency(),
+				'status' => 'pending',
+			],
 		]);
 
 		// Placeholder produzione: qui va creata la payment session Adyen e restituito l'URL hosted checkout.
@@ -65,8 +87,24 @@ class AdPaymentService
 		if (!empty($payment['order_id'])) {
 			$this->orderRepository->markAsPaid((int)$payment['order_id']);
 		}
+		$ok = $this->paymentRepository->markAsPaid($paymentId, $providerReference);
+		$this->auditLogService->logAudit([
+			'user_id' => null,
+			'action_type' => AuditLogActionType::AD_PAYMENT_SUCCESS,
+			'entity_type' => 'ad_payment',
+			'entity_id' => $paymentId,
+			'success' => $ok ? 1 : 0,
+			'payload' => [
+				'campaign_id' => (int) ($payment['campaign_id'] ?? 0),
+				'order_id' => $payment['order_id'] ?? null,
+				'provider' => $payment['provider'] ?? null,
+				'provider_reference' => $providerReference,
+				'amount' => $payment['amount'] ?? null,
+				'currency' => $payment['currency'] ?? null,
+			],
+		]);
 
-		return $this->paymentRepository->markAsPaid($paymentId, $providerReference);
+		return $ok;
 	}
 
 	public function markAsFailed(int $paymentId): bool
@@ -75,13 +113,45 @@ class AdPaymentService
 		if ($payment && !empty($payment['order_id'])) {
 			$this->orderRepository->markAsFailed((int)$payment['order_id']);
 		}
+		$ok = $this->paymentRepository->markAsFailed($paymentId);
+		$this->auditLogService->logAudit([
+			'user_id' => null,
+			'action_type' => AuditLogActionType::AD_PAYMENT_FAILED,
+			'entity_type' => 'ad_payment',
+			'entity_id' => $paymentId,
+			'success' => $ok ? 1 : 0,
+			'payload' => [
+				'campaign_id' => (int) ($payment['campaign_id'] ?? 0),
+				'order_id' => $payment['order_id'] ?? null,
+				'provider' => $payment['provider'] ?? null,
+				'amount' => $payment['amount'] ?? null,
+				'currency' => $payment['currency'] ?? null,
+			],
+		]);
 
-		return $this->paymentRepository->markAsFailed($paymentId);
+		return $ok;
 	}
 
 	public function refund(int $paymentId): bool
 	{
-		return $this->paymentRepository->refund($paymentId);
+		$payment = $this->paymentRepository->findById($paymentId);
+		$ok = $this->paymentRepository->refund($paymentId);
+		$this->auditLogService->logAudit([
+			'user_id' => null,
+			'action_type' => AuditLogActionType::AD_PAYMENT_REFUNDED,
+			'entity_type' => 'ad_payment',
+			'entity_id' => $paymentId,
+			'success' => $ok ? 1 : 0,
+			'payload' => [
+				'campaign_id' => (int) ($payment['campaign_id'] ?? 0),
+				'order_id' => $payment['order_id'] ?? null,
+				'provider' => $payment['provider'] ?? null,
+				'amount' => $payment['amount'] ?? null,
+				'currency' => $payment['currency'] ?? null,
+			],
+		]);
+
+		return $ok;
 	}
 
 	public function findById(int $id): ?array

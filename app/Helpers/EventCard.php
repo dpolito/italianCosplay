@@ -10,28 +10,42 @@ class EventCard
 {
 public static function render(array $event, string $variant = 'default', bool $lazy = false): string
 {
-$img = $event['immagine']
-? URL_ROOT_SITE . htmlspecialchars($event['immagine'])
+$eventTitle = (string)($event['titolo'] ?? 'Evento cosplay');
+$eventSlug = (string)($event['slug'] ?? '');
+$eventStart = (string)($event['data_inizio'] ?? date('Y-m-d'));
+$eventEnd = (string)($event['data_fine'] ?? '');
+$eventCity = (string)($event['comune_nome'] ?? '');
+$eventRegion = (string)($event['regione_nome'] ?? '');
+$eventDescription = (string)($event['descrizione'] ?? '');
+$imagePath = (string)($event['immagine'] ?? '');
+$imageWidth = (string)($event['immagine_width'] ?? '1200');
+$imageHeight = (string)($event['immagine_height'] ?? '800');
+
+$img = $imagePath !== ''
+? URL_ROOT_SITE . '/'.htmlspecialchars($imagePath, ENT_QUOTES, 'UTF-8')
 : 'https://placehold.co/800x500';
 
-$immagineWidth = htmlspecialchars($event['immagine_width']);
-$immagineHeight = htmlspecialchars($event['immagine_height']);
+$immagineWidth = htmlspecialchars($imageWidth, ENT_QUOTES, 'UTF-8');
+$immagineHeight = htmlspecialchars($imageHeight, ENT_QUOTES, 'UTF-8');
 
-$link = URL_ROOT_SITE . '/eventi-cosplay/' . htmlspecialchars($event['slug']);
+$link = URL_ROOT_SITE . '/eventi-cosplay/' . htmlspecialchars($eventSlug, ENT_QUOTES, 'UTF-8');
 
 //$title = htmlspecialchars($event['titolo'] . ' evento cosplay e giochi da tavolo a ' .$event['comune_nome']);
-$title = htmlspecialchars($event['titolo']. ' '.date('Y', strtotime($event['data_inizio'])). ' evento cosplay e fumetti a ' .$event['comune_nome']. ' ' . $event['regione_nome']);
-$titolo = htmlspecialchars($event['titolo']) . ' '.date('Y', strtotime($event['data_inizio'])). ' a ' .$event['comune_nome'];
-$place = 'Evento cosplay e fumetti in ' . htmlspecialchars( $event['regione_nome']);
-$date = date('d/m/Y', strtotime($event['data_inizio']));
+$title = htmlspecialchars($eventTitle . ' ' . date('Y', strtotime($eventStart)) . ' evento cosplay e fumetti a ' . $eventCity . ' ' . $eventRegion, ENT_QUOTES, 'UTF-8');
+$titolo = htmlspecialchars($eventTitle, ENT_QUOTES, 'UTF-8') . ' ' . date('Y', strtotime($eventStart)) . ' a ' . htmlspecialchars($eventCity, ENT_QUOTES, 'UTF-8');
+$place = 'Evento cosplay e fumetti in ' . htmlspecialchars($eventRegion, ENT_QUOTES, 'UTF-8');
+$date = date('d/m/Y', strtotime($eventStart));
 
-if ($event['data_fine'] && $event['data_fine'] != $event['data_inizio']):
-	$date .= ' - '. date('d/m/Y', strtotime($event['data_fine']));
+if ($eventEnd && $eventEnd != $eventStart):
+	$date .= ' - '. date('d/m/Y', strtotime($eventEnd));
 endif;
 
 
 
-$desc = mb_strimwidth(strip_tags($event['descrizione'] ?? ''), 0, 140, '...');
+$desc = mb_strimwidth(strip_tags($eventDescription), 0, 140, '...');
+if ($variant === 'new') {
+	$desc = '';
+}
 
 $badge = '';
 if ($variant === 'top') {
@@ -57,7 +71,7 @@ return "
 			<h3 class='text-lg font-bold'>{$titolo}</h3>
 			<p class='text-sm text-gray-600'>📍 {$place}</p>
 			<p class='text-sm text-gray-500'>📅 {$date}</p>
-			<p class='text-sm text-gray-600 mt-2'>{$desc}</p>
+			" . ($desc !== '' ? "<p class='text-sm text-gray-600 mt-2'>{$desc}</p>" : '') . "
 		</div>
 	</article>
 </a>";

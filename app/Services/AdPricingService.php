@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Repositories\AdPositionRepository;
 use DateTime;
 use Exception;
+use App\ValueObjects\Money;
 
 class AdPricingService
 {
@@ -15,7 +16,7 @@ class AdPricingService
 		$this->positionRepository = new AdPositionRepository();
 	}
 
-	public function calculate(int $positionId, string $startDate, string $endDate): float
+	public function calculate(int $positionId, string $startDate, string $endDate): Money
 	{
 		$position = $this->positionRepository->findById($positionId);
 		if (!$position || !(int)$position['is_active']) {
@@ -36,10 +37,10 @@ class AdPricingService
 
 		$fixedPrice = $this->positionRepository->findPriceForDuration($positionId, $days);
 		if ($fixedPrice) {
-			return round((float)$fixedPrice['price'], 2);
+			return Money::fromDecimal($fixedPrice['price'] ?? 0, $fixedPrice['currency'] ?? 'EUR');
 		}
 
-		return round((float)$position['base_price'] * $days, 2);
+		return Money::fromDecimal($position['base_price'] ?? 0, $position['currency'] ?? 'EUR')->multiply($days);
 	}
 
 	public function daysBetween(string $startDate, string $endDate): int

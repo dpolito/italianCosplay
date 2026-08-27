@@ -58,9 +58,73 @@
 			</div>
 			<h3 class="text-xl font-semibold text-gray-700 mb-3">Impostazioni</h3>
 			<p class="text-gray-600 mb-4">Configura le impostazioni generali del sito e altre opzioni.</p>
-			<a href="#" class="mt-auto bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Vai a Impostazioni</a>
+			<a href="/admin/setup" class="mt-auto bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Vai a Impostazioni</a>
+		</div>
+
+		<?php if (!empty((new \App\Services\SiteFeatureFlagService())->getEnabledMap()['enable_advertising'] ?? false)): ?>
+		<div class="bg-white rounded-lg shadow-lg p-6 flex flex-col items-center text-center">
+			<div class="text-green-500 mb-4">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h10M4 17h16" />
+				</svg>
+			</div>
+			<h3 class="text-xl font-semibold text-gray-700 mb-3">Advertising</h3>
+			<p class="text-gray-600 mb-4">Gestisci posizioni, campagne e approvazioni pubblicitarie.</p>
+			<a href="/admin/ads/campaigns" class="mt-auto bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Vai ad Advertising</a>
+		</div>
+		<?php endif; ?>
+	</div>
+
+	<?php if (!empty((new \App\Services\SiteFeatureFlagService())->getEnabledMap()['enable_advertising'] ?? false)): ?>
+	<div class="mt-6 bg-white rounded-lg shadow-lg p-6">
+		<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+			<div>
+				<p class="text-sm font-semibold uppercase tracking-wide text-green-700">Advertising</p>
+				<h3 class="mt-1 text-2xl font-semibold text-gray-800">Panoramica monetizzazione</h3>
+				<p class="mt-2 text-gray-600">Campagne, posizioni e performance commerciali in un unico colpo d'occhio.</p>
+			</div>
+			<div class="flex flex-wrap gap-3">
+				<a href="/admin/ads/campaigns" class="inline-flex items-center px-4 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition duration-300 ease-in-out">Campagne</a>
+				<a href="/admin/ads/positions" class="inline-flex items-center px-4 py-2 bg-blue-200 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-300 transition duration-300 ease-in-out">Posizioni</a>
+			</div>
+		</div>
+
+		<?php $adStats = $data['adStats'] ?? []; ?>
+		<div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+			<div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+				<p class="text-sm font-semibold text-gray-500">Campagne totali</p>
+				<p class="mt-2 text-3xl font-bold text-gray-900"><?php echo (int)($adStats['campaigns'] ?? 0); ?></p>
+			</div>
+			<div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+				<p class="text-sm font-semibold text-gray-500">Campagne attive</p>
+				<p class="mt-2 text-3xl font-bold text-gray-900"><?php echo (int)($adStats['active_campaigns'] ?? 0); ?></p>
+			</div>
+			<div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+				<p class="text-sm font-semibold text-gray-500">Impression</p>
+				<p class="mt-2 text-3xl font-bold text-gray-900"><?php echo number_format((int)($adStats['impressions'] ?? 0), 0, ',', '.'); ?></p>
+			</div>
+			<div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+				<p class="text-sm font-semibold text-gray-500">CTR medio</p>
+				<p class="mt-2 text-3xl font-bold text-gray-900"><?php echo number_format((float)($adStats['ctr'] ?? 0), 2, ',', '.'); ?>%</p>
+			</div>
+		</div>
+
+		<div class="mt-4 grid gap-4 md:grid-cols-3">
+			<div class="rounded-xl border border-gray-200 bg-white p-4">
+				<p class="text-sm font-semibold text-gray-500">Posizioni attive</p>
+				<p class="mt-2 text-2xl font-bold text-gray-900"><?php echo (int)($adStats['positions'] ?? 0); ?></p>
+			</div>
+			<div class="rounded-xl border border-gray-200 bg-white p-4">
+				<p class="text-sm font-semibold text-gray-500">Click</p>
+				<p class="mt-2 text-2xl font-bold text-gray-900"><?php echo number_format((int)($adStats['clicks'] ?? 0), 0, ',', '.'); ?></p>
+			</div>
+			<div class="rounded-xl border border-gray-200 bg-white p-4">
+				<p class="text-sm font-semibold text-gray-500">Ricavi stimati</p>
+				<p class="mt-2 text-2xl font-bold text-gray-900"><?php echo number_format((float)($adStats['revenue'] ?? 0), 2, ',', '.'); ?> €</p>
+			</div>
 		</div>
 	</div>
+	<?php endif; ?>
 	<div class="bg-white rounded-lg shadow-lg p-6 flex flex-col items-center text-center mt-6">
 		<div class="text-green-500 mb-4">
 			<!-- Icona di esempio per altre funzionalità -->

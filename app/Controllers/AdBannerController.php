@@ -4,15 +4,18 @@ namespace App\Controllers;
 
 use App\Core\Controller;
 use App\Core\Session;
+use App\Models\User;
 use App\Services\AdBannerService;
 
 class AdBannerController extends Controller
 {
 	private AdBannerService $bannerService;
+	private User $userModel;
 
 	public function __construct()
 	{
 		$this->bannerService = new AdBannerService();
+		$this->userModel = new User();
 
 		if (!isset($_SESSION['csrf_token'])) {
 			$_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -24,13 +27,13 @@ class AdBannerController extends Controller
 	 */
 	public function index()
 	{
-
-
+		$this->requireFeature('enable_advertising', 'Advertising temporaneamente disattivato.');
 		$userId = $_SESSION['user_id'];
 
 		$banners = $this->bannerService->getByUser($userId);
 
 		$this->view('dashboard/ads/banners/index', [
+			'user' => $this->userModel->find((int)$userId),
 			'banners' => $banners
 		], 'dashboard');
 	}
@@ -40,9 +43,9 @@ class AdBannerController extends Controller
 	 */
 	public function create()
 	{
-
-
+		$this->requireFeature('enable_advertising', 'Advertising temporaneamente disattivato.');
 		$this->view('dashboard/ads/banners/create', [
+			'user' => $this->userModel->find((int)$_SESSION['user_id']),
 			'csrf_token' => $_SESSION['csrf_token']
 		], 'dashboard');
 	}
@@ -52,6 +55,7 @@ class AdBannerController extends Controller
 	 */
 	public function store()
 	{
+		$this->requireFeature('enable_advertising', 'Advertising temporaneamente disattivato.');
 
 
 		if (!$this->isValidCsrfToken()) {
@@ -64,8 +68,9 @@ class AdBannerController extends Controller
 
 		$title      = trim($_POST['title'] ?? '');
 		$targetUrl  = trim($_POST['target_url'] ?? '');
-		$type       = $_POST['type'] ?? 'sponsor';
+		$type       = 'sponsor';
 		$image      = $_FILES['image'] ?? null;
+		$mobileImage = $_FILES['mobile_image'] ?? null;
 
 		$errors = [];
 
@@ -88,12 +93,19 @@ class AdBannerController extends Controller
 		}
 
 		try {
-			$bannerId = $this->bannerService->create([
+			$bannerData = [
 				'user_id'    => $userId,
 				'title'      => $title,
 				'target_url' => $targetUrl,
 				'type'       => $type,
-				'image'      => $image
+				'image'      => $image,
+			];
+			if ($mobileImage && ($mobileImage['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+				$bannerData['mobile_image'] = $mobileImage;
+			}
+
+			$bannerId = $this->bannerService->create([
+				...$bannerData,
 			]);
 
 			Session::setFlash('success', 'Banner creato con successo.');
@@ -112,21 +124,22 @@ class AdBannerController extends Controller
 	/**
 	 * MODIFICA BANNER
 	 */
-	public function edit($id)
+	public function edit(array $params): void
 	{
-
-
+		$this->requireFeature('enable_advertising', 'Advertising temporaneamente disattivato.');
+		$id = (int)($params[0] ?? 0);
 		$userId = $_SESSION['user_id'];
 
-		$banner = $this->bannerService->findById((int)$id);
+		$banner = $this->bannerService->findById($id);
 
-		if (!$banner || $banner['user_id'] !== $userId) {
+		if (!$banner || (int)$banner['user_id'] !== (int)$userId) {
 			Session::setFlash('error', 'Banner non trovato.');
 			header('Location: /dashboard/ads/banners');
 			exit();
 		}
 
 		$this->view('dashboard/ads/banners/edit', [
+			'user' => $this->userModel->find((int)$userId),
 			'banner' => $banner,
 			'csrf_token' => $_SESSION['csrf_token']
 		], 'dashboard');
@@ -135,8 +148,10 @@ class AdBannerController extends Controller
 	/**
 	 * UPDATE BANNER
 	 */
-	public function update($id)
+	public function update(array $params): void
 	{
+		$this->requireFeature('enable_advertising', 'Advertising temporaneamente disattivato.');
+		$id = (int)($params[0] ?? 0);
 
 
 		if (!$this->isValidCsrfToken()) {
@@ -147,9 +162,9 @@ class AdBannerController extends Controller
 
 		$userId = $_SESSION['user_id'];
 
-		$banner = $this->bannerService->findById((int)$id);
+		$banner = $this->bannerService->findById($id);
 
-		if (!$banner || $banner['user_id'] !== $userId) {
+		if (!$banner || (int)$banner['user_id'] !== (int)$userId) {
 			Session::setFlash('error', 'Non autorizzato.');
 			header('Location: /dashboard/ads/banners');
 			exit();
@@ -158,16 +173,20 @@ class AdBannerController extends Controller
 		$data = [
 			'title'      => trim($_POST['title'] ?? ''),
 			'target_url' => trim($_POST['target_url'] ?? ''),
-			'type'       => $_POST['type'] ?? 'sponsor'
+			'type'       => 'sponsor'
 		];
 
 		$image = $_FILES['image'] ?? null;
+		$mobileImage = $_FILES['mobile_image'] ?? null;
 
 		if ($image && $image['error'] === UPLOAD_ERR_OK) {
 			$data['image'] = $image;
 		}
+		if ($mobileImage && ($mobileImage['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+			$data['mobile_image'] = $mobileImage;
+		}
 
-		$this->bannerService->update((int)$id, $data);
+		$this->bannerService->update($id, $data);
 
 		Session::setFlash('success', 'Banner aggiornato.');
 
@@ -178,23 +197,26 @@ class AdBannerController extends Controller
 	/**
 	 * DELETE LOGICO BANNER
 	 */
-	public function delete($id)
+	public function delete(array $params): void
 	{
-
-
+		$this->requireFeature('enable_advertising', 'Advertising temporaneamente disattivato.');
+		$id = (int)($params[0] ?? 0);
 		$userId = $_SESSION['user_id'];
 
-		$banner = $this->bannerService->findById((int)$id);
+		$banner = $this->bannerService->findById($id);
 
-		if (!$banner || $banner['user_id'] !== $userId) {
+		if (!$banner || (int)$banner['user_id'] !== (int)$userId) {
 			Session::setFlash('error', 'Non autorizzato.');
 			header('Location: /dashboard/ads/banners');
 			exit();
 		}
 
-		$this->bannerService->delete((int)$id);
-
-		Session::setFlash('success', 'Banner eliminato.');
+		try {
+			$this->bannerService->delete($id);
+			Session::setFlash('success', 'Banner eliminato.');
+		} catch (\Exception $e) {
+			Session::setFlash('error', $e->getMessage());
+		}
 
 		header('Location: /dashboard/ads/banners');
 		exit();
@@ -207,6 +229,6 @@ class AdBannerController extends Controller
 	{
 		return !empty($_POST['csrf_token'])
 			&& !empty($_SESSION['csrf_token'])
-			&& hash_equals($_SESSION['csrf_token'], $_SESSION['csrf_token']);
+			&& hash_equals($_SESSION['csrf_token'], $_POST['csrf_token']);
 	}
 }

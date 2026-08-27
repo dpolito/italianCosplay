@@ -18,18 +18,17 @@ class AdTrackingRepository
 	{
 		$stmt = $this->db->prepare("
 			INSERT INTO ad_impressions
-			(campaign_id, banner_id, position_id, page, user_hash, ip_hash, user_agent_hash, device_type, country_code, created_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			(campaign_id, banner_id, position_id, target_type, target_value, page, device_type, country_code, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		");
 
 		$ok = $stmt->execute([
 			$data['campaign_id'],
 			$data['banner_id'],
 			$data['position_id'],
+			$data['target_type'] ?? 'national',
+			$data['target_value'] ?? null,
 			$data['page'] ?? null,
-			$data['user_hash'] ?? null,
-			$data['ip_hash'] ?? null,
-			$data['user_agent_hash'] ?? null,
 			$data['device_type'] ?? 'unknown',
 			$data['country_code'] ?? null,
 			$data['created_at'],
@@ -46,19 +45,18 @@ class AdTrackingRepository
 	{
 		$stmt = $this->db->prepare("
 			INSERT INTO ad_clicks
-			(campaign_id, banner_id, position_id, page, target_url, user_hash, ip_hash, user_agent_hash, referrer, device_type, country_code, created_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			(campaign_id, banner_id, position_id, target_type, target_value, page, target_url, referrer, device_type, country_code, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		");
 
 		$ok = $stmt->execute([
 			$data['campaign_id'],
 			$data['banner_id'],
 			$data['position_id'],
+			$data['target_type'] ?? 'national',
+			$data['target_value'] ?? null,
 			$data['page'] ?? null,
 			$data['target_url'] ?? null,
-			$data['user_hash'] ?? null,
-			$data['ip_hash'] ?? null,
-			$data['user_agent_hash'] ?? null,
 			$data['referrer'] ?? null,
 			$data['device_type'] ?? 'unknown',
 			$data['country_code'] ?? null,
@@ -70,32 +68,6 @@ class AdTrackingRepository
 		}
 
 		return $ok;
-	}
-
-	public function isDuplicateImpression(array $data): bool
-	{
-		if (empty($data['user_hash'])) {
-			return false;
-		}
-
-		$stmt = $this->db->prepare("
-			SELECT COUNT(*)
-			FROM ad_impressions
-			WHERE campaign_id = ?
-			  AND banner_id = ?
-			  AND position_id = ?
-			  AND user_hash = ?
-			  AND created_at >= (NOW() - INTERVAL 10 MINUTE)
-		");
-
-		$stmt->execute([
-			$data['campaign_id'],
-			$data['banner_id'],
-			$data['position_id'],
-			$data['user_hash'],
-		]);
-
-		return (int)$stmt->fetchColumn() > 0;
 	}
 
 	private function incrementDaily(int $campaignId, int $positionId, string $deviceType, bool $isImpression): void

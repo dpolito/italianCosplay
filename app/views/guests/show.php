@@ -123,6 +123,22 @@ $eventsCount = count($events ?? []);
 						   class="inline-flex items-center justify-center rounded-lg bg-green-800 px-4 py-3 font-bold text-white hover:bg-green-900">
 							Tutti gli ospiti
 						</a>
+						<?php if (!empty($_SESSION['user_id'])): ?>
+							<form method="post" action="/dashboard/favorites/toggle" class="js-favorite-toggle mt-2">
+								<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+								<input type="hidden" name="entity_type" value="<?= htmlspecialchars($favoriteEntityType ?? 'guest') ?>">
+								<input type="hidden" name="entity_id" value="<?= (int)($guest['id'] ?? 0) ?>">
+								<input type="hidden" name="redirect_to" value="<?= htmlspecialchars($guestUrl) ?>">
+								<button type="submit" class="js-favorite-button inline-flex w-full items-center justify-center gap-2 rounded-lg <?= !empty($isFavorited) ? 'bg-amber-800 text-white hover:bg-amber-900' : 'border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100' ?> px-4 py-3 font-bold transition" data-label-add="Salva tra i preferiti" data-label-remove="Rimuovi dai preferiti" data-icon-add="fa-bookmark" data-icon-remove="fa-bookmark-slash" data-active="<?= !empty($isFavorited) ? '1' : '0' ?>">
+									<i class="fa-solid <?= !empty($isFavorited) ? 'fa-bookmark-slash' : 'fa-bookmark' ?>" aria-hidden="true"></i>
+									<span><?= !empty($isFavorited) ? 'Rimuovi dai preferiti' : 'Salva tra i preferiti' ?></span>
+								</button>
+							</form>
+						<?php else: ?>
+							<a href="/login" class="inline-flex items-center justify-center rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 font-bold text-amber-900 hover:bg-amber-100">
+								Accedi per salvare
+							</a>
+						<?php endif; ?>
 					</div>
 
 				</div>

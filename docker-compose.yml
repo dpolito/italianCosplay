@@ -5,13 +5,14 @@ services:
     build: .
     container_name: italiancosplay_gemini_web
     volumes:
-      - ./:/var/www/html # Questo mappa la root del tuo progetto locale alla DocumentRoot del container
+      - ./:/var/www/html
     ports:
       - "8080:80"
     depends_on:
       - db
     restart: unless-stopped
-
+    networks:
+      - italiancosplay_net
 
   db:
     image: mysql:8.0
@@ -26,6 +27,8 @@ services:
       - db_data:/var/lib/mysql
     ports:
       - "3306:3306"
+    networks:
+      - italiancosplay_net
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
@@ -40,6 +43,12 @@ services:
       PMA_USER: cosplayuser
       PMA_PASSWORD: cosplaypass
     restart: unless-stopped
+    networks:
+      - italiancosplay_net
 
 volumes:
   db_data:
+
+networks:
+  italiancosplay_net:
+    name: italiancosplay_net

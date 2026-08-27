@@ -1,6 +1,7 @@
 <?php
 namespace App\Models;
 use App\Services\ImageService;
+use DateTimeInterface;
 use PDO;
 use DateTime;
 use function var_dump;
@@ -22,6 +23,9 @@ class Event extends BaseModel
 	public function generateUniqueSlug(string $title, ?int $excludeId = null): string
 	{
 		$baseSlug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $title), '-'));
+		if ($baseSlug === '') {
+			$baseSlug = 'evento';
+		}
 		$slug = $baseSlug;
 		$counter = 1;
 
@@ -89,6 +93,48 @@ class Event extends BaseModel
 			$stmt->bindValue($key, $value);
 		}
 		$stmt->execute();
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
+	/**
+	 * Conta tutti gli eventi approvati e non scaduti.
+	 */
+	public function countApprovedEvents(): int
+	{
+		$stmt = $this->db->prepare("
+			SELECT COUNT(*)
+			FROM " . $this->table . "
+			WHERE approvato = 1
+			  AND data_fine >= CURDATE()
+		");
+		$stmt->execute();
+
+		return (int) $stmt->fetchColumn();
+	}
+
+	/**
+	 * Recupera gli eventi approvati più recenti, ordinati per data di inserimento.
+	 * Usato per la homepage e per blocchi "ultimi inseriti".
+	 */
+	public function getLatestApprovedEvents(int $limit = 6): array
+	{
+		$query = "
+			SELECT e.*, r.nome as regione_nome, p.nome as provincia_nome, c.nome as comune_nome, te.nome as tipo_evento_nome
+			FROM " . $this->table . " e
+			LEFT JOIN regioni r ON e.regione_id = r.id
+			LEFT JOIN province p ON e.provincia_id = p.id
+			LEFT JOIN comuni c ON e.comune_id = c.id
+			LEFT JOIN tipo_evento te ON e.tipo_evento_id = te.id
+			WHERE e.approvato = 1
+			  AND e.data_fine >= CURDATE()
+			ORDER BY e.created_at DESC, e.id DESC
+			LIMIT :limit
+		";
+
+		$stmt = $this->db->prepare($query);
+		$stmt->bindValue(':limit', max(1, min($limit, 24)), PDO::PARAM_INT);
+		$stmt->execute();
+
 		return $stmt->fetchAll(PDO::FETCH_ASSOC);
 	}
 	public function getApprovedEventsApi(
@@ -163,6 +209,47 @@ class Event extends BaseModel
 				'immagine'         => $row['immagine']
 			];
 		}, $stmt->fetchAll(PDO::FETCH_ASSOC));
+	}
+
+	public function searchApprovedEvents(string $search = '', int $limit = 12, array $excludeIds = []): array
+	{
+		$search = trim($search);
+		$query = "
+			SELECT e.id, e.titolo, e.slug, e.data_inizio, e.data_fine, e.luogo, r.nome AS regione_nome, p.nome AS provincia_nome, c.nome AS comune_nome
+			FROM " . $this->table . " e
+			LEFT JOIN regioni r ON e.regione_id = r.id
+			LEFT JOIN province p ON e.provincia_id = p.id
+			LEFT JOIN comuni c ON e.comune_id = c.id
+			WHERE e.approvato = 1 AND e.data_fine >= CURDATE()
+		";
+		$params = [];
+		$excludeIds = array_values(array_filter(array_map('intval', $excludeIds), static fn (int $id): bool => $id > 0));
+		if (!empty($excludeIds)) {
+			$excludePlaceholders = [];
+			foreach ($excludeIds as $index => $excludeId) {
+				$placeholder = ':exclude_id_' . $index;
+				$excludePlaceholders[] = $placeholder;
+				$params[$placeholder] = $excludeId;
+			}
+			$query .= " AND e.id NOT IN (" . implode(',', $excludePlaceholders) . ")";
+		}
+		if ($search !== '') {
+			$query .= " AND (e.titolo LIKE :search_title OR e.slug LIKE :search_slug OR e.luogo LIKE :search_place OR c.nome LIKE :search_comune OR p.nome LIKE :search_provincia OR r.nome LIKE :search_regione)";
+			$params[':search_title'] = '%' . $search . '%';
+			$params[':search_slug'] = '%' . $search . '%';
+			$params[':search_place'] = '%' . $search . '%';
+			$params[':search_comune'] = '%' . $search . '%';
+			$params[':search_provincia'] = '%' . $search . '%';
+			$params[':search_regione'] = '%' . $search . '%';
+		}
+		$query .= " ORDER BY e.data_inizio ASC, e.data_fine ASC LIMIT " . max(1, min($limit, 20));
+		$stmt = $this->db->prepare($query);
+		foreach ($params as $key => $value) {
+			$type = is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR;
+			$stmt->bindValue($key, $value, $type);
+		}
+		$stmt->execute();
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
 	}
 
 
@@ -289,6 +376,32 @@ class Event extends BaseModel
 		];
 	}
 
+	public function getEventsByIds(array $ids, int $limit = 6): array
+	{
+		$ids = array_values(array_filter(array_map('intval', $ids), static fn (int $id): bool => $id > 0));
+		if (empty($ids)) {
+			return [];
+		}
+
+		$limit = max(1, $limit);
+		$placeholders = implode(',', array_fill(0, count($ids), '?'));
+		$sql = "
+			SELECT e.id, e.titolo, e.slug, e.data_inizio, e.data_fine, e.luogo,
+			       r.nome AS regione_nome, p.nome AS provincia_nome, c.nome AS comune_nome
+			FROM {$this->table} e
+			LEFT JOIN regioni r ON e.regione_id = r.id
+			LEFT JOIN province p ON e.provincia_id = p.id
+			LEFT JOIN comuni c ON e.comune_id = c.id
+			WHERE e.id IN ({$placeholders})
+			ORDER BY e.data_inizio ASC, e.data_fine ASC
+			LIMIT {$limit}
+		";
+		$stmt = $this->db->prepare($sql);
+		$stmt->execute($ids);
+
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
 
 	/**
 	 * Crea un nuovo evento.
@@ -297,18 +410,21 @@ class Event extends BaseModel
 	 */
 	public function create(array $data): int
 	{
-		$slug = $this->generateUniqueSlug($data['titolo']);
+		$requestedSlug = trim((string) ($data['slug'] ?? ''));
+		$slugSource = $requestedSlug !== '' ? $requestedSlug : ($data['titolo'] ?? '');
+		$slug = $this->generateUniqueSlug($slugSource);
+		$anno = (int) ($data['anno'] ?? (int) date('Y'));
 
 		$query = "INSERT INTO " . $this->table . " (
 		titolo, descrizione, data_inizio, data_fine, luogo,
 		regione_id, provincia_id, comune_id, latitudine, longitudine,
 		sito_web, social_facebook, social_twitter, social_instagram,
-		social_tiktok, social_youtube, tipo_evento_id, immagine, approvato, slug, event_size, is_paid, has_cosplay_contest
+		social_tiktok, social_youtube, tipo_evento_id, immagine, approvato, slug, year, event_size, is_paid, has_cosplay_contest, event_master_id
 	) VALUES (
 		:titolo, :descrizione, :data_inizio, :data_fine, :luogo,
 		:regione_id, :provincia_id, :comune_id, :latitudine, :longitudine,
 		:sito_web, :social_facebook, :social_twitter, :social_instagram,
-		:social_tiktok, :social_youtube, :tipo_evento_id, :immagine, :approvato, :slug, :event_size, :is_paid, :has_cosplay_contest
+		:social_tiktok, :social_youtube, :tipo_evento_id, :immagine, :approvato, :slug, :year, :event_size, :is_paid, :has_cosplay_contest, :event_master_id
 	)";
 
 		$stmt = $this->db->prepare($query);
@@ -333,9 +449,11 @@ class Event extends BaseModel
 		$stmt->bindValue(':immagine', null); // 🔥 IMPORTANTISSIMO: non più usata
 		$stmt->bindValue(':approvato', $data['approvato'], \PDO::PARAM_INT);
 		$stmt->bindValue(':slug', $slug);
+		$stmt->bindValue(':year', $anno, \PDO::PARAM_INT);
 		$stmt->bindValue(':event_size', $data['event_size'] , \PDO::PARAM_INT);
 		$stmt->bindValue(':is_paid', $data['is_paid'], \PDO::PARAM_INT);
 		$stmt->bindValue(':has_cosplay_contest', $data['has_cosplay_contest'], \PDO::PARAM_INT);
+		$stmt->bindValue(':event_master_id', $data['event_master_id'] ?? null, \PDO::PARAM_INT);
 
 		$stmt->execute();
 
@@ -351,12 +469,16 @@ class Event extends BaseModel
 	 */
 	public function update(int $id, array $data): bool
 	{
-		// Recupera lo slug esistente o ne genera uno nuovo se il titolo è cambiato
 		$currentEvent = $this->find($id);
-		$slug = $currentEvent['slug']; // Mantiene lo slug esistente di default
-		if ($currentEvent['titolo'] !== $data['titolo']) {
-			$slug = $this->generateUniqueSlug($data['titolo'], $id);
+		$requestedSlug = trim((string) ($data['slug'] ?? ''));
+		if ($requestedSlug !== '') {
+			$slug = $this->generateUniqueSlug($requestedSlug, $id);
+		} elseif (!empty($currentEvent['slug'])) {
+			$slug = $currentEvent['slug'];
+		} else {
+			$slug = $this->generateUniqueSlug($data['titolo'] ?? '', $id);
 		}
+		$anno = (int) ($data['anno'] ?? ($currentEvent['year'] ?? date('Y')));
 
 		$query = "UPDATE " . $this->table . " SET
                       titolo = :titolo,
@@ -379,9 +501,11 @@ class Event extends BaseModel
                       immagine = :immagine,
                       approvato = :approvato,
                       slug = :slug,
+                      year = :year,
                       event_size = :event_size,
                       is_paid = :is_paid,
                       has_cosplay_contest = :has_cosplay_contest,
+                      event_master_id = :event_master_id,
                       updated_at = NOW()
                   WHERE id = :id";
 
@@ -407,9 +531,11 @@ class Event extends BaseModel
 		$stmt->bindValue(':immagine', $data['immagine'] ?: null);
 		$stmt->bindValue(':approvato', $data['approvato'], PDO::PARAM_INT);
 		$stmt->bindValue(':slug', $slug); // Associa lo slug (nuovo o esistente)
+		$stmt->bindValue(':year', $anno, PDO::PARAM_INT);
 		$stmt->bindValue(':event_size',$data['event_size']); // Associa lo slug (nuovo o esistente)
 		$stmt->bindValue(':is_paid',$data['is_paid']); // Associa lo slug (nuovo o esistente)
 		$stmt->bindValue(':has_cosplay_contest',$data['has_cosplay_contest']); // Associa lo slug (nuovo o esistente)
+		$stmt->bindValue(':event_master_id', $data['event_master_id'] ?? null, PDO::PARAM_INT);
 		$stmt->bindValue(':id', $id, PDO::PARAM_INT);
 
 
@@ -429,6 +555,63 @@ class Event extends BaseModel
 		return $stmt->execute();
 	}
 
+	public function getAvailableMonths(): array
+	{
+		$sql = "
+        SELECT 
+            YEAR(data_inizio) AS year,
+            MONTH(data_inizio) AS month,
+            COUNT(*) AS total
+        FROM events
+        WHERE approvato = 1
+        AND data_inizio >= CURDATE()
+        GROUP BY YEAR(data_inizio), MONTH(data_inizio)
+        ORDER BY year ASC, month ASC
+    ";
+
+		$stmt = $this->db->prepare($sql);
+		$stmt->execute();
+
+		$months = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+
+		$mesiItaliani = [
+			1 => 'Gennaio',
+			2 => 'Febbraio',
+			3 => 'Marzo',
+			4 => 'Aprile',
+			5 => 'Maggio',
+			6 => 'Giugno',
+			7 => 'Luglio',
+			8 => 'Agosto',
+			9 => 'Settembre',
+			10 => 'Ottobre',
+			11 => 'Novembre',
+			12 => 'Dicembre'
+		];
+
+
+		foreach ($months as &$month) {
+
+			$month['year'] = (int)$month['year'];
+			$month['month'] = (int)$month['month'];
+			$month['total'] = (int)$month['total'];
+
+			$month['label'] = $mesiItaliani[$month['month']]
+				. ' '
+				. $month['year'];
+
+			$month['slug'] = strtolower(
+				$mesiItaliani[$month['month']]
+				. '-'
+				. $month['year']
+			);
+
+		}
+
+		return $months;
+	}
+
 	/**
 	 * Approva un evento.
 	 * @param int $id L'ID dell'evento da approvare.
@@ -441,7 +624,7 @@ class Event extends BaseModel
 		return $stmt->execute();
 	}
 
-	public function getEventsByDateRange(DateTime $from, DateTime $to, ?int $regioneId = null): array
+	public function getEventsByDateRange(DateTimeInterface $from, DateTimeInterface $to, ?int $regioneId = null): array
 	{
 		$query = "SELECT e.*, r.nome as regione_nome, p.nome as provincia_nome, c.nome as comune_nome
               FROM " . $this->table . " e
@@ -594,6 +777,31 @@ class Event extends BaseModel
 		return $stmt->fetchAll(PDO::FETCH_ASSOC);
 	}
 
+	public function getEventsByMasterId(int $masterId, ?int $excludeEventId = null): array
+	{
+		$query = "
+			SELECT e.*
+			FROM {$this->table} e
+			WHERE e.event_master_id = :master_id
+			  AND e.approvato = 1
+		";
+
+		if ($excludeEventId !== null) {
+			$query .= " AND e.id != :exclude_id";
+		}
+
+		$query .= " ORDER BY e.data_inizio DESC, e.created_at DESC";
+
+		$stmt = $this->db->prepare($query);
+		$stmt->bindValue(':master_id', $masterId, PDO::PARAM_INT);
+		if ($excludeEventId !== null) {
+			$stmt->bindValue(':exclude_id', $excludeEventId, PDO::PARAM_INT);
+		}
+		$stmt->execute();
+
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
 	public function getEventsWithTrending(DateTime $start, DateTime $end): array
 	{
 		$query = "
@@ -689,6 +897,19 @@ class Event extends BaseModel
 
 	public function getImages(int $eventId, ?string $preset = 'medium', array $filters = []): array
 	{
+		try {
+			return $this->getImagesFromEventImages($eventId, $filters);
+		} catch (\PDOException $exception) {
+			if (!$this->isMissingEventImagesTable($exception)) {
+				throw $exception;
+			}
+		}
+
+		return $this->getImagesFromEntityImages($eventId);
+	}
+
+	private function getImagesFromEventImages(int $eventId, array $filters = []): array
+	{
 		$sql = "
         SELECT 
             i.id AS image_id,
@@ -706,11 +927,8 @@ class Event extends BaseModel
         WHERE ei.event_id = :event_id
     ";
 
-		$params = [
-			'event_id' => $eventId
-		];
+		$params = ['event_id' => $eventId];
 
-		// 🔥 filtri dinamici
 		if (isset($filters['primary'])) {
 			$sql .= " AND ei.is_primary = :primary";
 			$params['primary'] = (int)$filters['primary'];
@@ -726,9 +944,40 @@ class Event extends BaseModel
 		$stmt = $this->db->prepare($sql);
 		$stmt->execute($params);
 
-		$rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+		return $this->normalizeImageRows($stmt->fetchAll(\PDO::FETCH_ASSOC));
+	}
 
-		// 🔥 normalizzazione + filtro preset
+	private function getImagesFromEntityImages(int $eventId): array
+	{
+		$stmt = $this->db->prepare("
+			SELECT
+				ei.id AS image_id,
+				ei.alt_text,
+				ei.entity_type AS type,
+				ei.is_primary,
+				ei.preset,
+				ei.path,
+				ei.width,
+				ei.height,
+				CASE
+					WHEN ei.preset = 'original' THEN 0
+					WHEN ei.preset = 'large' THEN 1
+					WHEN ei.preset = 'medium' THEN 2
+					WHEN ei.preset = 'thumb' THEN 3
+					ELSE 4
+				END AS sort_order
+			FROM entity_images ei
+			WHERE ei.entity_type = 'event'
+			  AND ei.entity_id = :event_id
+			ORDER BY sort_order ASC, ei.id ASC
+		");
+		$stmt->execute(['event_id' => $eventId]);
+
+		return $this->normalizeImageRows($stmt->fetchAll(\PDO::FETCH_ASSOC));
+	}
+
+	private function normalizeImageRows(array $rows): array
+	{
 		$images = [];
 
 		foreach ($rows as $row) {
@@ -738,19 +987,26 @@ class Event extends BaseModel
 				$images[$id] = [
 					'id' => $id,
 					'alt_text' => $row['alt_text'],
-					'type' => $row['type'],
-					'is_primary' => (bool)$row['is_primary'],
-					'variants' => []
+					'type' => $row['type'] ?? 'event',
+					'is_primary' => (bool)($row['is_primary'] ?? false),
+					'variants' => [],
 				];
 			}
 
 			$images[$id]['variants'][$row['preset']] = [
 				'path' => $row['path'],
 				'width' => $row['width'],
-				'height' => $row['height']
+				'height' => $row['height'],
 			];
 		}
 
 		return array_values($images);
+	}
+
+	private function isMissingEventImagesTable(\PDOException $exception): bool
+	{
+		$message = $exception->getMessage();
+
+		return str_contains($message, "Table '") && str_contains($message, ".event_images") && str_contains($message, "doesn't exist");
 	}
 }

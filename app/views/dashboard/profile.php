@@ -198,6 +198,20 @@ $completionPercent = min(100, (int) round(($completionSteps / 5) * 100));
 					       class="w-full rounded-xl border border-gray-200 px-4 py-3 focus:border-green-700 focus:outline-none focus:ring-2 focus:ring-green-700">
 				</div>
 
+				<div class="mt-5 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+					<p class="text-sm font-bold text-blue-950">Dichiarazione 18+</p>
+					<p class="mt-1 text-sm text-gray-700">
+						<?php if (!empty($user['age_declared_adult'])): ?>
+							Hai dichiarato di avere almeno 18 anni.
+							<?php if (!empty($user['age_declared_at'])): ?>
+								<span class="block text-xs text-gray-500">Registrata il <?php echo htmlspecialchars($user['age_declared_at']); ?></span>
+							<?php endif; ?>
+						<?php else: ?>
+							Non risultano dichiarazioni registrate.
+						<?php endif; ?>
+					</p>
+				</div>
+
 			</section>
 
 			<!-- SOCIAL -->

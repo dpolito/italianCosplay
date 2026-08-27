@@ -6,6 +6,7 @@ use App\Core\Controller;
 use App\Core\Session;
 use App\Models\Guest;
 use App\Services\GuestAnalyticsService;
+use App\Services\FavoriteService;
 use App\Services\ImageService;
 use function header;
 use function var_dump;
@@ -15,15 +16,18 @@ class GuestController extends Controller{
 	private Guest $guest;
 	private ImageService $imageService;
 	private GuestAnalyticsService  $guestAnalyticsService;
+	private FavoriteService $favoriteService;
 
 	public function __construct(){
 		$this->guest = new Guest();
 		$this->guestAnalyticsService = new GuestAnalyticsService();
+		$this->favoriteService = new FavoriteService();
 		$this->imageService = new ImageService($this->guest->getDbConnection());
 	}
 
 	public function index()
 	{
+		$this->requireFeature('enable_guest_directory', 'La directory guest è temporaneamente disattivata.');
 		$guests = $this->guest->getAll();
 
 		foreach ($guests as &$guest) {
@@ -52,6 +56,7 @@ class GuestController extends Controller{
 
 	public function show(array $params)
 	{
+		$this->requireFeature('enable_guest_directory', 'La directory guest è temporaneamente disattivata.');
 		$slug = $params[0] ?? null;
 
 		if (!$slug) {
@@ -78,11 +83,16 @@ class GuestController extends Controller{
 
 		// EVENTI REALI
 		$events = $this->guest->getEvents($guest['id']);
+		$isFavorited = !empty($_SESSION['user_id'])
+			? $this->favoriteService->isFavorited((int) $_SESSION['user_id'], 'guest', (int) $guest['id'])
+			: false;
 
 		return $this->view('guests/show', [
 			'guest' => $guest,
 			'events' => $events,
-			'eventsCount' => count($events)
+			'eventsCount' => count($events),
+			'isFavorited' => $isFavorited,
+			'favoriteEntityType' => 'guest',
 		]);
 	}
 }

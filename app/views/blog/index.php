@@ -79,6 +79,8 @@ foreach ($breadcrumbs as $index => $crumb) {
 			</div>
 		</header>
 
+		<?php echo \App\Helpers\AdPlacement::render('blog_listing_top', 'blog', 'mb-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md'); ?>
+
 		<!-- ================= NAV QUICK (EVENTI STYLE) ================= -->
 		<nav class="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Navigazione blog">
 
@@ -101,7 +103,7 @@ foreach ($breadcrumbs as $index => $crumb) {
 		</nav>
 
 		<!-- ================= FILTER (EVENTI STYLE IDENTICO) ================= -->
-		<section class="mb-8 rounded-xl bg-green-950 p-4 shadow-lg md:sticky md:top-20 md:p-6">
+		<section class="relative z-30 mb-8 rounded-xl bg-green-950 p-4 shadow-lg md:sticky md:top-20 md:p-6">
 
 			<h2 class="mb-4 text-xl font-bold text-white">Filtra articoli per categoria</h2>
 
@@ -126,6 +128,8 @@ foreach ($breadcrumbs as $index => $crumb) {
 			</div>
 
 		</section>
+
+		<?php echo \App\Helpers\AdPlacement::render('blog_listing_inline', 'blog', 'my-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md'); ?>
 
 		<!-- ================= POSTS GRID (EVENTI CARDS STYLE IDENTICO) ================= -->
 		<section id="blog-list" class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -278,6 +282,8 @@ foreach ($breadcrumbs as $index => $crumb) {
 			</nav>
 
 		<?php endif; ?>
+
+		<?php echo \App\Helpers\AdPlacement::render('blog_listing_bottom', 'blog', 'mt-10 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md'); ?>
 
 	</div>
 </main>

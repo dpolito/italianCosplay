@@ -13,12 +13,9 @@ class AdClick
 	public ?string $page = null;
 
 	public ?string $target_url = null;
-
-	public ?string $user_hash = null;
-
-	public ?string $ip_address = null;
-
-	public ?string $user_agent = null;
+	public ?string $referrer = null;
+	public ?string $device_type = null;
+	public ?string $country_code = null;
 
 	public ?string $created_at = null;
 
@@ -38,11 +35,9 @@ class AdClick
 		$self->page         = $data['page'] ?? null;
 
 		$self->target_url   = $data['target_url'] ?? null;
-
-		$self->user_hash    = $data['user_hash'] ?? null;
-
-		$self->ip_address   = $data['ip_address'] ?? null;
-		$self->user_agent   = $data['user_agent'] ?? null;
+		$self->referrer     = $data['referrer'] ?? null;
+		$self->device_type  = $data['device_type'] ?? null;
+		$self->country_code = $data['country_code'] ?? null;
 
 		$self->created_at   = $data['created_at'] ?? null;
 
@@ -60,21 +55,10 @@ class AdClick
 			'position_id' => $this->position_id,
 			'page'        => $this->page,
 			'target_url'  => $this->target_url,
-			'user_hash'   => $this->user_hash,
-			'ip_address'  => $this->ip_address,
-			'user_agent'  => $this->user_agent
+			'referrer'    => $this->referrer,
+			'device_type' => $this->device_type,
+			'country_code'=> $this->country_code
 		];
-	}
-
-	/**
-	 * Utility: hash utente anonimo (coerenza con impression)
-	 */
-	public static function generateUserHash(): string
-	{
-		return hash('sha256',
-			($_SERVER['REMOTE_ADDR'] ?? '') .
-			($_SERVER['HTTP_USER_AGENT'] ?? '')
-		);
 	}
 
 	/**
@@ -90,11 +74,9 @@ class AdClick
 
 		$self->page        = $context['page'] ?? null;
 		$self->target_url  = $context['target_url'] ?? null;
-
-		$self->user_hash   = self::generateUserHash();
-
-		$self->ip_address  = $_SERVER['REMOTE_ADDR'] ?? null;
-		$self->user_agent  = $_SERVER['HTTP_USER_AGENT'] ?? null;
+		$self->referrer    = $_SERVER['HTTP_REFERER'] ?? null;
+		$self->device_type = $context['device_type'] ?? null;
+		$self->country_code = $context['country_code'] ?? null;
 
 		return $self;
 	}

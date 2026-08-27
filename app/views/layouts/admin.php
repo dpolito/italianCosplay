@@ -1,3 +1,5 @@
+<?php
+?>
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -6,11 +8,27 @@
 	<title><?= APP_NAME ?> - Dashboard Admin</title>
 
 	<link rel="stylesheet" href="/public_assets/css/tailwind.css">
-	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+	<link href="/public_assets/vendor/fontawesome/css/all.min.css" rel="stylesheet">
 
 	<style>
+		@font-face {
+			font-family: 'InterLocal';
+			font-style: normal;
+			font-weight: 300 700;
+			font-display: swap;
+			src: url('/public_assets/fonts/inter/Inter-Variable.ttf') format('truetype');
+		}
+
+		@font-face {
+			font-family: 'InterLocal';
+			font-style: italic;
+			font-weight: 300 700;
+			font-display: swap;
+			src: url('/public_assets/fonts/inter/Inter-Variable.ttf') format('truetype');
+		}
+
 		body {
-			font-family: 'Inter', sans-serif;
+			font-family: 'InterLocal', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 			background-color: #f3f4f6;
 			color: #333;
 		}
@@ -80,7 +98,69 @@
 			background: #4299e1;
 			color: #fff;
 		}
+		.admin-table {
+			table-layout: fixed;
+			width:100%;
+		}
+
+
+		.admin-table th,
+		.admin-table td {
+
+			overflow:hidden;
+
+			text-overflow:ellipsis;
+
+			white-space:nowrap;
+
+		}
+
+
+		.admin-table .truncate {
+
+			overflow:hidden;
+
+			text-overflow:ellipsis;
+
+			white-space:nowrap;
+
+		}
+
+		.admin-toast {
+			position: fixed;
+			right: 1.5rem;
+			bottom: 1.5rem;
+			z-index: 1000;
+			min-width: 280px;
+			max-width: 420px;
+			padding: 0.875rem 1rem;
+			border-radius: 0.75rem;
+			box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+			color: #fff;
+			opacity: 0;
+			transform: translateY(12px);
+			transition: opacity 180ms ease, transform 180ms ease;
+			pointer-events: none;
+		}
+
+		.admin-toast.visible {
+			opacity: 1;
+			transform: translateY(0);
+		}
+
+		.admin-toast.success {
+			background: #16a34a;
+		}
+
+		.admin-toast.error {
+			background: #dc2626;
+		}
+
+		.admin-toast.info {
+			background: #2563eb;
+		}
 	</style>
+	<script src="/public_assets/js/wysiwyg-editor.js"></script>
 </head>
 
 <body class="flex flex-col min-h-screen">
@@ -120,10 +200,20 @@
 						Utenti
 					</a>
 				</li>
-			</ul>
+				<li>
+					<a href="/admin/privacy" class="<?= (strpos($_SERVER['REQUEST_URI'], '/admin/privacy') !== false) ? 'active' : '' ?>">
+						Privacy
+					</a>
+				</li>
+				<li>
+					<a href="/admin/cookies" class="<?= (strpos($_SERVER['REQUEST_URI'], '/admin/cookies') !== false) ? 'active' : '' ?>">
+						Cookie Policy
+					</a>
+				</li>
+				</ul>
+				<!-- EVENTI -->
 
-			<!-- EVENTI -->
-			<ul class="nav-group">
+				<ul class="nav-group">
 
 				<li class="group-title toggle" data-target="events">
 					Eventi
@@ -140,6 +230,11 @@
 					<li>
 						<a href="/admin/events/all" class="<?= (strpos($_SERVER['REQUEST_URI'], '/admin/events/all') !== false) ? 'active' : '' ?>">
 							Tutti gli eventi
+						</a>
+					</li>
+					<li>
+						<a href="/admin/events-master" class="<?= (strpos($_SERVER['REQUEST_URI'], '/admin/events-master') !== false) ? 'active' : '' ?>">
+							Eventi master
 						</a>
 					</li>
 				</ul>
@@ -164,6 +259,32 @@
 					</li>
 				</ul>
 			</ul>
+
+				<ul class="nav-group">
+
+					<li class="group-title toggle" data-target="ads">
+						Advertising
+						<span>▾</span>
+					</li>
+
+					<ul id="ads" class="group-items closed">
+						<li>
+							<a href="/admin/ads/campaigns" class="<?= (strpos($_SERVER['REQUEST_URI'], '/admin/ads/campaigns') !== false) ? 'active' : '' ?>">
+								Campagne
+							</a>
+						</li>
+						<li>
+							<a href="/admin/ads/payments/logs" class="<?= (strpos($_SERVER['REQUEST_URI'], '/admin/ads/payments/logs') !== false) ? 'active' : '' ?>">
+								Log pagamenti
+							</a>
+						</li>
+						<li>
+							<a href="/admin/ads/positions" class="<?= (strpos($_SERVER['REQUEST_URI'], '/admin/ads/positions') !== false) ? 'active' : '' ?>">
+								Posizioni
+							</a>
+						</li>
+					</ul>
+				</ul>
 
 			<!-- CONTENUTI -->
 			<ul class="nav-group">
@@ -198,6 +319,8 @@
 
 </div>
 
+<div id="admin-toast" class="admin-toast" role="status" aria-live="polite"></div>
+
 <footer class="bg-gray-800 text-white text-center p-4">
 	© <?= date('Y') ?> <?= APP_NAME ?>
 </footer>
@@ -211,6 +334,16 @@
 		});
 	});
 </script>
-
+<script src="/public_assets/js/admin/admin-list.js"></script>
+<script src="/public_assets/js/admin/detail-panel/renderers/event.js"></script>
+<script src="/public_assets/js/admin/detail-panel/renderers/event-master.js"></script>
+<script src="/public_assets/js/admin/detail-panel/renderers/blog.js"></script>
+<script src="/public_assets/js/admin/detail-panel/renderers/blog-category.js"></script>
+<script src="/public_assets/js/admin/detail-panel/renderers/guest.js"></script>
+<script src="/public_assets/js/admin/detail-panel/renderers/region.js"></script>
+<script src="/public_assets/js/admin/detail-panel/renderers/user.js"></script>
+<script src="/public_assets/js/admin/detail-panel/renderers/ad-campaign.js"></script>
+<script src="/public_assets/js/admin/detail-panel/renderers/ad-position.js"></script>
+<script src="/public_assets/js/admin/detail-panel/panel.js"></script>
 </body>
 </html>

@@ -21,10 +21,6 @@ class AdTrackingService
 
 		$data = $this->withRequestContext($data);
 
-		if ($this->trackingRepository->isDuplicateImpression($data)) {
-			return false;
-		}
-
 		$data['created_at'] = date('Y-m-d H:i:s');
 
 		return $this->trackingRepository->insertImpression($data);
@@ -45,12 +41,8 @@ class AdTrackingService
 
 	private function withRequestContext(array $data): array
 	{
-		$ip = $_SERVER['REMOTE_ADDR'] ?? '';
 		$userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
 
-		$data['ip_hash'] = $ip ? hash('sha256', $ip) : null;
-		$data['user_agent_hash'] = $userAgent ? hash('sha256', $userAgent) : null;
-		$data['user_hash'] = $data['user_hash'] ?? hash('sha256', $ip . '|' . $userAgent);
 		$data['device_type'] = $this->detectDevice($userAgent);
 
 		return $data;

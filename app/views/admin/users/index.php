@@ -1,6 +1,45 @@
 <?php
-// Questo file è un frammento di HTML e deve essere incluso in un layout admin.
-// Non contiene i tag <html>, <head>, <body> completi.
+
+$adminList = [
+	'id' => 'users-list',
+	'endpoint' => '/admin/users/data',
+	'csrfToken' => $_SESSION['csrf_token'] ?? '',
+	'detailPanel' => true,
+	'detailEndpoint' => '/admin/users/detail/{id}',
+	'detailRenderer' => 'user',
+	'rowEdit' => '/admin/users/edit/{id}',
+	'pageSize' => 25,
+	'defaultSort' => 'id',
+	'defaultDirection' => 'desc',
+	'search' => true,
+	'columns' => [
+		['key' => 'id', 'label' => 'ID', 'sortable' => true, 'width' => '70px'],
+		['key' => 'username', 'label' => 'Username', 'sortable' => true, 'width' => '220px'],
+		['key' => 'email', 'label' => 'Email', 'sortable' => true, 'width' => '280px'],
+		['key' => 'role_name', 'label' => 'Ruolo', 'sortable' => true, 'width' => '140px'],
+		['key' => 'verified', 'label' => 'Verificato', 'sortable' => true, 'width' => '120px', 'formatter' => 'userVerified'],
+		['key' => 'privacy_accepted_at', 'label' => 'Privacy', 'sortable' => true, 'width' => '130px', 'formatter' => 'userPrivacyConsent'],
+		['key' => 'age_declared_adult', 'label' => '18+', 'sortable' => true, 'width' => '90px', 'formatter' => 'userAgeDeclaration'],
+		['key' => 'marketing_opt_in', 'label' => 'Newsletter', 'sortable' => true, 'width' => '130px', 'formatter' => 'userMarketingConsent'],
+	],
+	'actions' => [
+		['key' => 'edit', 'label' => 'Modifica'],
+		['key' => 'delete', 'label' => 'Elimina', 'confirm' => 'Sei sicuro di voler eliminare questo utente?'],
+	],
+	'emptyState' => [
+		'title' => 'Nessun utente presente',
+		'message' => 'Non ci sono ancora utenti registrati.',
+		'action' => [
+			'url' => '/admin/users/create',
+			'label' => 'Crea utente',
+		],
+	],
+	'noResults' => [
+		'title' => 'Nessun utente trovato',
+		'message' => 'Modifica i criteri di ricerca oppure rimuovi i filtri applicati.',
+	],
+];
+
 ?>
 
 <div class="container mx-auto p-6">
@@ -22,7 +61,6 @@
 	<h1 class="text-3xl font-semibold text-gray-800 mb-6">Gestione Utenti</h1>
 
 	<?php
-	// Visualizza i messaggi flash
 	if (isset($_SESSION['flash_messages'])) {
 		foreach ($_SESSION['flash_messages'] as $type => $message) {
 			echo '<div class="flash-message ' . htmlspecialchars($type) . '">' . htmlspecialchars($message) . '</div>';
@@ -31,63 +69,5 @@
 	}
 	?>
 
-	<?php if (!empty($data['users'])): ?>
-		<div class="bg-white rounded-lg shadow-lg overflow-hidden p-4">
-			<table class="min-w-full leading-normal">
-				<thead>
-				<tr>
-					<th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-						ID
-					</th>
-					<th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-						Username
-					</th>
-					<th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-						Email
-					</th>
-					<th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-						Ruolo
-					</th>
-					<th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-						Azioni
-					</th>
-				</tr>
-				</thead>
-				<tbody>
-				<?php foreach ($data['users'] as $user): ?>
-					<tr>
-						<td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-							<?php echo htmlspecialchars($user['id']); ?>
-						</td>
-						<td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-							<?php echo htmlspecialchars($user['username']); ?>
-						</td>
-						<td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-							<?php echo htmlspecialchars($user['email']); ?>
-						</td>
-						<td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                                <span class="relative inline-block px-3 py-1 font-semibold leading-tight">
-                                    <span aria-hidden="true" class="absolute inset-0 opacity-50 rounded-full"></span>
-                                    <span class="relative text-xs ">
-	                                    <?php echo $data['roles'][$user['role_id']-1]['name']; ?>
-
-                                    </span>
-                                </span>
-						</td>
-						<td class="px-5 py-5 border-b border-gray-200 bg-white text-sm whitespace-nowrap">
-							<a href="/admin/users/edit/<?php echo htmlspecialchars($user['id']); ?>" class="text-green-600 hover:text-green-900 mr-3">Modifica</a>
-							<form action="/admin/users/delete/<?php echo htmlspecialchars($user['id']); ?>" method="POST" class="inline-block" onsubmit="return confirm('Sei sicuro di voler eliminare questo utente?');">
-								<!-- CSRF Token per il form di eliminazione -->
-								<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($data['csrf_token'] ?? ''); ?>">
-								<button type="submit" class="text-red-600 hover:text-red-900 focus:outline-none focus:underline">Elimina</button>
-							</form>
-						</td>
-					</tr>
-				<?php endforeach; ?>
-				</tbody>
-			</table>
-		</div>
-	<?php else: ?>
-		<p class="text-gray-600">Nessun utente trovato.</p>
-	<?php endif; ?>
+	<?php require __DIR__ . '/../components/admin-list/admin-list.php'; ?>
 </div>

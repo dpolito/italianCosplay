@@ -1,5 +1,8 @@
 <?php
 $post = $data['post'] ?? null;
+?>
+
+<?php
 $cover = $data['cover'] ?? null;
 $categoria = $data['categoria'] ?? null;
 $wordCount = $data['wordCount'] ?? 0;
@@ -9,6 +12,7 @@ $relatedEvents = $data['relatedEvents'] ?? [];
 if(!$post){
 	return;
 }
+$featureFlags = (new \App\Services\SiteFeatureFlagService())->getEnabledMap();
 $siteUrl = rtrim(URL_ROOT_SITE, '/');
 $postUrl = $siteUrl . '/blog/' . $post['slug'];
 $imageUrl = !empty($cover['path'])
@@ -171,6 +175,8 @@ if(!function_exists('home_date_label')){
 				</div>
 			</header>
 
+			<?php echo \App\Helpers\AdPlacement::render('blog_article_top', 'blog_article', 'mx-5 mt-5 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md md:mx-8'); ?>
+
 			<!-- BODY -->
 			<div class="grid gap-8 p-5 md:p-8 lg:grid-cols-[minmax(0,1fr)_340px]">
 
@@ -182,6 +188,33 @@ if(!function_exists('home_date_label')){
 						<div class="prose max-w-none">
 							<?=$post['contenuto']?>
 						</div>
+
+						<?php echo \App\Helpers\AdPlacement::render('blog_article_inline', 'blog_article', 'mt-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md'); ?>
+
+						<?php if (!empty($featureFlags['enable_favorites'])): ?>
+						<div class="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4">
+							<p class="text-sm font-semibold text-amber-950">Preferiti</p>
+							<p class="mt-1 text-sm text-gray-700">Salvalo nella tua dashboard per riprenderlo quando vuoi.</p>
+							<div class="mt-4">
+								<?php if (!empty($_SESSION['user_id'])): ?>
+									<form method="post" action="/dashboard/favorites/toggle" class="js-favorite-toggle">
+										<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+										<input type="hidden" name="entity_type" value="<?php echo htmlspecialchars($favoriteEntityType ?? 'blog_post', ENT_QUOTES, 'UTF-8'); ?>">
+										<input type="hidden" name="entity_id" value="<?php echo (int)($post['id'] ?? 0); ?>">
+										<input type="hidden" name="redirect_to" value="<?php echo htmlspecialchars($postUrl, ENT_QUOTES, 'UTF-8'); ?>">
+										<button type="submit" class="js-favorite-button inline-flex w-full items-center justify-center gap-2 rounded-lg <?php echo !empty($isFavorited) ? 'bg-amber-800 text-white hover:bg-amber-900' : 'bg-white text-amber-900 hover:bg-amber-100'; ?> px-4 py-3 font-bold border border-amber-300 transition" data-label-add="Salva tra i preferiti" data-label-remove="Rimuovi dai preferiti" data-icon-add="fa-bookmark" data-icon-remove="fa-bookmark-slash" data-active="<?php echo !empty($isFavorited) ? '1' : '0'; ?>">
+											<i class="fa-solid <?php echo !empty($isFavorited) ? 'fa-bookmark-slash' : 'fa-bookmark'; ?>" aria-hidden="true"></i>
+											<span><?php echo !empty($isFavorited) ? 'Rimuovi dai preferiti' : 'Salva tra i preferiti'; ?></span>
+										</button>
+									</form>
+								<?php else: ?>
+									<a href="/login" class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-800 px-4 py-3 font-bold text-white hover:bg-amber-900">
+										Accedi per salvare
+									</a>
+								<?php endif; ?>
+							</div>
+						</div>
+						<?php endif; ?>
 					</section>
 
 				</div>
@@ -251,7 +284,34 @@ if(!function_exists('home_date_label')){
 
 						</div>
 					</section>
-					<!-- RELATED POSTS -->
+
+					<?php if (!empty($featureFlags['enable_favorites'])): ?>
+					<section class="rounded-xl border border-amber-200 bg-amber-50 p-5">
+						<h2 class="text-xl font-bold mb-4 text-gray-900">Preferiti</h2>
+						<p class="text-sm text-gray-700">Salvalo nella tua dashboard per riprenderlo quando vuoi.</p>
+						<div class="mt-4">
+							<?php if (!empty($_SESSION['user_id'])): ?>
+								<form method="post" action="/dashboard/favorites/toggle" class="js-favorite-toggle">
+									<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+									<input type="hidden" name="entity_type" value="<?php echo htmlspecialchars($favoriteEntityType ?? 'blog_post', ENT_QUOTES, 'UTF-8'); ?>">
+									<input type="hidden" name="entity_id" value="<?php echo (int)($post['id'] ?? 0); ?>">
+									<input type="hidden" name="redirect_to" value="<?php echo htmlspecialchars($postUrl, ENT_QUOTES, 'UTF-8'); ?>">
+									<button type="submit" class="js-favorite-button inline-flex w-full items-center justify-center gap-2 rounded-lg <?php echo !empty($isFavorited) ? 'bg-amber-800 text-white hover:bg-amber-900' : 'bg-white text-amber-900 hover:bg-amber-100'; ?> px-4 py-3 font-bold border border-amber-300 transition" data-label-add="Salva tra i preferiti" data-label-remove="Rimuovi dai preferiti" data-icon-add="fa-bookmark" data-icon-remove="fa-bookmark-slash" data-active="<?php echo !empty($isFavorited) ? '1' : '0'; ?>">
+										<i class="fa-solid <?php echo !empty($isFavorited) ? 'fa-bookmark-slash' : 'fa-bookmark'; ?>" aria-hidden="true"></i>
+										<span><?php echo !empty($isFavorited) ? 'Rimuovi dai preferiti' : 'Salva tra i preferiti'; ?></span>
+									</button>
+								</form>
+							<?php else: ?>
+								<a href="/login" class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-800 px-4 py-3 font-bold text-white hover:bg-amber-900">
+									Accedi per salvare
+								</a>
+							<?php endif; ?>
+						</div>
+					</section>
+					<?php endif; ?>
+
+					<?php echo \App\Helpers\AdPlacement::render('blog_article_bottom', 'blog_article', 'overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md'); ?>
+						<!-- RELATED POSTS -->
 					<?php if(!empty($relatedPosts)): ?>
 						<section>
 							<h2 class="text-2xl font-bold mb-4">Articoli correlati</h2>

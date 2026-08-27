@@ -24,7 +24,7 @@ class AdRotationService
 	public function getBannerForPosition(
 		string $positionCode,
 		string $page,
-		?string $userHash = null
+		array $context = []
 	): ?array {
 
 		$position = $this->positionRepository->findByCode($positionCode);
@@ -36,8 +36,12 @@ class AdRotationService
 		$campaigns = $this->campaignRepository
 			->findActiveByPosition($position['id']);
 
+		$campaigns = array_values(array_filter($campaigns, function (array $campaign) use ($page, $context): bool {
+			return $this->matchesTarget($campaign, $page, $context);
+		}));
+
 		if (empty($campaigns)) {
-			return $this->getFallbackBanner();
+			return null;
 		}
 
 		$campaign = $this->selectCampaign(
@@ -60,8 +64,9 @@ class AdRotationService
 			'campaign_id' => $campaign['id'],
 			'banner_id'   => $banner['id'],
 			'position_id' => $position['id'],
-			'page'        => $page,
-			'user_hash'   => $userHash
+			'target_type' => $campaign['target_type'] ?? 'national',
+			'target_value' => $campaign['target_value'] ?? null,
+			'page'        => $page
 		]);
 
 		return [
@@ -69,6 +74,7 @@ class AdRotationService
 			'banner_id'   => $banner['id'],
 			'title'       => $banner['title'],
 			'image'       => $banner['image_path'],
+			'mobile_image' => $banner['mobile_image_path'] ?? null,
 			'target_url'  => '/ads/click/'.$campaign['id']
 		];
 	}
@@ -92,6 +98,9 @@ class AdRotationService
 
 			case 'weighted':
 				return $this->weightedSelection($campaigns);
+
+			case 'fixed':
+				return $campaigns[0];
 
 			default:
 				return $campaigns[0];
@@ -124,12 +133,30 @@ class AdRotationService
 		return $pool[array_rand($pool)] ?? null;
 	}
 
-	/**
-	 * Banner interni
-	 */
-	private function getFallbackBanner(): ?array
+	private function matchesTarget(array $campaign, string $page, array $context): bool
 	{
-		return $this->bannerRepository
-			->getRandomInternalBanner();
+		$targetType = (string)($campaign['target_type'] ?? 'national');
+		$targetValue = $campaign['target_value'] ?? null;
+		$pageType = (string)($context['page_type'] ?? 'national');
+
+		if ($targetType === 'national') {
+			return $pageType === 'national';
+		}
+
+		if ($targetType !== $pageType) {
+			return false;
+		}
+
+		if ($targetType === 'region') {
+			return !empty($context['regione_slug'])
+				&& (string)$context['regione_slug'] === (string)$targetValue;
+		}
+
+		if ($targetType === 'province') {
+			return !empty($context['provincia_slug'])
+				&& (string)$context['provincia_slug'] === (string)$targetValue;
+		}
+
+		return false;
 	}
 }

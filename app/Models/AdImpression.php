@@ -11,8 +11,8 @@ class AdImpression
 	public int $position_id;
 
 	public ?string $page = null;
-
-	public ?string $user_hash = null;
+	public ?string $device_type = null;
+	public ?string $country_code = null;
 
 	public ?string $created_at = null;
 
@@ -30,7 +30,8 @@ class AdImpression
 		$self->position_id  = (int)$data['position_id'];
 
 		$self->page         = $data['page'] ?? null;
-		$self->user_hash    = $data['user_hash'] ?? null;
+		$self->device_type  = $data['device_type'] ?? null;
+		$self->country_code = $data['country_code'] ?? null;
 
 		$self->created_at   = $data['created_at'] ?? null;
 
@@ -47,19 +48,9 @@ class AdImpression
 			'banner_id'   => $this->banner_id,
 			'position_id' => $this->position_id,
 			'page'        => $this->page,
-			'user_hash'   => $this->user_hash
+			'device_type' => $this->device_type,
+			'country_code'=> $this->country_code
 		];
-	}
-
-	/**
-	 * Utility: hash utente anonimo per dedup (opzionale anti-fake impression)
-	 */
-	public static function generateUserHash(): string
-	{
-		return hash('sha256',
-			($_SERVER['REMOTE_ADDR'] ?? '') .
-			($_SERVER['HTTP_USER_AGENT'] ?? '')
-		);
 	}
 
 	/**

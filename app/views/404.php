@@ -13,8 +13,24 @@
 	<!-- Includi Tailwind CSS se vuoi stilizzare questa pagina -->
 	<script src="https://cdn.tailwindcss.com"></script>
 	<style>
+		@font-face {
+			font-family: 'InterLocal';
+			font-style: normal;
+			font-weight: 300 700;
+			font-display: swap;
+			src: url('/public_assets/fonts/inter/Inter-Variable.ttf') format('truetype');
+		}
+
+		@font-face {
+			font-family: 'InterLocal';
+			font-style: italic;
+			font-weight: 300 700;
+			font-display: swap;
+			src: url('/public_assets/fonts/inter/Inter-Variable.ttf') format('truetype');
+		}
+
 		body {
-			font-family: 'Inter', sans-serif;
+			font-family: 'InterLocal', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 			background-color: #f3f4f6;
 			color: #333;
 			display: flex;

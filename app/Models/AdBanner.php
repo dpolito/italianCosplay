@@ -10,6 +10,7 @@ class AdBanner
 
 	public string $title;
 	public string $image_path;
+	public ?string $mobile_image_path = null;
 	public string $target_url;
 
 	public ?string $alt_text = null;
@@ -34,6 +35,7 @@ class AdBanner
 
 		$self->title       = $data['title'];
 		$self->image_path  = $data['image_path'];
+		$self->mobile_image_path = $data['mobile_image_path'] ?? null;
 		$self->target_url  = $data['target_url'];
 
 		$self->alt_text    = $data['alt_text'] ?? null;
@@ -57,6 +59,7 @@ class AdBanner
 			'user_id'     => $this->user_id,
 			'title'       => $this->title,
 			'image_path'  => $this->image_path,
+			'mobile_image_path' => $this->mobile_image_path,
 			'target_url'  => $this->target_url,
 			'alt_text'    => $this->alt_text,
 			'type'        => $this->type,

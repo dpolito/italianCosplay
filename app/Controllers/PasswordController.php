@@ -5,17 +5,21 @@ use App\Core\Database;
 use App\Core\Mailer;
 use App\Core\Session;
 use App\Models\User;
+use App\Services\AuditLogService;
+use App\Support\AuditLogActionType;
 
 
 class PasswordController extends Controller
 {
 	private User $userModel;
 	private $db;
+	private AuditLogService $auditLogService;
 
 	public function __construct()
 	{
 		$this->userModel = new User();
 		$this->db = Database::getInstance()->getConnection();
+		$this->auditLogService = new AuditLogService();
 	}
 
 	// Mostra form "Password dimenticata" + gestisce POST
@@ -27,12 +31,36 @@ class PasswordController extends Controller
 
 			// CSRF check
 			if (empty($csrf) || !hash_equals($_SESSION['csrf_token'] ?? '', $csrf)) {
+				$this->auditLogService->logAudit([
+					'user_id' => $user['id'] ?? null,
+					'action_type' => AuditLogActionType::PASSWORD_RESET_REQUESTED,
+					'entity_type' => 'user',
+					'entity_id' => $user['id'] ?? null,
+					'success' => 0,
+					'payload' => [
+						'email' => $email,
+						'reason' => 'csrf_invalid',
+					],
+					'error_message' => 'csrf_invalid',
+				]);
 				Session::setFlash('error', 'Richiesta non valida (CSRF).');
 				header('Location: /password/forgot');
 				exit();
 			}
 
 			if (!$email) {
+				$this->auditLogService->logAudit([
+					'user_id' => null,
+					'action_type' => AuditLogActionType::PASSWORD_RESET_REQUESTED,
+					'entity_type' => 'user',
+					'entity_id' => null,
+					'success' => 0,
+					'payload' => [
+						'email' => $email,
+						'reason' => 'missing_email',
+					],
+					'error_message' => 'missing_email',
+				]);
 				$this->view('auth/password_forgot', [
 					'error' => 'Inserisci la tua email.',
 					'csrf_token' => $_SESSION['csrf_token']
@@ -43,6 +71,18 @@ class PasswordController extends Controller
 			$user = $this->userModel->findByEmail($email);
 
 			if (!$user) {
+				$this->auditLogService->logAudit([
+					'user_id' => null,
+					'action_type' => AuditLogActionType::PASSWORD_RESET_REQUESTED,
+					'entity_type' => 'user',
+					'entity_id' => null,
+					'success' => 0,
+					'payload' => [
+						'email' => $email,
+						'reason' => 'email_not_found',
+					],
+					'error_message' => 'email_not_found',
+				]);
 				// Non riveliamo se l'email esiste o no
 				$this->view('auth/password_forgot', [
 					'success' => '1111Se l\'email esiste, riceverai un link per il reset.',
@@ -64,6 +104,17 @@ class PasswordController extends Controller
 				':user_id' => $user['id'],
 				':token' => $token,
 				':expires_at' => $expires
+			]);
+			$this->auditLogService->logAudit([
+				'user_id' => $user['id'],
+				'action_type' => AuditLogActionType::PASSWORD_RESET_REQUESTED,
+				'entity_type' => 'user',
+				'entity_id' => $user['id'],
+				'success' => 1,
+				'payload' => [
+					'email' => $user['email'],
+					'token_expires_at' => $expires,
+				],
 			]);
 
 			// Invia email (funzione mail() o libreria tipo PHPMailer)
@@ -113,12 +164,36 @@ class PasswordController extends Controller
 			$csrf = $_POST['csrf_token'] ?? '';
 
 			if (empty($csrf) || !hash_equals($_SESSION['csrf_token'] ?? '', $csrf)) {
+				$this->auditLogService->logAudit([
+					'user_id' => $reset['user_id'] ?? null,
+					'action_type' => AuditLogActionType::PASSWORD_RESET_COMPLETED,
+					'entity_type' => 'user',
+					'entity_id' => $reset['user_id'] ?? null,
+					'success' => 0,
+					'payload' => [
+						'token' => $token[1],
+						'reason' => 'csrf_invalid',
+					],
+					'error_message' => 'csrf_invalid',
+				]);
 				Session::setFlash('error', 'Richiesta non valida (CSRF).');
 				header("Location: /password/reset/$token[1]");
 				exit();
 			}
 
 			if (!$password || $password !== $confirm) {
+				$this->auditLogService->logAudit([
+					'user_id' => $reset['user_id'] ?? null,
+					'action_type' => AuditLogActionType::PASSWORD_RESET_COMPLETED,
+					'entity_type' => 'user',
+					'entity_id' => $reset['user_id'] ?? null,
+					'success' => 0,
+					'payload' => [
+						'token' => $token[1],
+						'reason' => 'password_mismatch',
+					],
+					'error_message' => 'password_mismatch',
+				]);
 				$this->view('auth/password_reset', [
 					'error' => 'Le password non coincidono o sono vuote.',
 					'csrf_token' => $_SESSION['csrf_token'],
@@ -138,6 +213,16 @@ class PasswordController extends Controller
 			// Cancella token
 			$stmt = $this->db->prepare("DELETE FROM password_resets WHERE id = :id");
 			$stmt->execute([':id' => $reset['id']]);
+			$this->auditLogService->logAudit([
+				'user_id' => $reset['user_id'],
+				'action_type' => AuditLogActionType::PASSWORD_RESET_COMPLETED,
+				'entity_type' => 'user',
+				'entity_id' => $reset['user_id'],
+				'success' => 1,
+				'payload' => [
+					'token' => $token[1],
+				],
+			]);
 
 			$this->view('auth/login', [
 				'success' => 'Password aggiornata con successo. Puoi ora accedere.',
