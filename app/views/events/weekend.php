@@ -107,6 +107,10 @@ $collectionSchema = [
 
 		</header>
 
+		<div class="mt-8">
+			<?php $context = 'weekend'; require APP_ROOT . '/app/views/components/telegram-channel-cta.php'; ?>
+		</div>
+
 		<?php echo AdPlacement::render('events_weekend_top', 'events_weekend', 'mt-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md'); ?>
 
 		<?php if(!empty($weekendCorrente)): ?>

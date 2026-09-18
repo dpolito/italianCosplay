@@ -189,8 +189,8 @@ $structuredData = [
 				<div class="mt-4">
 					<?php if ($settings['show_bio'] ?? false): ?>
 						<?php if (!empty($bio)): ?>
-							<div class="prose max-w-none prose-gray leading-relaxed">
-								<?php echo nl2br(htmlspecialchars($bio)); ?>
+							<div class="prose max-w-none prose-gray leading-relaxed break-words" style="overflow-wrap:anywhere; word-break:break-word;">
+								<?php echo nl2br(htmlspecialchars($bio, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')); ?>
 							</div>
 						<?php else: ?>
 							<p class="text-gray-500">Questo profilo non ha ancora inserito una bio.</p>

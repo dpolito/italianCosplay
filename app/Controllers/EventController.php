@@ -16,6 +16,7 @@ use App\Models\Provincia;
 use App\Models\Regione;
 use App\Models\TipoEvento;
 use App\Repositories\EventRepository;
+use App\Repositories\OrganizationRepository;
 use App\Services\EventAnalyticsService;
 use App\Services\EventFeedService;
 use App\Services\EventImageMigrationService;
@@ -73,6 +74,7 @@ class EventController extends Controller{
 	private ProvinceCorrelateService $provinceCorrelateService;
 	private EventReportConsentService $eventReportConsentService;
 	private EventRepository $eventRepository;
+	private OrganizationRepository $organizationRepository;
 	private AuditLogService $auditLogService;
 	private NotificationService $notificationService;
 
@@ -94,6 +96,7 @@ class EventController extends Controller{
 		$this->provinceCorrelateService = new ProvinceCorrelateService();
 		$this->eventReportConsentService = new EventReportConsentService();
 		$this->eventRepository = new EventRepository();
+		$this->organizationRepository = new OrganizationRepository();
 		$this->auditLogService = new AuditLogService();
 		$this->notificationService = new NotificationService();
 		$this->imageService = new ImageService($this->eventModel->getDbConnection());
@@ -128,6 +131,7 @@ class EventController extends Controller{
 	 */
 	public function index(array $params = []){
 		$this->requireFeature('enable_events', 'Gli eventi pubblici sono temporaneamente disattivati.');
+		$searchQuery = trim((string) ($_GET['q'] ?? ''));
 		$regioneSlug = null;
 		$provinciaSlug = null;
 		$comuneSlug = null;
@@ -216,7 +220,9 @@ class EventController extends Controller{
 		$events = $this->eventModel->getApprovedEvents(
 			$regioneId,
 			$provinciaId,
-			$comuneId
+			$comuneId,
+			0,
+			$searchQuery
 		);
 		foreach($events as $index => &$event){
 			$imageService = new ImageService($this->eventModel->getDbConnection());
@@ -261,6 +267,9 @@ class EventController extends Controller{
 		if(empty($events)){
 			$noindex = true;
 		}
+		if ($searchQuery !== '') {
+			$noindex = true;
+		}
 		if($selectedRegione){
 			$canonicalUrl .= '/' . $selectedRegione['slug'];
 		}
@@ -287,6 +296,7 @@ class EventController extends Controller{
 			'canonicalUrl'        => $canonicalUrl,
 			'provinceCorrelate'   => $provinceCorrelate,
 			'agendaStates'        => $agendaStates,
+			'searchQuery'         => $searchQuery,
 		]);
 	}
 
@@ -542,6 +552,8 @@ class EventController extends Controller{
 				'slug'                => trim($_POST['slug'] ?? ''),
 				'anno'                => (int) ($_POST['anno'] ?? date('Y')),
 				'descrizione'         => $_POST['descrizione'],
+				'seo_title'           => trim($_POST['seo_title'] ?? ''),
+				'seo_description'     => trim($_POST['seo_description'] ?? ''),
 				'data_inizio'         => trim($_POST['data_inizio']),
 				'data_fine'           => trim($_POST['data_fine'] ?? ''),
 				'luogo'               => trim($_POST['luogo']),
@@ -560,8 +572,8 @@ class EventController extends Controller{
 				'immagine'            => null,
 				'approvato'           => 0,
 				'event_size'          => filter_var($_POST['event_size'] ?? null, FILTER_VALIDATE_INT),
-				'is_paid'             => filter_var($_POST['is_paid'] ? 1 : 0, FILTER_VALIDATE_INT),
-				'has_cosplay_contest' => filter_var($_POST['has_cosplay_contest'] ? 1 : 0, FILTER_VALIDATE_INT),
+				'is_paid'             => isset($_POST['is_paid']) ? 1 : 0,
+				'has_cosplay_contest' => isset($_POST['has_cosplay_contest']) ? 1 : 0,
 			];
 			error_log(__LINE__);
 			$errors = [];
@@ -571,6 +583,12 @@ class EventController extends Controller{
 			}
 			if(strlen($data['titolo']) > 255){
 				$errors[] = 'Il titolo è troppo lungo (max 255 caratteri).';
+			}
+			if(strlen($data['seo_title']) > 255){
+				$errors[] = 'Il SEO Title è troppo lungo (max 255 caratteri).';
+			}
+			if(strlen($data['seo_description']) > 500){
+				$errors[] = 'La SEO Description è troppo lunga (max 500 caratteri).';
 			}
 			if(empty($data['descrizione'])){
 				$errors[] = 'La descrizione è obbligatoria.';
@@ -661,11 +679,15 @@ class EventController extends Controller{
 					'fields_completed' => 100,
 					'page_url' => '/segnala-evento-cosplay',
 				]);
-				$this->imageService->upload(
-					$_FILES['immagine'],
-					$eventId,
-					$data['titolo']
-				);
+				if (isset($_FILES['immagine']) && is_array($_FILES['immagine'])) {
+					$this->imageService->upload(
+						$_FILES['immagine'],
+						'event',
+						(int) $eventId,
+						$data['titolo'],
+						true
+					);
+				}
 				error_log(__LINE__);
 				Session::setFlash('success', 'Evento segnalato con successo! Sarà visibile dopo l\'approvazione.');
 				$mailer = new Mailer();
@@ -679,7 +701,9 @@ class EventController extends Controller{
 					'd.polito81@gmail.com',
 					'd.polito81@gmail.com',
 					'Segnalazione evento ' . $data['titolo'],
-					$template
+					$template,
+					null,
+					[Mailer::TAG_EVENT_REPORT]
 				);
 				header('Location: /segnala-evento-cosplay');
 				exit();
@@ -748,12 +772,14 @@ class EventController extends Controller{
 		}
 		$this->eventsBasePath = URL_ROOT_SITE . '/eventi-cosplay';
 		$eventMaster = null;
+		$organizations = [];
 		$isFavorited = false;
 		$eventMasterCount = 0;
 		$eventMasterEvents = [];
 		if (!empty($event['event_master_id'])) {
 			$eventMaster = $this->eventMasterModel->find((int) $event['event_master_id']);
 			if ($eventMaster) {
+				$organizations = $this->organizationRepository->findPublicForEvent((int) $event['id']);
 				$eventMasterCount = $this->eventMasterModel->countEvents((int) $eventMaster['id']);
 				$eventMasterEvents = $this->eventModel->getEventsByMasterId((int) $eventMaster['id'], (int) $event['id']);
 			}
@@ -836,6 +862,7 @@ class EventController extends Controller{
 			'canonicalUrl'      => $canonicalUrl,
 			'similarEvents'     => $similarEvents,
 			'eventMaster'       => $eventMaster,
+			'organizations'     => $organizations,
 			'eventMasterEvents' => $eventMasterEvents,
 			'eventMasterCount'  => $eventMasterCount,
 			'hasVisibleMaster'  => $this->hasVisibleMaster($eventMaster, $eventMasterCount),
@@ -852,7 +879,7 @@ class EventController extends Controller{
 	public function masterIndex(): void
 	{
 		$this->requireFeature('enable_events', 'Gli eventi pubblici sono temporaneamente disattivati.');
-		$eventMasters = $this->eventMasterModel->getAll();
+		$eventMasters = $this->eventMasterModel->getPublic();
 		$masters = [];
 		foreach ($eventMasters as $eventMaster) {
 			$eventCount = $this->eventMasterModel->countEvents((int) $eventMaster['id']);
@@ -905,7 +932,7 @@ class EventController extends Controller{
 			exit();
 		}
 
-		$eventMaster = $this->eventMasterModel->findBySlug($slug);
+		$eventMaster = $this->eventMasterModel->findPublicBySlug($slug);
 		if(!$eventMaster){
 			http_response_code(404);
 			$this->view('errors/404');
@@ -913,6 +940,8 @@ class EventController extends Controller{
 		}
 
 		$events = $this->eventModel->getEventsByMasterId((int) $eventMaster['id']);
+		$organizations = $this->organizationRepository->findPublicForMaster((int) $eventMaster['id']);
+		$hasOrganizationAssociation = $this->organizationRepository->hasMasterAssociation((int) $eventMaster['id']);
 		$cover = $this->imageService->getPrimary('event_master', (int) $eventMaster['id'], 'large');
 		$coverUrl = !empty($cover['path']) ? '/public_assets' . $cover['path'] : '';
 		$canonicalUrl = URL_ROOT_SITE . '/eventi-master/' . $eventMaster['slug'];
@@ -929,6 +958,9 @@ class EventController extends Controller{
 			'breadcrumbs' => $breadcrumbs,
 			'canonicalUrl' => $canonicalUrl,
 			'eventCount' => count($events),
+			'organizations' => $organizations,
+			'hasOrganizationAssociation' => $hasOrganizationAssociation,
+			'claimUrl' => $hasOrganizationAssociation ? '' : URL_ROOT_SITE . '/eventi-master/' . rawurlencode($eventMaster['slug']) . '/riscatta',
 		]);
 	}
 
@@ -1110,6 +1142,8 @@ class EventController extends Controller{
 				'slug'                => trim($_POST['slug'] ?? ''),
 				'anno'                => (int) ($_POST['anno'] ?? date('Y')),
 				'descrizione'         => $_POST['descrizione'],
+				'seo_title'           => trim($_POST['seo_title'] ?? ''),
+				'seo_description'     => trim($_POST['seo_description'] ?? ''),
 				'data_inizio'         => trim($_POST['data_inizio']),
 				'data_fine'           => trim($_POST['data_fine'] ?? ''),
 				'luogo'               => trim($_POST['luogo']),
@@ -1138,6 +1172,12 @@ class EventController extends Controller{
 			}
 			if(strlen($data['titolo']) > 255){
 				$errors[] = 'Il titolo è troppo lungo (max 255 caratteri).';
+			}
+			if(strlen($data['seo_title']) > 255){
+				$errors[] = 'Il SEO Title è troppo lungo (max 255 caratteri).';
+			}
+			if(strlen($data['seo_description']) > 500){
+				$errors[] = 'La SEO Description è troppo lunga (max 500 caratteri).';
 			}
 			if(empty($data['descrizione'])){
 				$errors[] = 'La descrizione è obbligatoria.';
@@ -1353,7 +1393,11 @@ class EventController extends Controller{
 			}
 			$data = [
 				'titolo'              => trim($_POST['titolo']),
+				'slug'                => trim($_POST['slug'] ?? ''),
+				'anno'                => filter_var($_POST['anno'] ?? null, FILTER_VALIDATE_INT),
 				'descrizione'         => $_POST['descrizione'],
+				'seo_title'           => trim($_POST['seo_title'] ?? ''),
+				'seo_description'     => trim($_POST['seo_description'] ?? ''),
 				'data_inizio'         => trim($_POST['data_inizio']),
 				'data_fine'           => trim($_POST['data_fine'] ?? ''),
 				'luogo'               => trim($_POST['luogo']),
@@ -1394,6 +1438,15 @@ class EventController extends Controller{
 			}
 			if(strlen($data['titolo']) > 255){
 				$errors[] = 'Il titolo è troppo lungo (max 255 caratteri).';
+			}
+			if(strlen($data['seo_title']) > 255){
+				$errors[] = 'Il SEO Title è troppo lungo (max 255 caratteri).';
+			}
+			if(strlen($data['seo_description']) > 500){
+				$errors[] = 'La SEO Description è troppo lunga (max 500 caratteri).';
+			}
+			if($data['anno'] === false || $data['anno'] === null || $data['anno'] < 2000 || $data['anno'] > 2100){
+				$errors[] = 'Anno non valido (deve essere compreso tra 2000 e 2100).';
 			}
 			if(empty($data['descrizione'])){
 				$errors[] = 'La descrizione è obbligatoria.';
@@ -2045,16 +2098,17 @@ ItalianCosplay raccoglie eventi cosplay italiani in un unico calendario semplice
 		$regione = $this->regioneModel->findBySlug($slug);
 		if($regione){
 			$this->index([$slug]);
+			return;
 		}
 		// 2. Controlla se lo slug è un evento
 		$event = $this->eventModel->findBySlug($slug);
 		if($event && $event['approvato'] == 1){
 			$this->show([$slug]);
+			return;
 		}
 		// 3. Slug non trovato → 404
-		/*Session::setFlash('error', 'Pagina non trovata.');
-		header('Location: ' . $this->eventsBasePath);
-		exit;*/
+		http_response_code(404);
+		$this->view('errors/404');
 	}
 
 	/*public function weekend()
@@ -2348,8 +2402,22 @@ nei prossimi fine settimana.";
 			"uno dei momenti migliori dell’anno per il cosplay",
 			"un periodo ricco di eventi in tutta Italia",
 		];
-		$totEventi = 0;
-		$listaTop = '';
+		$eventiMese = array_merge($feed['top3'], $feed['big'], $feed['new'], $feed['all']);
+		$eventiMeseUnici = [];
+		foreach ($eventiMese as $event) {
+			$eventId = (int) ($event['id'] ?? 0);
+			if ($eventId > 0) {
+				$eventiMeseUnici[$eventId] = true;
+			}
+		}
+		$totEventi = count($eventiMeseUnici);
+		$listaTop = implode(', ', array_filter(array_map(
+			static fn(array $event): string => trim((string) ($event['titolo'] ?? '')),
+			$feed['top3']
+		)));
+		if ($listaTop === '') {
+			$listaTop = 'i principali appuntamenti del mese';
+		}
 		$randomFrase = $frasi[array_rand($frasi)];
 		$testo = "<p>
 {$mese} è {$randomFrase} 🇮🇹 è uno dei mesi più ricchi di eventi cosplay in Italia 🇮🇹  
@@ -2375,6 +2443,7 @@ Dai grandi eventi come {$listaTop}, fino alle fiere locali in crescita, ecco i m
 			'breadcrumbs'       => $breadcrumbs,
 			'testo_descrittivo' => $testo,
 			'weekendDelMese' => $weekendDelMese,
+			'eventCount'        => $totEventi,
 		]);
 	}
 	public function mese()

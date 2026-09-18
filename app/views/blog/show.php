@@ -86,7 +86,7 @@ if(!function_exists('home_date_label')){
 
 
 
-	<div class="container mx-auto px-4 py-6 md:px-6">
+	<div class="container mx-auto px-0 py-6 md:px-6">
 
 		<!-- BREADCRUMB (stile events/shop.php) -->
 		<nav class="mb-5 text-sm text-gray-700" aria-label="Breadcrumb">
@@ -178,14 +178,14 @@ if(!function_exists('home_date_label')){
 			<?php echo \App\Helpers\AdPlacement::render('blog_article_top', 'blog_article', 'mx-5 mt-5 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md md:mx-8'); ?>
 
 			<!-- BODY -->
-			<div class="grid gap-8 p-5 md:p-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+			<div class="grid grid-cols-1 gap-8 p-4 md:p-8 lg:grid-cols-[minmax(0,1fr)_340px]">
 
-				<div class="space-y-10">
+				<div class="min-w-0 space-y-10">
 
 					<section>
 						<h2 class="text-2xl font-bold mb-4 text-gray-900">Contenuto</h2>
 
-						<div class="prose max-w-none">
+						<div class="blog-article-content prose min-w-0 max-w-none break-words leading-relaxed [&_p]:mb-4 [&_h2]:leading-tight [&_h2]:mb-3 [&_h3]:mt-5 [&_h3]:mb-3 [&_h3]:text-xl [&_h3]:font-bold">
 							<?=$post['contenuto']?>
 						</div>
 
@@ -220,7 +220,7 @@ if(!function_exists('home_date_label')){
 				</div>
 
 				<!-- ASIDE -->
-				<aside class="space-y-6">
+				<aside class="min-w-0 space-y-6">
 
 					<section class="rounded-xl border bg-gray-50 p-5">
 						<h2 class="text-xl font-bold mb-4">Info articolo</h2>
@@ -284,6 +284,8 @@ if(!function_exists('home_date_label')){
 
 						</div>
 					</section>
+
+					<?php $context = 'blog'; require APP_ROOT . '/app/views/components/telegram-channel-cta.php'; ?>
 
 					<?php if (!empty($featureFlags['enable_favorites'])): ?>
 					<section class="rounded-xl border border-amber-200 bg-amber-50 p-5">
@@ -407,3 +409,5 @@ if(!function_exists('home_date_label')){
 			</div>
 		</article>
 	</div>
+
+<script src="/public_assets/js/blog-tables.js" defer></script>

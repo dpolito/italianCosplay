@@ -2,6 +2,178 @@
 // Questo file è ora un frammento di HTML e deve essere incluso in un layout.
 // Non contiene i tag <html>, <head>, <body> completi.
 // Le risorse CSS (Tailwind) e i tag base devono essere nel layout che lo include.
+$favoriteAnalytics = $data['favoriteAnalytics'] ?? [];
+$agendaAnalytics = $data['agendaAnalytics'] ?? [];
+$engagementAnalytics = $data['engagementAnalytics'] ?? [];
+$userRegistrationAnalytics = $data['userRegistrationAnalytics'] ?? [];
+$dashboardIntervals = $data['dashboardIntervals'] ?? [7, 30, 90, 180, 365];
+$favoriteCounts = $favoriteAnalytics['counts'] ?? [];
+$favoriteTrend = $favoriteAnalytics['trend'] ?? [];
+$agendaCounts = $agendaAnalytics['counts'] ?? [];
+$agendaTrend = $agendaAnalytics['trend'] ?? [];
+$topEvents = $engagementAnalytics['topEvents'] ?? [];
+$eventOpportunities = $engagementAnalytics['eventOpportunities'] ?? [];
+$topBlogPosts = $engagementAnalytics['topBlogPosts'] ?? [];
+
+if (!function_exists('admin_dashboard_label')) {
+	function admin_dashboard_label(?string $value): string
+	{
+		return [
+			'event' => 'Eventi',
+			'blog_post' => 'Blog',
+			'guest' => 'Ospiti',
+			'regione' => 'Regioni',
+			'provincia' => 'Province',
+			'comune' => 'Comuni',
+			'mi_interessa' => 'Mi interessa',
+			'ci_vado' => 'Ci vado',
+			'forse_vado' => 'Forse vado',
+			'add' => 'Aggiunti',
+			'remove' => 'Rimossi',
+			'set' => 'Impostati',
+		][$value ?? ''] ?? ucfirst(str_replace('_', ' ', (string) $value));
+	}
+}
+
+if (!function_exists('admin_dashboard_favorite_rows')) {
+	function admin_dashboard_favorite_rows(array $rows): array
+	{
+		$grouped = [];
+		foreach ($rows as $row) {
+			$type = (string) ($row['entity_type'] ?? '');
+			$action = (string) ($row['action'] ?? '');
+			if ($type === '' || $action === '') {
+				continue;
+			}
+			$grouped[$type][$action] = (int) ($row['total'] ?? 0);
+		}
+
+		$result = [];
+		foreach ($grouped as $type => $actions) {
+			$adds = (int) ($actions['add'] ?? 0);
+			$removes = (int) ($actions['remove'] ?? 0);
+			$result[] = [
+				'label' => admin_dashboard_label($type),
+				'adds' => $adds,
+				'removes' => $removes,
+				'total' => $adds + $removes,
+			];
+		}
+
+		usort($result, static fn (array $a, array $b): int => $b['total'] <=> $a['total']);
+		return $result;
+	}
+}
+
+if (!function_exists('admin_dashboard_agenda_rows')) {
+	function admin_dashboard_agenda_rows(array $rows): array
+	{
+		$grouped = [];
+		foreach ($rows as $row) {
+			$action = (string) ($row['action'] ?? '');
+			$status = $row['status'] !== null ? (string) $row['status'] : 'remove';
+			if ($action === '') {
+				continue;
+			}
+			$grouped[$status][$action] = (int) ($row['total'] ?? 0);
+		}
+
+		$result = [];
+		foreach ($grouped as $status => $actions) {
+			$sets = (int) ($actions['set'] ?? 0);
+			$removes = (int) ($actions['remove'] ?? 0);
+			$result[] = [
+				'label' => $status === 'remove' ? 'Rimozioni' : admin_dashboard_label($status),
+				'sets' => $sets,
+				'removes' => $removes,
+				'total' => $sets + $removes,
+			];
+		}
+
+		usort($result, static fn (array $a, array $b): int => $b['total'] <=> $a['total']);
+		return $result;
+	}
+}
+
+if (!function_exists('admin_dashboard_daily_totals')) {
+	function admin_dashboard_daily_totals(array $favoriteTrend, array $agendaTrend): array
+	{
+		$days = [];
+		foreach ($favoriteTrend as $row) {
+			$date = (string) ($row['event_date'] ?? '');
+			if ($date !== '') {
+				$days[$date]['favorites'] = ($days[$date]['favorites'] ?? 0) + (int) ($row['total'] ?? 0);
+			}
+		}
+		foreach ($agendaTrend as $row) {
+			$date = (string) ($row['event_date'] ?? '');
+			if ($date !== '') {
+				$days[$date]['agenda'] = ($days[$date]['agenda'] ?? 0) + (int) ($row['total'] ?? 0);
+			}
+		}
+
+		ksort($days);
+		return array_slice($days, -14, 14, true);
+	}
+}
+
+if (!function_exists('admin_dashboard_metric_rows')) {
+	function admin_dashboard_metric_rows(array $rows, string $type): void
+	{
+		if (empty($rows)) {
+			echo '<p class="text-sm text-gray-600">Nessun dato disponibile. Verifica migration analytics e tracking view.</p>';
+			return;
+		}
+
+		echo '<div class="overflow-x-auto">';
+		echo '<table class="min-w-full divide-y divide-gray-200 text-sm">';
+		echo '<thead><tr class="text-left text-xs font-bold uppercase tracking-wide text-gray-500">';
+		echo '<th class="py-2 pr-3">Contenuto</th>';
+		echo '<th class="px-3 py-2 text-right">View 30gg</th>';
+		echo '<th class="px-3 py-2 text-right">Preferiti</th>';
+		if ($type === 'event') {
+			echo '<th class="px-3 py-2 text-right">Agenda</th>';
+		}
+		echo '<th class="py-2 pl-3 text-right">Conv.</th>';
+		echo '</tr></thead><tbody class="divide-y divide-gray-100">';
+
+		foreach ($rows as $row) {
+			$title = htmlspecialchars((string) ($row['titolo'] ?? 'Senza titolo'), ENT_QUOTES, 'UTF-8');
+			$views = number_format((int) ($row['views'] ?? 0), 0, ',', '.');
+			$favorites = number_format((int) ($row['favorites'] ?? 0), 0, ',', '.');
+			$agenda = number_format((int) ($row['agenda_actions'] ?? 0), 0, ',', '.');
+			$conversion = number_format((float) ($row['conversion_rate'] ?? 0), 2, ',', '.');
+			echo '<tr>';
+			echo '<td class="max-w-xs py-3 pr-3 font-semibold text-gray-800">' . $title . '</td>';
+			echo '<td class="px-3 py-3 text-right text-gray-700">' . $views . '</td>';
+			echo '<td class="px-3 py-3 text-right text-gray-700">' . $favorites . '</td>';
+			if ($type === 'event') {
+				echo '<td class="px-3 py-3 text-right text-gray-700">' . $agenda . '</td>';
+			}
+			echo '<td class="py-3 pl-3 text-right font-bold text-gray-900">' . $conversion . '%</td>';
+			echo '</tr>';
+		}
+
+		echo '</tbody></table></div>';
+	}
+}
+
+$favoriteRows = admin_dashboard_favorite_rows($favoriteCounts);
+$agendaRows = admin_dashboard_agenda_rows($agendaCounts);
+$dailyRows = admin_dashboard_daily_totals($favoriteTrend, $agendaTrend);
+$maxFavoriteTotal = max(array_column($favoriteRows ?: [['total' => 0]], 'total'));
+$maxAgendaTotal = max(array_column($agendaRows ?: [['total' => 0]], 'total'));
+$maxDailyTotal = 0;
+foreach ($dailyRows as $day) {
+	$maxDailyTotal = max($maxDailyTotal, (int) ($day['favorites'] ?? 0), (int) ($day['agenda'] ?? 0));
+}
+$registrationTotal = (int) ($userRegistrationAnalytics['total'] ?? 0);
+$registrationActivated = (int) ($userRegistrationAnalytics['activated'] ?? 0);
+$registrationNotActivated = (int) ($userRegistrationAnalytics['not_activated'] ?? 0);
+$registrationActivationRate = (float) ($userRegistrationAnalytics['activation_rate'] ?? 0);
+$registrationDays = (int) ($userRegistrationAnalytics['days'] ?? 30);
+$registrationActivatedWidth = $registrationTotal > 0 ? round(($registrationActivated / $registrationTotal) * 100) : 0;
+$registrationNotActivatedWidth = $registrationTotal > 0 ? round(($registrationNotActivated / $registrationTotal) * 100) : 0;
 ?>
 
 <main class="flex-grow container mx-auto p-6">
@@ -125,181 +297,183 @@
 		</div>
 	</div>
 	<?php endif; ?>
-	<div class="bg-white rounded-lg shadow-lg p-6 flex flex-col items-center text-center mt-6">
-		<div class="text-green-500 mb-4">
-			<!-- Icona di esempio per altre funzionalità -->
-			<canvas id="viewsChart" width="900" height="400"></canvas>
+	<section class="mt-6 rounded-lg bg-white p-6 shadow-lg" aria-labelledby="admin-growth-title">
+		<div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+			<div>
+				<p class="text-sm font-semibold uppercase tracking-wide text-green-700">Crescita utenti</p>
+				<h3 id="admin-growth-title" class="mt-1 text-2xl font-semibold text-gray-800">Segui e agenda personale</h3>
+				<p class="mt-2 text-gray-600">Azioni realmente utili per capire cosa spinge iscrizione, ritorno e interesse sugli eventi.</p>
+			</div>
+			<p class="text-sm font-semibold text-gray-500">Ultimi dati disponibili</p>
 		</div>
 
-	</div>
+		<div class="mt-6 grid gap-6 xl:grid-cols-4">
+			<div class="rounded-lg border border-gray-200 bg-gray-50 p-5">
+				<div class="flex items-center justify-between gap-3">
+					<h4 class="font-bold text-gray-900">Segui / preferiti per tipo</h4>
+					<span class="rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-800">add/remove</span>
+				</div>
+				<div class="mt-5 space-y-4">
+					<?php if (empty($favoriteRows)): ?>
+						<p class="text-sm text-gray-600">Nessun dato ancora disponibile. Applica la migration e attendi le prime azioni utente.</p>
+					<?php else: ?>
+						<?php foreach ($favoriteRows as $row): ?>
+							<?php $width = $maxFavoriteTotal > 0 ? max(4, round(((int) $row['total'] / $maxFavoriteTotal) * 100)) : 0; ?>
+							<div>
+								<div class="mb-1 flex items-center justify-between gap-3 text-sm">
+									<span class="font-semibold text-gray-800"><?php echo htmlspecialchars($row['label'], ENT_QUOTES, 'UTF-8'); ?></span>
+									<span class="text-gray-600"><?php echo (int) $row['adds']; ?> aggiunti · <?php echo (int) $row['removes']; ?> rimossi</span>
+								</div>
+								<div class="h-3 overflow-hidden rounded-full bg-white">
+									<div class="h-full rounded-full bg-green-700" style="width: <?php echo (int) $width; ?>%"></div>
+								</div>
+							</div>
+						<?php endforeach; ?>
+					<?php endif; ?>
+				</div>
+			</div>
+
+			<div class="rounded-lg border border-gray-200 bg-gray-50 p-5">
+				<div class="flex items-center justify-between gap-3">
+					<h4 class="font-bold text-gray-900">Agenda per intenzione</h4>
+					<span class="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-800">eventi</span>
+				</div>
+				<div class="mt-5 space-y-4">
+					<?php if (empty($agendaRows)): ?>
+						<p class="text-sm text-gray-600">Nessun dato agenda ancora disponibile. Le azioni saranno tracciate dopo la migration.</p>
+					<?php else: ?>
+						<?php foreach ($agendaRows as $row): ?>
+							<?php $width = $maxAgendaTotal > 0 ? max(4, round(((int) $row['total'] / $maxAgendaTotal) * 100)) : 0; ?>
+							<div>
+								<div class="mb-1 flex items-center justify-between gap-3 text-sm">
+									<span class="font-semibold text-gray-800"><?php echo htmlspecialchars($row['label'], ENT_QUOTES, 'UTF-8'); ?></span>
+									<span class="text-gray-600"><?php echo (int) $row['sets']; ?> scelte · <?php echo (int) $row['removes']; ?> rimosse</span>
+								</div>
+								<div class="h-3 overflow-hidden rounded-full bg-white">
+									<div class="h-full rounded-full bg-blue-700" style="width: <?php echo (int) $width; ?>%"></div>
+								</div>
+							</div>
+						<?php endforeach; ?>
+					<?php endif; ?>
+				</div>
+			</div>
+
+			<div class="rounded-lg border border-gray-200 bg-gray-50 p-5">
+				<div class="flex items-center justify-between gap-3">
+					<h4 class="font-bold text-gray-900">Trend ultimi 14 giorni</h4>
+					<span class="rounded-full bg-gray-200 px-3 py-1 text-xs font-bold text-gray-700">azioni</span>
+				</div>
+				<div class="mt-5 space-y-3">
+					<?php if (empty($dailyRows)): ?>
+						<p class="text-sm text-gray-600">Il trend comparirà appena ci saranno azioni tracciate.</p>
+					<?php else: ?>
+						<?php foreach ($dailyRows as $date => $row): ?>
+							<?php
+								$favoriteWidth = $maxDailyTotal > 0 ? round(((int) ($row['favorites'] ?? 0) / $maxDailyTotal) * 100) : 0;
+								$agendaWidth = $maxDailyTotal > 0 ? round(((int) ($row['agenda'] ?? 0) / $maxDailyTotal) * 100) : 0;
+							?>
+							<div class="grid grid-cols-[5rem_1fr] items-center gap-3 text-xs">
+								<span class="font-semibold text-gray-600"><?php echo htmlspecialchars(date('d/m', strtotime($date)), ENT_QUOTES, 'UTF-8'); ?></span>
+								<div class="space-y-1">
+									<div class="h-2 overflow-hidden rounded-full bg-white">
+										<div class="h-full rounded-full bg-green-700" style="width: <?php echo (int) $favoriteWidth; ?>%"></div>
+									</div>
+									<div class="h-2 overflow-hidden rounded-full bg-white">
+										<div class="h-full rounded-full bg-blue-700" style="width: <?php echo (int) $agendaWidth; ?>%"></div>
+									</div>
+								</div>
+							</div>
+						<?php endforeach; ?>
+						<div class="mt-4 flex gap-4 text-xs font-semibold text-gray-600">
+							<span><span class="mr-1 inline-block h-2 w-4 rounded bg-green-700"></span>Segui</span>
+							<span><span class="mr-1 inline-block h-2 w-4 rounded bg-blue-700"></span>Agenda</span>
+						</div>
+					<?php endif; ?>
+				</div>
+			</div>
+
+			<div class="rounded-lg border border-gray-200 bg-gray-50 p-5">
+				<div class="flex items-start justify-between gap-3">
+					<div>
+						<h4 class="font-bold text-gray-900">Registrazioni utenti</h4>
+						<p class="mt-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Ultimi <?php echo (int) $registrationDays; ?> giorni</p>
+					</div>
+					<form method="get">
+						<label for="registration_days" class="sr-only">Intervallo registrazioni</label>
+						<select id="registration_days" name="registration_days" class="rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs font-bold text-gray-700" onchange="this.form.submit()">
+							<?php foreach ($dashboardIntervals as $interval): ?>
+								<option value="<?php echo (int) $interval; ?>" <?php echo (int) $interval === $registrationDays ? 'selected' : ''; ?>>
+									<?php echo (int) $interval; ?>g
+								</option>
+							<?php endforeach; ?>
+						</select>
+					</form>
+				</div>
+
+				<div class="mt-5">
+					<p class="text-sm font-semibold text-gray-500">Nuovi iscritti</p>
+					<p class="mt-1 text-4xl font-extrabold text-gray-950"><?php echo number_format($registrationTotal, 0, ',', '.'); ?></p>
+					<p class="mt-2 text-sm font-semibold text-gray-700">Attivazione: <?php echo number_format($registrationActivationRate, 2, ',', '.'); ?>%</p>
+				</div>
+
+				<div class="mt-5 space-y-4">
+					<div>
+						<div class="mb-1 flex items-center justify-between gap-3 text-sm">
+							<span class="font-semibold text-gray-800">Attivati</span>
+							<span class="text-gray-600"><?php echo number_format($registrationActivated, 0, ',', '.'); ?></span>
+						</div>
+						<div class="h-3 overflow-hidden rounded-full bg-white">
+							<div class="h-full rounded-full bg-green-700" style="width: <?php echo (int) $registrationActivatedWidth; ?>%"></div>
+						</div>
+					</div>
+					<div>
+						<div class="mb-1 flex items-center justify-between gap-3 text-sm">
+							<span class="font-semibold text-gray-800">Non attivati</span>
+							<span class="text-gray-600"><?php echo number_format($registrationNotActivated, 0, ',', '.'); ?></span>
+						</div>
+						<div class="h-3 overflow-hidden rounded-full bg-white">
+							<div class="h-full rounded-full bg-amber-600" style="width: <?php echo (int) $registrationNotActivatedWidth; ?>%"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<section class="mt-6 rounded-lg bg-white p-6 shadow-lg" aria-labelledby="admin-content-performance-title">
+		<div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+			<div>
+				<p class="text-sm font-semibold uppercase tracking-wide text-green-700">Performance contenuti</p>
+				<h3 id="admin-content-performance-title" class="mt-1 text-2xl font-semibold text-gray-800">View collegate alle azioni</h3>
+				<p class="mt-2 text-gray-600">Le view servono di più quando mostrano quali contenuti generano salvataggi, agenda e intenzione reale.</p>
+			</div>
+			<p class="text-sm font-semibold text-gray-500">Finestra: 30 giorni</p>
+		</div>
+
+		<div class="mt-6 grid gap-6 xl:grid-cols-2">
+			<div class="rounded-lg border border-gray-200 bg-gray-50 p-5">
+				<h4 class="font-bold text-gray-900">Top eventi per interesse reale</h4>
+				<p class="mt-1 text-sm text-gray-600">Ordinati per preferiti + azioni agenda, con conversione sulle view.</p>
+				<div class="mt-4">
+					<?php admin_dashboard_metric_rows($topEvents, 'event'); ?>
+				</div>
+			</div>
+
+			<div class="rounded-lg border border-gray-200 bg-gray-50 p-5">
+				<h4 class="font-bold text-gray-900">Eventi da migliorare</h4>
+				<p class="mt-1 text-sm text-gray-600">Molte view, poche azioni: schede da rendere più convincenti o più complete.</p>
+				<div class="mt-4">
+					<?php admin_dashboard_metric_rows($eventOpportunities, 'event'); ?>
+				</div>
+			</div>
+
+			<div class="rounded-lg border border-gray-200 bg-gray-50 p-5 xl:col-span-2">
+				<h4 class="font-bold text-gray-900">Blog che fidelizza</h4>
+				<p class="mt-1 text-sm text-gray-600">Articoli letti e salvati: buoni candidati per aggiornamenti, internal linking e contenuti correlati.</p>
+				<div class="mt-4">
+					<?php admin_dashboard_metric_rows($topBlogPosts, 'blog'); ?>
+				</div>
+			</div>
+		</div>
+	</section>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-	let chart;
-
-	<canvas id="viewsChart" height="120"></canvas>
-
-	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<canvas id="viewsChart" height="120"></canvas>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<script>
-	const rawData = <?= json_encode($data['trend_visite']); ?>;
-
-	function generateColors(count, saturation = 70, lightness = 60) {
-		const colors = [];
-
-		for (let i = 0; i < count; i++) {
-			const hue = Math.round((360 / count) * i);
-
-			colors.push(`hsla(${hue}, ${saturation}%, ${lightness}%, 1)`);
-		}
-
-		return colors;
-	}
-
-	function clusterEvents(rawData, topN = 10) {
-
-		// 1. calcolo totale per evento
-		const totals = Object.keys(rawData).map(name => {
-			const total = rawData[name]
-				.reduce((sum, d) => sum + parseInt(d.views), 0);
-
-			return { name, total };
-		});
-
-		// 2. ordino per views
-		totals.sort((a, b) => b.total - a.total);
-
-		const topEvents = totals.slice(0, topN).map(e => e.name);
-		const otherEvents = totals.slice(topN).map(e => e.name);
-
-		// 3. prendo tutte le date (asse X)
-		const allDates = [...new Set(
-			Object.values(rawData).flat().map(d => d.date)
-		)].sort();
-
-		// 4. costruisco dataset top eventi
-		const datasets = [];
-
-		topEvents.forEach(name => {
-			datasets.push({
-				label: name,
-				data: fillSeries(rawData[name], allDates)
-			});
-		});
-
-		// 5. cluster "Altri"
-		if (otherEvents.length > 0) {
-			const otherData = {};
-
-			otherEvents.forEach(name => {
-				rawData[name].forEach(d => {
-					otherData[d.date] = (otherData[d.date] || 0) + parseInt(d.views);
-				});
-			});
-
-			const otherSeries = allDates.map(date => ({
-				date,
-				views: otherData[date] || 0
-			}));
-
-			datasets.push({
-				label: 'Altri eventi',
-				data: otherSeries
-			});
-		}
-
-		return { labels: allDates, datasets };
-	}
-
-	function fillSeries(series, allDates) {
-
-		const map = {};
-		series.forEach(d => {
-			map[d.date] = parseInt(d.views);
-		});
-
-		return allDates.map(date => ({
-			date,
-			views: map[date] || 0
-		}));
-	}
-
-	function externalTooltipHandler(context) {
-		let tooltipEl = document.getElementById('chartjs-tooltip');
-
-		if (!tooltipEl) {
-			tooltipEl = document.createElement('div');
-			tooltipEl.id = 'chartjs-tooltip';
-			tooltipEl.style.position = 'absolute';
-			tooltipEl.style.background = 'rgba(0,0,0,0.85)';
-			tooltipEl.style.color = '#fff';
-			tooltipEl.style.padding = '10px';
-			tooltipEl.style.borderRadius = '8px';
-			tooltipEl.style.maxHeight = '250px';
-			tooltipEl.style.overflowY = 'auto'; // 🔥 SCROLL
-			tooltipEl.style.pointerEvents = 'none';
-			tooltipEl.style.fontSize = '12px';
-			document.body.appendChild(tooltipEl);
-		}
-
-		const tooltip = context.tooltip;
-
-		if (tooltip.opacity === 0) {
-			tooltipEl.style.opacity = 0;
-			return;
-		}
-
-		const dataPoints = tooltip.dataPoints;
-
-		let innerHtml = '';
-
-		dataPoints.forEach(item => {
-			innerHtml += `
-            <div style="margin-bottom:4px;">
-                ${item.dataset.label}: <b>${item.parsed.y}</b>
-            </div>
-        `;
-		});
-
-		tooltipEl.innerHTML = innerHtml;
-
-		const {offsetLeft: positionX, offsetTop: positionY} = context.chart.canvas;
-
-		tooltipEl.style.opacity = 1;
-		tooltipEl.style.left = positionX + tooltip.caretX + 'px';
-		tooltipEl.style.top = positionY + tooltip.caretY + 'px';
-	}
-
-	const { labels, datasets: rawDatasets } = clusterEvents(rawData, 10);
-
-	const colors = generateColors(rawDatasets.length);
-
-	const datasets = rawDatasets.map((ds, i) => ({
-		label: ds.label,
-		data: ds.data.map(d => d.views),
-		borderColor: colors[i],
-		backgroundColor: colors[i].replace(', 1)', ', 0.15)'),
-		tension: 0.4
-	}));
-
-	new Chart(document.getElementById('viewsChart'), {
-		type: 'line',
-		data: {
-			labels,
-			datasets
-		},
-		options: {
-			responsive: true,
-			interaction: {
-				mode: 'index',
-				intersect: false
-			}
-		}
-	});
-</script>

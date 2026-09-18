@@ -59,8 +59,9 @@ class Event extends BaseModel
 	 * @param int|null $comuneId ID del comune per filtrare.
 	 * @return array Array di eventi.
 	 */
-	public function getApprovedEvents(?int $regioneId = null, ?int $provinciaId = null, ?int $comuneId = null, $limit = 0): array
+	public function getApprovedEvents(?int $regioneId = null, ?int $provinciaId = null, ?int $comuneId = null, $limit = 0, string $search = ''): array
 	{
+		$search = trim($search);
 		$query = "SELECT e.*, r.nome as regione_nome, p.nome as provincia_nome, c.nome as comune_nome, te.nome as tipo_evento_nome, r.slug as regione_slug
                   FROM " . $this->table . " e
                   LEFT JOIN regioni r ON e.regione_id = r.id
@@ -82,6 +83,15 @@ class Event extends BaseModel
 		if ($comuneId !== null) {
 			$query .= " AND e.comune_id = :comune_id";
 			$params[':comune_id'] = $comuneId;
+		}
+		if ($search !== '') {
+			$query .= " AND (e.titolo LIKE :search_title OR e.slug LIKE :search_slug OR e.luogo LIKE :search_place OR c.nome LIKE :search_comune OR p.nome LIKE :search_provincia OR r.nome LIKE :search_regione)";
+			$params[':search_title'] = '%' . $search . '%';
+			$params[':search_slug'] = '%' . $search . '%';
+			$params[':search_place'] = '%' . $search . '%';
+			$params[':search_comune'] = '%' . $search . '%';
+			$params[':search_provincia'] = '%' . $search . '%';
+			$params[':search_regione'] = '%' . $search . '%';
 		}
 
 		$query .= " ORDER BY e.data_inizio ASC, e.data_fine ASC";
@@ -419,12 +429,12 @@ class Event extends BaseModel
 		titolo, descrizione, data_inizio, data_fine, luogo,
 		regione_id, provincia_id, comune_id, latitudine, longitudine,
 		sito_web, social_facebook, social_twitter, social_instagram,
-		social_tiktok, social_youtube, tipo_evento_id, immagine, approvato, slug, year, event_size, is_paid, has_cosplay_contest, event_master_id
+		social_tiktok, social_youtube, tipo_evento_id, immagine, approvato, slug, seo_title, seo_description, year, event_size, is_paid, has_cosplay_contest, event_master_id
 	) VALUES (
 		:titolo, :descrizione, :data_inizio, :data_fine, :luogo,
 		:regione_id, :provincia_id, :comune_id, :latitudine, :longitudine,
 		:sito_web, :social_facebook, :social_twitter, :social_instagram,
-		:social_tiktok, :social_youtube, :tipo_evento_id, :immagine, :approvato, :slug, :year, :event_size, :is_paid, :has_cosplay_contest, :event_master_id
+		:social_tiktok, :social_youtube, :tipo_evento_id, :immagine, :approvato, :slug, :seo_title, :seo_description, :year, :event_size, :is_paid, :has_cosplay_contest, :event_master_id
 	)";
 
 		$stmt = $this->db->prepare($query);
@@ -449,6 +459,8 @@ class Event extends BaseModel
 		$stmt->bindValue(':immagine', null); // 🔥 IMPORTANTISSIMO: non più usata
 		$stmt->bindValue(':approvato', $data['approvato'], \PDO::PARAM_INT);
 		$stmt->bindValue(':slug', $slug);
+		$stmt->bindValue(':seo_title', trim((string) ($data['seo_title'] ?? '')) ?: null);
+		$stmt->bindValue(':seo_description', trim((string) ($data['seo_description'] ?? '')) ?: null);
 		$stmt->bindValue(':year', $anno, \PDO::PARAM_INT);
 		$stmt->bindValue(':event_size', $data['event_size'] , \PDO::PARAM_INT);
 		$stmt->bindValue(':is_paid', $data['is_paid'], \PDO::PARAM_INT);
@@ -501,6 +513,8 @@ class Event extends BaseModel
                       immagine = :immagine,
                       approvato = :approvato,
                       slug = :slug,
+                      seo_title = :seo_title,
+                      seo_description = :seo_description,
                       year = :year,
                       event_size = :event_size,
                       is_paid = :is_paid,
@@ -531,6 +545,8 @@ class Event extends BaseModel
 		$stmt->bindValue(':immagine', $data['immagine'] ?: null);
 		$stmt->bindValue(':approvato', $data['approvato'], PDO::PARAM_INT);
 		$stmt->bindValue(':slug', $slug); // Associa lo slug (nuovo o esistente)
+		$stmt->bindValue(':seo_title', trim((string) ($data['seo_title'] ?? '')) ?: null);
+		$stmt->bindValue(':seo_description', trim((string) ($data['seo_description'] ?? '')) ?: null);
 		$stmt->bindValue(':year', $anno, PDO::PARAM_INT);
 		$stmt->bindValue(':event_size',$data['event_size']); // Associa lo slug (nuovo o esistente)
 		$stmt->bindValue(':is_paid',$data['is_paid']); // Associa lo slug (nuovo o esistente)

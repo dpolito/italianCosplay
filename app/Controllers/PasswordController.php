@@ -61,7 +61,7 @@ class PasswordController extends Controller
 					],
 					'error_message' => 'missing_email',
 				]);
-				$this->view('auth/password_forgot', [
+				$this->view('home/auth/password_forgot', [
 					'error' => 'Inserisci la tua email.',
 					'csrf_token' => $_SESSION['csrf_token']
 				]);
@@ -84,7 +84,7 @@ class PasswordController extends Controller
 					'error_message' => 'email_not_found',
 				]);
 				// Non riveliamo se l'email esiste o no
-				$this->view('auth/password_forgot', [
+				$this->view('home/auth/password_forgot', [
 					'success' => '1111Se l\'email esiste, riceverai un link per il reset.',
 					'csrf_token' => $_SESSION['csrf_token']
 				]);
@@ -130,10 +130,12 @@ class PasswordController extends Controller
 				$user['email'],
 				$user['email'],
 				$subject,
-				$message
+				$message,
+				null,
+				[Mailer::TAG_PASSWORD_RESET]
 			);
 
-			$this->view('auth/password_forgot', [
+			$this->view('home/auth/password_forgot', [
 				'success' => 'Se l\'email esiste, riceverai un link per il reset.',
 				'csrf_token' => $_SESSION['csrf_token']
 			]);
@@ -141,7 +143,7 @@ class PasswordController extends Controller
 		}
 
 		// GET → mostra form
-		$this->view('auth/password_forgot', [
+		$this->view('home/auth/password_forgot', [
 			'csrf_token' => $_SESSION['csrf_token']
 		]);
 	}
@@ -194,7 +196,7 @@ class PasswordController extends Controller
 					],
 					'error_message' => 'password_mismatch',
 				]);
-				$this->view('auth/password_reset', [
+				$this->view('home/auth/password_reset', [
 					'error' => 'Le password non coincidono o sono vuote.',
 					'csrf_token' => $_SESSION['csrf_token'],
 					'token' => $token[1]
@@ -224,14 +226,14 @@ class PasswordController extends Controller
 				],
 			]);
 
-			$this->view('auth/login', [
+			$this->view('home/auth/login', [
 				'success' => 'Password aggiornata con successo. Puoi ora accedere.',
 				'csrf_token' => $_SESSION['csrf_token']
 			]);
 			return;
 		}
 
-		$this->view('auth/password_reset', [
+		$this->view('home/auth/password_reset', [
 			'csrf_token' => $_SESSION['csrf_token'],
 			'token' => $token[1]
 		]);

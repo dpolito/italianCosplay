@@ -82,6 +82,9 @@ class ProfileController extends Controller{
 
 		$social = !empty($user['social']) ? json_decode($user['social'], true) : [];
 		$social = is_array($social) ? array_filter($social) : [];
+		if (!empty($social['instagram'])) {
+			$social['instagram'] = $this->normalizeInstagramLink($social['instagram']);
+		}
 
 		$user['social_links'] = $social;
 		$user['avatar'] = !empty($user['avatar']) ? $user['avatar'] : '/assets/img/default-avatar.png';
@@ -114,5 +117,19 @@ class ProfileController extends Controller{
 				),
 			],
 		]);
+	}
+
+	private function normalizeInstagramLink(?string $value): string
+	{
+		$value = trim((string) $value);
+		if ($value === '') {
+			return '';
+		}
+
+		if (preg_match('#^https?://#i', $value) === 1) {
+			return $value;
+		}
+
+		return 'https://www.instagram.com/' . ltrim($value, '@/');
 	}
 }

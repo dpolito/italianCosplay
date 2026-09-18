@@ -135,4 +135,13 @@ class HomeController extends Controller
 			'policy' => $policy,
 		]);
 	}
+
+	public function organizersLanding(): void
+	{
+		$this->view('home/organizers-landing', [
+			'canonicalUrl' => URL_ROOT_SITE . '/organizzatori-eventi-cosplay',
+			'pageTitle' => 'Organizzatori eventi cosplay: gestisci la scheda | ItalianCosplay',
+			'metaDescription' => 'Richiedi gratis la gestione della scheda del tuo evento cosplay su ItalianCosplay e aggiorna date, luogo, immagini e link ufficiali.',
+		]);
+	}
 }

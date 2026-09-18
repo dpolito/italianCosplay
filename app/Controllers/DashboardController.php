@@ -5,13 +5,16 @@ use App\Core\Session;
 use App\Models\BlogPost;
 use App\Models\Comune;
 use App\Models\Event;
+use App\Models\EventMaster;
 use App\Models\Guest;
 use App\Models\Provincia;
 use App\Models\Regione;
+use App\Models\TipoEvento;
 use App\Models\User;
 use App\Services\AuditLogService;
 use App\Services\ConsentService;
 use App\Services\FavoriteService;
+use App\Services\ImageService;
 use App\Support\AuditLogActionType;
 use App\Services\AdStatsService;
 use App\Services\CosplayPortfolioService;
@@ -30,12 +33,18 @@ class DashboardController extends Controller
 	private NotificationService $notificationService;
 	private CosplayPortfolioService $cosplayPortfolioService;
 	private Event $eventModel;
+	private EventMaster $eventMasterModel;
 	private BlogPost $blogPostModel;
 	private Guest $guestModel;
 	private Comune $comuneModel;
 	private Provincia $provinciaModel;
 	private Regione $regioneModel;
+	private TipoEvento $tipoEventoModel;
+	private ImageService $imageService;
 	private Event $eventSearchModel;
+	private \App\Services\OrganizationService $organizationService;
+	private \App\Services\EventMasterClaimService $eventMasterClaimService;
+	private \App\Services\OrganizationInvitationService $organizationInvitationService;
 
 	public function __construct()
 	{
@@ -48,12 +57,18 @@ class DashboardController extends Controller
 		$this->notificationService = new NotificationService();
 		$this->cosplayPortfolioService = new CosplayPortfolioService();
 		$this->eventModel = new Event();
+		$this->eventMasterModel = new EventMaster();
 		$this->blogPostModel = new BlogPost();
 		$this->guestModel = new Guest();
 		$this->comuneModel = new Comune();
 		$this->provinciaModel = new Provincia();
 		$this->regioneModel = new Regione();
+		$this->tipoEventoModel = new TipoEvento();
+		$this->imageService = new ImageService($this->eventModel->getDbConnection());
 		$this->eventSearchModel = new Event();
+		$this->organizationService = new \App\Services\OrganizationService();
+		$this->eventMasterClaimService = new \App\Services\EventMasterClaimService();
+		$this->organizationInvitationService = new \App\Services\OrganizationInvitationService();
 		if (!isset($_SESSION['csrf_token'])) {
 			$_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 		}
@@ -78,6 +93,9 @@ class DashboardController extends Controller
 		$agendaCounts = $this->eventAgendaService->getUserAgendaCount((int) $userId);
 		$ciVadoEvents = $this->eventAgendaService->getUpcomingByStatus((int) $userId, 'ci_vado', 3);
 		$cosplayPortfolio = $this->cosplayPortfolioService->getUserPortfolio((int) $userId);
+		$organizationData = $this->organizationService->getForUser((int) $userId);
+		$claimData = $this->eventMasterClaimService->getClaimsForUser((int) $userId);
+		$organizationInvitations = $this->organizationInvitationService->getPendingForUser((int) $userId);
 
 		$this->view('dashboard/overview', [
 			'user' => $user,
@@ -86,7 +104,668 @@ class DashboardController extends Controller
 			'agendaCounts' => $agendaCounts,
 			'ciVadoEvents' => $ciVadoEvents,
 			'cosplayPortfolioCount' => count($cosplayPortfolio),
+			'organizations' => $organizationData,
+			'eventMasterClaims' => $claimData,
+			'organizationInvitations' => $organizationInvitations,
 		], 'dashboard'); // 🔥 layout custom
+	}
+
+	public function organizations(): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$this->view('dashboard/organizations', [
+			'user' => $this->userModel->find($userId),
+			'organizations' => $this->organizationService->getForUser($userId),
+			'claims' => $this->eventMasterClaimService->getClaimsForUser($userId),
+		], 'dashboard');
+	}
+
+	public function organizationInvitations(): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$this->view('dashboard/organization-invitations', ['user' => $this->userModel->find($userId), 'invitations' => $this->organizationInvitationService->getPendingForUser($userId)], 'dashboard');
+	}
+
+	public function organizationInvitationPreview(): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$token = trim((string) ($_GET['token'] ?? ''));
+		$invitation = $this->organizationInvitationService->findForUserByToken($token, $userId);
+		if (!$invitation) {
+			Session::setFlash('error', 'Invito non valido, scaduto o non associato al tuo account.');
+			header('Location: /dashboard/organization-invitations'); exit();
+		}
+		$this->view('dashboard/organization-invitation', ['user' => $this->userModel->find($userId), 'invitation' => $invitation, 'token' => $token], 'dashboard');
+	}
+
+	public function acceptOrganizationInvitation(): void
+	{
+		$this->respondToOrganizationInvitation('accept');
+	}
+
+	public function declineOrganizationInvitation(): void
+	{
+		$this->respondToOrganizationInvitation('decline');
+	}
+
+	private function respondToOrganizationInvitation(string $action): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$token = trim((string) ($_POST['token'] ?? ''));
+		$invitationId = (int) ($_POST['invitation_id'] ?? 0);
+		$json = str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json');
+		if (empty($_POST['csrf_token']) || !hash_equals((string) ($_SESSION['csrf_token'] ?? ''), (string) $_POST['csrf_token'])) {
+			if ($json) $this->dashboardJson(false, 'Token CSRF non valido.', 403);
+			Session::setFlash('error', 'Token CSRF non valido.');
+			header('Location: /dashboard/organization-invitations'); exit();
+		}
+		try {
+			$ok = $action === 'accept'
+				? ($invitationId > 0 ? $this->organizationInvitationService->acceptById($invitationId, $userId) : $this->organizationInvitationService->accept($token, $userId))
+				: ($invitationId > 0 ? $this->organizationInvitationService->declineById($invitationId, $userId) : $this->organizationInvitationService->decline($token, $userId));
+			if (!$ok) throw new \RuntimeException('Invito non aggiornato.');
+			$message = $action === 'accept' ? 'Invito accettato. Ora fai parte dell’organizzazione.' : 'Invito rifiutato.';
+			if ($json) $this->dashboardJson(true, $message);
+			Session::setFlash('success', $message);
+		} catch (\Throwable $exception) {
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => $action === 'accept' ? AuditLogActionType::ORGANIZATION_INVITATION_ACCEPTED : AuditLogActionType::ORGANIZATION_INVITATION_DECLINED, 'entity_type' => 'organization_invitation', 'entity_id' => $invitationId > 0 ? $invitationId : null, 'success' => 0, 'error_message' => mb_substr($exception->getMessage(), 0, 250), 'payload' => ['source' => 'dashboard']]);
+			if ($json) $this->dashboardJson(false, $exception->getMessage(), 400);
+			Session::setFlash('error', $exception->getMessage());
+		}
+		header('Location: /dashboard/organization-invitations'); exit();
+	}
+
+	public function createOrganization(): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$this->view('dashboard/organization-create', ['user' => $this->userModel->find($userId)], 'dashboard');
+	}
+
+	public function storeOrganization(): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$json = str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json');
+		if (empty($_POST['csrf_token']) || !hash_equals((string) ($_SESSION['csrf_token'] ?? ''), (string) $_POST['csrf_token'])) {
+			if ($json) $this->dashboardJson(false, 'Token CSRF non valido.', 403);
+			Session::setFlash('error', 'Token CSRF non valido.');
+			header('Location: /dashboard/organizations/create'); exit();
+		}
+		try {
+			$data = $_POST;
+			$data['owner_user_id'] = $userId;
+			$data['status'] = 'pending_review';
+			$data['is_public'] = 0;
+			$organizationId = (int) $this->organizationService->save($data);
+			foreach (['logo' => 'organization_logo', 'cover' => 'organization_cover'] as $field => $entityType) {
+				if (empty($_FILES[$field]['name'])) continue;
+				$imageId = $this->imageService->replacePrimary($_FILES[$field], $entityType, $organizationId, trim((string) ($data['name'] ?? 'Organizzazione')));
+				if (!$imageId) throw new \RuntimeException('Impossibile caricare l’immagine ' . $field . '.');
+				$image = $this->imageService->getPrimary($entityType, $organizationId, 'large');
+				$data[$field . '_path'] = $image['path'] ?? null;
+			}
+			if (!empty($data['logo_path']) || !empty($data['cover_path'])) {
+				$this->organizationService->save($data, $organizationId);
+			}
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => AuditLogActionType::ORGANIZATION_CREATED, 'entity_type' => 'organization', 'entity_id' => $organizationId, 'payload' => ['source' => 'dashboard', 'status' => 'pending_review']]);
+			if ($json) $this->dashboardJson(true, 'Organizzazione inviata per la verifica.', 200, ['organization_id' => $organizationId]);
+			Session::setFlash('success', 'Organizzazione inviata per la verifica.');
+		} catch (\Throwable $exception) {
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => AuditLogActionType::ORGANIZATION_CREATED, 'entity_type' => 'organization', 'entity_id' => null, 'success' => 0, 'error_message' => $exception->getMessage(), 'payload' => ['source' => 'dashboard', 'status' => 'pending_review']]);
+			if ($json) $this->dashboardJson(false, $exception->getMessage(), 400);
+			Session::setFlash('error', $exception->getMessage());
+		}
+		header('Location: /dashboard/organizations'); exit();
+	}
+
+	public function organizationDetail(array $params): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$organizationId = (int) ($params[0] ?? 0);
+		$organization = $this->organizationService->findForUser($organizationId, $userId);
+		if (!$organization) {
+			Session::setFlash('error', 'Organizzazione non trovata o accesso non autorizzato.');
+			header('Location: /dashboard/organizations');
+			exit();
+		}
+		$currentUserRole = $this->getOrganizationMemberRole($organization, $userId);
+		$this->view('dashboard/organization-detail', [
+			'user' => $this->userModel->find($userId),
+			'organization' => $organization,
+			'currentUserRole' => $currentUserRole,
+			'invitations' => in_array($currentUserRole, ['owner', 'admin'], true) ? $this->organizationInvitationService->getForOrganization($organizationId, $userId) : [],
+		], 'dashboard');
+	}
+
+	public function revokeOrganizationInvitation(array $params): void
+	{
+		$this->manageOrganizationInvitation((int) ($params[0] ?? 0), (int) ($params[1] ?? 0), 'revoke');
+	}
+
+	public function resendOrganizationInvitation(array $params): void
+	{
+		$this->manageOrganizationInvitation((int) ($params[0] ?? 0), (int) ($params[1] ?? 0), 'resend');
+	}
+
+	private function manageOrganizationInvitation(int $organizationId, int $invitationId, string $action): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$json = str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json');
+		if (empty($_POST['csrf_token']) || !hash_equals((string) ($_SESSION['csrf_token'] ?? ''), (string) $_POST['csrf_token'])) {
+			if ($json) $this->dashboardJson(false, 'Token CSRF non valido.', 403);
+			Session::setFlash('error', 'Token CSRF non valido.');
+			header('Location: /dashboard/organizations/' . $organizationId); exit();
+		}
+		try {
+			$responseData = [];
+			if ($action === 'revoke') {
+				$this->organizationInvitationService->revoke($organizationId, $invitationId, $userId);
+				$message = 'Invito revocato.';
+			} else {
+				$resentInvitation = $this->organizationInvitationService->resend($organizationId, $invitationId, $userId);
+				$responseData = ['invitation_id' => (int) $resentInvitation['id']];
+				$message = 'Invito reinviato.';
+			}
+			if ($json) $this->dashboardJson(true, $message, 200, $responseData);
+			Session::setFlash('success', $message);
+		} catch (\Throwable $exception) {
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => $action === 'revoke' ? AuditLogActionType::ORGANIZATION_INVITATION_REVOKED : AuditLogActionType::ORGANIZATION_INVITATION_RESENT, 'entity_type' => 'organization_invitation', 'entity_id' => $invitationId, 'success' => 0, 'error_message' => mb_substr($exception->getMessage(), 0, 250), 'payload' => ['organization_id' => $organizationId, 'source' => 'dashboard']]);
+			if ($json) $this->dashboardJson(false, $exception->getMessage(), 400);
+			Session::setFlash('error', $exception->getMessage());
+		}
+		header('Location: /dashboard/organizations/' . $organizationId); exit();
+	}
+
+	public function withdrawOrganization(array $params): void
+	{
+		$this->withdrawOrganizationResource((int) ($params[0] ?? 0), 0, 'organization');
+	}
+
+	public function withdrawOrganizationMaster(array $params): void
+	{
+		$this->withdrawOrganizationResource((int) ($params[0] ?? 0), (int) ($params[1] ?? 0), 'master');
+	}
+
+	public function withdrawOrganizationEvent(array $params): void
+	{
+		$this->withdrawOrganizationResource((int) ($params[0] ?? 0), (int) ($params[1] ?? 0), 'event');
+	}
+
+	private function withdrawOrganizationResource(int $organizationId, int $resourceId, string $resourceType): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$json = str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json');
+		if (empty($_POST['csrf_token']) || !hash_equals((string) ($_SESSION['csrf_token'] ?? ''), (string) $_POST['csrf_token'])) {
+			if ($json) $this->dashboardJson(false, 'Token CSRF non valido.', 403);
+			Session::setFlash('error', 'Token CSRF non valido.');
+			header('Location: /dashboard/organizations/' . $organizationId); exit();
+		}
+		$actionType = $resourceType === 'organization' ? AuditLogActionType::ORGANIZATION_STATUS_UPDATED : ($resourceType === 'master' ? AuditLogActionType::EVENT_MASTER_UPDATED : AuditLogActionType::EVENT_UPDATED);
+		try {
+			if ($resourceType === 'organization') {
+				$this->organizationService->withdrawOrganizationForUser($organizationId, $userId);
+				$message = 'Organizzazione ritirata e inviata nuovamente in revisione.';
+			} elseif ($resourceType === 'master') {
+				$this->organizationService->withdrawMasterForUser($organizationId, $resourceId, $userId);
+				$message = 'Master ritirato dalla pubblicazione e inviato in revisione.';
+			} else {
+				$this->organizationService->withdrawEventForUser($organizationId, $resourceId, $userId);
+				$message = 'Edizione ritirata dalla pubblicazione e inviata in revisione.';
+			}
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => $actionType, 'entity_type' => $resourceType === 'organization' ? 'organization' : ($resourceType === 'master' ? 'event_master' : 'event'), 'entity_id' => $resourceType === 'organization' ? $organizationId : $resourceId, 'payload' => ['source' => 'dashboard', 'operation' => 'withdraw', 'status' => 'pending_review']]);
+			if ($json) $this->dashboardJson(true, $message);
+			Session::setFlash('success', $message);
+		} catch (\Throwable $exception) {
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => $actionType, 'entity_type' => $resourceType === 'organization' ? 'organization' : ($resourceType === 'master' ? 'event_master' : 'event'), 'entity_id' => $resourceType === 'organization' ? $organizationId : $resourceId, 'success' => 0, 'error_message' => mb_substr($exception->getMessage(), 0, 250), 'payload' => ['source' => 'dashboard', 'operation' => 'withdraw']]);
+			if ($json) $this->dashboardJson(false, $exception->getMessage(), 400);
+			Session::setFlash('error', $exception->getMessage());
+		}
+		$redirect = $resourceType === 'master' ? '/dashboard/organizations/' . $organizationId . '/masters/' . $resourceId : ($resourceType === 'event' ? '/dashboard/organizations/' . $organizationId . '/events/' . $resourceId . '/edit' : '/dashboard/organizations/' . $organizationId);
+		header('Location: ' . $redirect); exit();
+	}
+
+	public function organizationMemberSearch(array $params): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$organizationId = (int) ($params[0] ?? 0);
+		$organization = $this->organizationService->findForUser($organizationId, $userId);
+		if (!$organization || !in_array($this->getOrganizationMemberRole($organization, $userId), ['owner', 'admin'], true)) { $this->dashboardJson(false, 'Accesso non autorizzato.', 403); }
+		$query = trim((string) ($_GET['q'] ?? ''));
+		$this->dashboardJson(true, '', 200, ['users' => $this->organizationService->searchUsers($organizationId, $query)]);
+	}
+
+	public function organizationMasterSearch(array $params): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$organizationId = (int) ($params[0] ?? 0);
+		$organization = $this->organizationService->findForUser($organizationId, $userId);
+		if (!$organization || !in_array($this->getOrganizationMemberRole($organization, $userId), ['owner', 'admin'], true)) $this->dashboardJson(false, 'Accesso non autorizzato.', 403);
+		$this->dashboardJson(true, '', 200, ['masters' => $this->organizationService->searchEventMasters($organizationId, (string) ($_GET['q'] ?? ''))]);
+	}
+
+	public function organizationMaster(array $params): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0); $organizationId = (int) ($params[0] ?? 0); $organization = $this->organizationService->findForUser($organizationId, $userId); $json = str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json');
+		if (!$organization || !in_array($this->getOrganizationMemberRole($organization, $userId), ['owner', 'admin'], true)) { if ($json) $this->dashboardJson(false, 'Non hai i permessi per gestire i master.', 403); header('Location: /dashboard/organizations/' . $organizationId); exit(); }
+		if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'], (string) $_POST['csrf_token'])) { if ($json) $this->dashboardJson(false, 'Token CSRF non valido.', 403); header('Location: /dashboard/organizations/' . $organizationId); exit(); }
+		$masterId = (int) ($_POST['event_master_id'] ?? 0); $masterRole = (string) ($_POST['role'] ?? 'organizer'); $operation = (string) ($_POST['operation'] ?? 'update');
+		try { $ok = $operation === 'remove' ? $this->organizationService->removeMaster($organizationId, $masterId) : ($operation === 'add' ? $this->organizationService->addMaster($organizationId, $masterId, $masterRole) : $this->organizationService->updateMaster($organizationId, $masterId, $masterRole)); if (!$ok) throw new \RuntimeException('Master non aggiornato.'); $this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => AuditLogActionType::ORGANIZATION_MASTER_UPDATED, 'entity_type' => 'organization', 'entity_id' => $organizationId, 'payload' => ['source' => 'dashboard', 'event_master_id' => $masterId, 'role' => $masterRole, 'operation' => $operation]]); $message = $operation === 'add' ? 'Master associato.' : ($operation === 'remove' ? 'Master rimosso.' : 'Ruolo del master aggiornato.'); if ($json) $this->dashboardJson(true, $message); Session::setFlash('success', $message); } catch (\Throwable $exception) { $this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => AuditLogActionType::ORGANIZATION_MASTER_UPDATED, 'entity_type' => 'organization', 'entity_id' => $organizationId, 'success' => 0, 'error_message' => $exception->getMessage(), 'payload' => ['source' => 'dashboard', 'event_master_id' => $masterId, 'operation' => $operation]]); if ($json) $this->dashboardJson(false, $exception->getMessage(), 400); Session::setFlash('error', $exception->getMessage()); }
+		header('Location: /dashboard/organizations/' . $organizationId); exit();
+	}
+
+	public function organizationMember(array $params): void
+	{
+		$this->organizationRelationAction((int) ($params[0] ?? 0), 'member');
+	}
+
+	private function organizationRelationAction(int $organizationId, string $relation): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$organization = $this->organizationService->findForUser($organizationId, $userId);
+		$role = $organization ? $this->getOrganizationMemberRole($organization, $userId) : 'viewer';
+		$json = str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json');
+		if (!$organization || !in_array($role, ['owner', 'admin'], true)) { if ($json) $this->dashboardJson(false, 'Non hai i permessi per gestire i membri.', 403); header('Location: /dashboard/organizations/' . $organizationId); exit(); }
+		if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'], (string) $_POST['csrf_token'])) { if ($json) $this->dashboardJson(false, 'Token CSRF non valido.', 403); header('Location: /dashboard/organizations/' . $organizationId); exit(); }
+		$memberId = (int) ($_POST['user_id'] ?? 0);
+		$memberRole = (string) ($_POST['role'] ?? 'viewer');
+		$status = (string) ($_POST['status'] ?? 'active');
+		try {
+			$ok = $status === 'removed' ? $this->organizationService->updateMember($organizationId, $memberId, $memberRole, 'removed') : $this->organizationService->addMember($organizationId, $memberId, $memberRole, $userId);
+			if (!$ok) throw new \RuntimeException('Membro non aggiornato.');
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => AuditLogActionType::ORGANIZATION_MEMBER_UPDATED, 'entity_type' => 'organization', 'entity_id' => $organizationId, 'payload' => ['source' => 'dashboard', 'member_user_id' => $memberId, 'role' => $memberRole, 'status' => $status]]);
+			$message = $status === 'removed' ? 'Membro rimosso.' : 'Invito inviato al membro.';
+			if ($json) $this->dashboardJson(true, $message);
+			Session::setFlash('success', $message);
+		} catch (\Throwable $exception) {
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => AuditLogActionType::ORGANIZATION_MEMBER_UPDATED, 'entity_type' => 'organization', 'entity_id' => $organizationId, 'success' => 0, 'error_message' => $exception->getMessage(), 'payload' => ['source' => 'dashboard', 'member_user_id' => $memberId]]);
+			if ($json) $this->dashboardJson(false, $exception->getMessage(), 400);
+			Session::setFlash('error', $exception->getMessage());
+		}
+		header('Location: /dashboard/organizations/' . $organizationId); exit();
+	}
+
+	public function updateOrganization(array $params): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$organizationId = (int) ($params[0] ?? 0);
+		$organization = $this->organizationService->findForUser($organizationId, $userId);
+		$role = $organization ? $this->getOrganizationMemberRole($organization, $userId) : 'viewer';
+		$json = str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json');
+		if (!$organization || !in_array($role, ['owner', 'admin'], true)) {
+			if ($json) $this->dashboardJson(false, 'Non hai i permessi per modificare questa organizzazione.', 403);
+			Session::setFlash('error', 'Non hai i permessi per modificare questa organizzazione.');
+			header('Location: /dashboard/organizations/' . $organizationId); exit();
+		}
+		if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'], (string) $_POST['csrf_token'])) {
+			if ($json) $this->dashboardJson(false, 'Token CSRF non valido.', 403);
+			Session::setFlash('error', 'Token CSRF non valido.');
+			header('Location: /dashboard/organizations/' . $organizationId); exit();
+		}
+		try {
+			foreach (['logo' => 'organization_logo', 'cover' => 'organization_cover'] as $field => $entityType) {
+				if (!empty($_FILES[$field]['name'])) {
+					$imageId = $this->imageService->replacePrimary($_FILES[$field], $entityType, $organizationId, trim((string) ($_POST['name'] ?? 'Organizzazione')));
+					if (!$imageId) throw new \RuntimeException('Impossibile caricare l’immagine ' . $field . '.');
+					$cover = $this->imageService->getPrimary($entityType, $organizationId, 'large');
+					$_POST[$field . '_path'] = $cover['path'] ?? null;
+				}
+			}
+			$this->organizationService->save($_POST, $organizationId);
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => AuditLogActionType::ORGANIZATION_UPDATED, 'entity_type' => 'organization', 'entity_id' => $organizationId, 'payload' => ['source' => 'dashboard', 'name' => trim((string) ($_POST['name'] ?? ''))]]);
+			if ($json) $this->dashboardJson(true, 'Organizzazione aggiornata correttamente.');
+			Session::setFlash('success', 'Organizzazione aggiornata correttamente.');
+		} catch (\Throwable $exception) {
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => AuditLogActionType::ORGANIZATION_UPDATED, 'entity_type' => 'organization', 'entity_id' => $organizationId, 'success' => 0, 'error_message' => $exception->getMessage(), 'payload' => ['source' => 'dashboard']]);
+			if ($json) $this->dashboardJson(false, $exception->getMessage(), 400);
+			Session::setFlash('error', $exception->getMessage());
+		}
+		header('Location: /dashboard/organizations/' . $organizationId); exit();
+	}
+
+	public function organizationMasterDetail(array $params): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$organizationId = (int) ($params[0] ?? 0);
+		$masterId = (int) ($params[1] ?? 0);
+		$organization = $this->organizationService->findForUser($organizationId, $userId);
+		$master = $this->organizationService->findMasterForOrganization($masterId, $organizationId);
+		if (!$organization || !$master) {
+			Session::setFlash('error', 'Master non trovato o accesso non autorizzato.');
+			header('Location: /dashboard/organizations/' . $organizationId);
+			exit();
+		}
+		$master['organization_user_role'] = $this->getOrganizationMemberRole($organization, $userId);
+		$this->view('dashboard/organization-master-detail', [
+			'user' => $this->userModel->find($userId),
+			'master' => $master,
+			'events' => $this->organizationService->findEventsForMaster($masterId, $userId),
+			'organizationId' => $organizationId,
+			'canManage' => in_array($master['organization_user_role'], ['owner', 'admin'], true),
+			'canEdit' => in_array($master['organization_user_role'], ['owner', 'admin', 'editor'], true),
+		], 'dashboard');
+	}
+
+	public function organizationMasterCreate(array $params): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$organizationId = (int) ($params[0] ?? 0);
+		$organization = $this->organizationService->findForUser($organizationId, $userId);
+		if (!$organization || !in_array($this->getOrganizationMemberRole($organization, $userId), ['owner', 'admin'], true)) {
+			Session::setFlash('error', 'Non hai i permessi per proporre un master.');
+			header('Location: /dashboard/organizations/' . $organizationId); exit();
+		}
+		$this->view('dashboard/organization-master-create', ['user' => $this->userModel->find($userId), 'organization' => $organization], 'dashboard');
+	}
+
+	public function storeOrganizationMaster(array $params): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$organizationId = (int) ($params[0] ?? 0);
+		$json = str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json');
+		$organization = $this->organizationService->findForUser($organizationId, $userId);
+		if (!$organization || !in_array($this->getOrganizationMemberRole($organization, $userId), ['owner', 'admin'], true)) {
+			if ($json) $this->dashboardJson(false, 'Non hai i permessi per proporre un master.', 403);
+			header('Location: /dashboard/organizations/' . $organizationId); exit();
+		}
+		if (empty($_POST['csrf_token']) || !hash_equals((string) ($_SESSION['csrf_token'] ?? ''), (string) $_POST['csrf_token'])) {
+			if ($json) $this->dashboardJson(false, 'Token CSRF non valido.', 403);
+			header('Location: /dashboard/organizations/' . $organizationId . '/masters/create'); exit();
+		}
+		$masterId = null;
+		try {
+			$name = trim((string) ($_POST['nome'] ?? ''));
+			if (mb_strlen($name) < 2 || mb_strlen($name) > 255) throw new \InvalidArgumentException('Il nome del master deve avere tra 2 e 255 caratteri.');
+			$data = ['nome' => $name, 'descrizione' => trim((string) ($_POST['descrizione'] ?? '')), 'sito_web' => trim((string) ($_POST['sito_web'] ?? '')), 'social_facebook' => trim((string) ($_POST['social_facebook'] ?? '')), 'social_twitter' => trim((string) ($_POST['social_twitter'] ?? '')), 'social_instagram' => trim((string) ($_POST['social_instagram'] ?? '')), 'social_tiktok' => trim((string) ($_POST['social_tiktok'] ?? '')), 'social_youtube' => trim((string) ($_POST['social_youtube'] ?? '')), 'status' => 'pending_review', 'is_public' => 0];
+			foreach (['sito_web', 'social_facebook', 'social_twitter', 'social_instagram', 'social_tiktok', 'social_youtube'] as $field) {
+				if ($data[$field] !== '' && !filter_var($data[$field], FILTER_VALIDATE_URL)) throw new \InvalidArgumentException('L’URL del campo ' . $field . ' non è valido.');
+			}
+			$masterId = $this->eventMasterModel->create($data);
+			if (!$this->organizationService->addMaster($organizationId, $masterId, 'organizer')) throw new \RuntimeException('Impossibile associare il master all’organizzazione.');
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => AuditLogActionType::EVENT_MASTER_CREATED, 'entity_type' => 'event_master', 'entity_id' => $masterId, 'payload' => ['source' => 'dashboard', 'organization_id' => $organizationId, 'status' => 'pending_review']]);
+			if ($json) $this->dashboardJson(true, 'Master inviato per la verifica.', 200, ['event_master_id' => $masterId]);
+			Session::setFlash('success', 'Master inviato per la verifica.');
+		} catch (\Throwable $exception) {
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => AuditLogActionType::EVENT_MASTER_CREATED, 'entity_type' => 'event_master', 'entity_id' => $masterId, 'success' => 0, 'error_message' => $exception->getMessage(), 'payload' => ['source' => 'dashboard', 'organization_id' => $organizationId, 'status' => 'pending_review']]);
+			if ($json) $this->dashboardJson(false, $exception->getMessage(), 400);
+			Session::setFlash('error', $exception->getMessage());
+		}
+		header('Location: /dashboard/organizations/' . $organizationId); exit();
+	}
+
+	public function organizationEventCreate(array $params): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$organizationId = (int) ($params[0] ?? 0);
+		$masterId = (int) ($params[1] ?? 0);
+		$organization = $this->organizationService->findForUser($organizationId, $userId);
+		$master = $this->organizationService->findMasterForOrganization($masterId, $organizationId);
+		if ($master && $organization) $master['organization_user_role'] = $this->getOrganizationMemberRole($organization, $userId);
+		if (!$organization || !$master || !in_array($master['organization_user_role'], ['owner', 'admin', 'editor'], true)) {
+			Session::setFlash('error', 'Non hai i permessi per creare un’edizione.');
+			header('Location: /dashboard/organizations/' . $organizationId); exit();
+		}
+		$this->view('dashboard/organization-event-create', [
+			'user' => $this->userModel->find($userId), 'master' => $master,
+			'organizationId' => $organizationId, 'regions' => $this->regioneModel->getAll(),
+			'types' => $this->tipoEventoModel->getAll(),
+		], 'dashboard');
+	}
+
+	public function storeOrganizationEvent(array $params): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$organizationId = (int) ($params[0] ?? 0);
+		$masterId = (int) ($params[1] ?? 0);
+		$organization = $this->organizationService->findForUser($organizationId, $userId);
+		$master = $this->organizationService->findMasterForOrganization($masterId, $organizationId);
+		if ($master && $organization) $master['organization_user_role'] = $this->getOrganizationMemberRole($organization, $userId);
+		$json = str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json');
+		if (!$master || (int) $master['organization_id'] !== $organizationId || !in_array($master['organization_user_role'], ['owner', 'admin', 'editor'], true)) { if ($json) $this->dashboardJson(false, 'Non hai i permessi per creare un’edizione.', 403); header('Location: /dashboard/organizations/' . $organizationId); exit(); }
+		if (empty($_POST['csrf_token']) || !hash_equals((string) ($_SESSION['csrf_token'] ?? ''), (string) $_POST['csrf_token'])) { if ($json) $this->dashboardJson(false, 'Token CSRF non valido.', 403); header('Location: /dashboard/organizations/' . $organizationId . '/masters/' . $masterId); exit(); }
+		try {
+			$data = [
+				'titolo' => trim((string) ($_POST['titolo'] ?? '')), 'descrizione' => trim((string) ($_POST['descrizione'] ?? '')),
+				'data_inizio' => trim((string) ($_POST['data_inizio'] ?? '')), 'data_fine' => trim((string) ($_POST['data_fine'] ?? '')),
+				'luogo' => trim((string) ($_POST['luogo'] ?? '')), 'regione_id' => (int) ($_POST['regione_id'] ?? 0),
+				'provincia_id' => (int) ($_POST['provincia_id'] ?? 0), 'comune_id' => (int) ($_POST['comune_id'] ?? 0),
+				'tipo_evento_id' => (int) ($_POST['tipo_evento_id'] ?? 0), 'sito_web' => trim((string) ($_POST['sito_web'] ?? '')),
+				'social_facebook' => trim((string) ($_POST['social_facebook'] ?? '')), 'social_twitter' => trim((string) ($_POST['social_twitter'] ?? '')),
+				'social_instagram' => trim((string) ($_POST['social_instagram'] ?? '')), 'social_tiktok' => trim((string) ($_POST['social_tiktok'] ?? '')),
+				'social_youtube' => trim((string) ($_POST['social_youtube'] ?? '')), 'social_twitter' => trim((string) ($_POST['social_twitter'] ?? '')), 'anno' => (int) ($_POST['anno'] ?? date('Y')),
+				'event_size' => (int) ($_POST['event_size'] ?? 0), 'is_paid' => !empty($_POST['is_paid']) ? 1 : 0,
+				'has_cosplay_contest' => !empty($_POST['has_cosplay_contest']) ? 1 : 0, 'approvato' => 0,
+				'event_master_id' => $masterId, 'immagine' => null,
+			];
+			if ($data['titolo'] === '' || $data['descrizione'] === '' || $data['data_inizio'] === '' || $data['luogo'] === '') throw new \InvalidArgumentException('Titolo, descrizione, data di inizio e luogo sono obbligatori.');
+			if ($data['data_fine'] !== '' && strtotime($data['data_fine']) < strtotime($data['data_inizio'])) throw new \InvalidArgumentException('La data di fine non può precedere quella di inizio.');
+			foreach (['regione_id', 'provincia_id', 'comune_id', 'tipo_evento_id'] as $field) if ($data[$field] < 1) throw new \InvalidArgumentException('Completa regione, provincia, comune e tipo evento.');
+			$eventId = $this->eventModel->create($data);
+			$guestIds = json_decode((string) ($_POST['guest_ids'] ?? '[]'), true);
+			$guestIds = is_array($guestIds) ? array_values(array_filter(array_map('intval', $guestIds), static fn (int $id): bool => $id > 0)) : [];
+			$this->guestModel->saveGuests($eventId, $guestIds);
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => AuditLogActionType::EVENT_CREATED, 'entity_type' => 'event', 'entity_id' => $eventId, 'payload' => ['source' => 'dashboard', 'organization_id' => $organizationId, 'event_master_id' => $masterId]]);
+			if ($json) $this->dashboardJson(true, 'Edizione creata correttamente.', 200, ['event_id' => $eventId]);
+			Session::setFlash('success', 'Edizione creata correttamente.');
+		} catch (\Throwable $exception) {
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => AuditLogActionType::EVENT_CREATED, 'entity_type' => 'event', 'entity_id' => $eventId ?? null, 'success' => 0, 'error_message' => $exception->getMessage(), 'payload' => ['source' => 'dashboard', 'organization_id' => $organizationId, 'event_master_id' => $masterId]]);
+			if ($json) $this->dashboardJson(false, $exception->getMessage(), 400);
+			Session::setFlash('error', $exception->getMessage());
+		}
+		header('Location: /dashboard/organizations/' . $organizationId . '/masters/' . $masterId); exit();
+	}
+
+	public function updateOrganizationMaster(array $params): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$organizationId = (int) ($params[0] ?? 0);
+		$masterId = (int) ($params[1] ?? 0);
+		$organization = $this->organizationService->findForUser($organizationId, $userId);
+		$master = $this->organizationService->findMasterForOrganization($masterId, $organizationId);
+		if ($master && $organization) $master['organization_user_role'] = $this->getOrganizationMemberRole($organization, $userId);
+		$json = str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json');
+		if (!$master || (int) $master['organization_id'] !== $organizationId || !in_array($master['organization_user_role'], ['owner', 'admin', 'editor'], true)) {
+			if ($json) $this->dashboardJson(false, 'Non hai i permessi per modificare questo master.', 403);
+			header('Location: /dashboard/organizations/' . $organizationId); exit();
+		}
+		if (empty($_POST['csrf_token']) || !hash_equals((string) ($_SESSION['csrf_token'] ?? ''), (string) $_POST['csrf_token'])) {
+			if ($json) $this->dashboardJson(false, 'Token CSRF non valido.', 403);
+			header('Location: /dashboard/organizations/' . $organizationId . '/masters/' . $masterId); exit();
+		}
+		try {
+			$name = trim((string) ($_POST['nome'] ?? ''));
+			if (mb_strlen($name) < 2 || mb_strlen($name) > 255) throw new \InvalidArgumentException('Il nome del master deve avere tra 2 e 255 caratteri.');
+			$data = [];
+			foreach (['nome', 'descrizione', 'sito_web', 'social_facebook', 'social_twitter', 'social_instagram', 'social_tiktok', 'social_youtube'] as $field) {
+				$data[$field] = trim((string) ($_POST[$field] ?? ''));
+			}
+			if (!$this->eventMasterModel->update($masterId, $data)) throw new \RuntimeException('Master non aggiornato.');
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => AuditLogActionType::EVENT_MASTER_UPDATED, 'entity_type' => 'event_master', 'entity_id' => $masterId, 'payload' => ['source' => 'dashboard', 'organization_id' => $organizationId]]);
+			if ($json) $this->dashboardJson(true, 'Master aggiornato correttamente.');
+			Session::setFlash('success', 'Master aggiornato correttamente.');
+		} catch (\Throwable $exception) {
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => AuditLogActionType::EVENT_MASTER_UPDATED, 'entity_type' => 'event_master', 'entity_id' => $masterId, 'success' => 0, 'error_message' => $exception->getMessage(), 'payload' => ['source' => 'dashboard', 'organization_id' => $organizationId]]);
+			if ($json) $this->dashboardJson(false, $exception->getMessage(), 400);
+			Session::setFlash('error', $exception->getMessage());
+		}
+		header('Location: /dashboard/organizations/' . $organizationId . '/masters/' . $masterId); exit();
+	}
+
+	public function organizationMasterEdit(array $params): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$organizationId = (int) ($params[0] ?? 0);
+		$masterId = (int) ($params[1] ?? 0);
+		$organization = $this->organizationService->findForUser($organizationId, $userId);
+		$master = $this->organizationService->findMasterForOrganization($masterId, $organizationId);
+		if ($master && $organization) $master['organization_user_role'] = $this->getOrganizationMemberRole($organization, $userId);
+		if (!$master || (int) $master['organization_id'] !== $organizationId || !in_array($master['organization_user_role'], ['owner', 'admin', 'editor'], true)) {
+			Session::setFlash('error', 'Non hai i permessi per modificare questo master.');
+			header('Location: /dashboard/organizations/' . $organizationId); exit();
+		}
+		$this->view('dashboard/organization-master-edit', ['user' => $this->userModel->find($userId), 'master' => $master, 'organizationId' => $organizationId], 'dashboard');
+	}
+
+	public function organizationEventEdit(array $params): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$organizationId = (int) ($params[0] ?? 0);
+		$eventId = (int) ($params[1] ?? 0);
+		$organization = $this->organizationService->findForUser($organizationId, $userId);
+		$event = $this->organizationService->findEventForOrganization($eventId, $organizationId);
+		if (!$organization || !$event) {
+			Session::setFlash('error', 'Edizione non trovata o accesso non autorizzato.');
+			header('Location: /dashboard/organizations/' . $organizationId); exit();
+		}
+		$event['organization_user_role'] = $this->getOrganizationMemberRole($organization, $userId);
+		$event['guests'] = $this->guestModel->getGuests($eventId);
+		$this->view('dashboard/organization-event-edit', [
+			'user' => $this->userModel->find($userId), 'event' => $event,
+			'organizationId' => $organizationId,
+			'canEdit' => in_array($event['organization_user_role'], ['owner', 'admin', 'editor'], true),
+			'canManage' => in_array($event['organization_user_role'], ['owner', 'admin'], true),
+			'regions' => $this->regioneModel->getAll(),
+			'provinces' => $this->provinciaModel->getByRegioneId((int) ($event['regione_id'] ?? 0)),
+			'municipalities' => $this->comuneModel->getAll((int) ($event['provincia_id'] ?? 0)),
+			'types' => $this->tipoEventoModel->getAll(),
+		], 'dashboard');
+	}
+
+	public function organizationGuestSearch(array $params): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$eventId = (int) ($params[0] ?? 0);
+		$event = $this->organizationService->findEventForUser($eventId, $userId);
+		if (!$event || !in_array($event['organization_user_role'], ['owner', 'admin', 'editor'], true)) {
+			$this->dashboardJson(false, 'Accesso non autorizzato.', 403);
+		}
+		$query = trim((string) ($_GET['q'] ?? ''));
+		$this->dashboardJson(true, '', 200, ['guests' => mb_strlen($query) >= 2 ? $this->guestModel->search($query) : []]);
+	}
+
+	public function dashboardGuestSearch(): void
+	{
+		$query = trim((string) ($_GET['q'] ?? ''));
+		$this->dashboardJson(true, '', 200, ['guests' => mb_strlen($query) >= 2 ? $this->guestModel->search($query) : []]);
+	}
+
+	public function organizationGuestRemove(array $params): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$eventId = (int) ($params[0] ?? 0);
+		$guestId = (int) ($params[1] ?? 0);
+		if (empty($_POST['csrf_token']) || !hash_equals((string) ($_SESSION['csrf_token'] ?? ''), (string) $_POST['csrf_token'])) {
+			$this->dashboardJson(false, 'Token CSRF non valido.', 403);
+		}
+		$event = $this->organizationService->findEventForUser($eventId, $userId);
+		if (!$event || !in_array((string) ($event['organization_user_role'] ?? ''), ['owner', 'admin', 'editor'], true)) {
+			$this->dashboardJson(false, 'Accesso non autorizzato.', 403);
+		}
+		try {
+			if (!$this->guestModel->removeFromEvent($eventId, $guestId)) throw new \RuntimeException('Il guest non è associato a questa edizione.');
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => AuditLogActionType::GUEST_REMOVED_FROM_EVENT, 'entity_type' => 'event', 'entity_id' => $eventId, 'payload' => ['source' => 'dashboard', 'guest_id' => $guestId]]);
+			$this->dashboardJson(true, 'Guest rimosso dall’edizione.');
+		} catch (\Throwable $exception) {
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => AuditLogActionType::GUEST_REMOVED_FROM_EVENT, 'entity_type' => 'event', 'entity_id' => $eventId, 'success' => 0, 'error_message' => mb_substr($exception->getMessage(), 0, 250), 'payload' => ['source' => 'dashboard', 'guest_id' => $guestId]]);
+			$this->dashboardJson(false, $exception->getMessage(), 400);
+		}
+	}
+
+	public function dashboardGuestCreate(): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		if (empty($_POST['csrf_token']) || !hash_equals((string) ($_SESSION['csrf_token'] ?? ''), (string) $_POST['csrf_token'])) $this->dashboardJson(false, 'Token CSRF non valido.', 403);
+		$name = trim((string) ($_POST['name'] ?? ''));
+		if (mb_strlen($name) < 2 || mb_strlen($name) > 255) $this->dashboardJson(false, 'Nome guest non valido.', 422);
+		try {
+			$id = (int) $this->guestModel->create($name);
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => AuditLogActionType::GUEST_CREATED, 'entity_type' => 'guest', 'entity_id' => $id, 'payload' => ['source' => 'dashboard']]);
+			$this->dashboardJson(true, 'Guest creato.', 200, ['guest' => ['id' => $id, 'name' => $name]]);
+		} catch (\Throwable $exception) {
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => AuditLogActionType::GUEST_CREATED, 'entity_type' => 'guest', 'entity_id' => null, 'success' => 0, 'error_message' => $exception->getMessage(), 'payload' => ['source' => 'dashboard']]);
+			$this->dashboardJson(false, 'Impossibile creare il guest.', 400);
+		}
+	}
+
+	public function organizationGuestCreate(array $params): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$eventId = (int) ($params[0] ?? 0);
+		$event = $this->organizationService->findEventForUser($eventId, $userId);
+		if (!$event || !in_array($event['organization_user_role'], ['owner', 'admin', 'editor'], true)) $this->dashboardJson(false, 'Accesso non autorizzato.', 403);
+		if (empty($_POST['csrf_token']) || !hash_equals((string) ($_SESSION['csrf_token'] ?? ''), (string) $_POST['csrf_token'])) $this->dashboardJson(false, 'Token CSRF non valido.', 403);
+		$name = trim((string) ($_POST['name'] ?? ''));
+		if (mb_strlen($name) < 2 || mb_strlen($name) > 255) $this->dashboardJson(false, 'Nome guest non valido.', 422);
+		try {
+			$id = (int) $this->guestModel->create($name);
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => AuditLogActionType::GUEST_CREATED, 'entity_type' => 'guest', 'entity_id' => $id, 'payload' => ['source' => 'dashboard', 'event_id' => $eventId]]);
+			$this->dashboardJson(true, 'Guest creato.', 200, ['guest' => ['id' => $id, 'name' => $name]]);
+		} catch (\Throwable $exception) {
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => AuditLogActionType::GUEST_CREATED, 'entity_type' => 'guest', 'success' => 0, 'error_message' => $exception->getMessage(), 'payload' => ['source' => 'dashboard', 'event_id' => $eventId]]);
+			$this->dashboardJson(false, 'Impossibile creare il guest.', 400);
+		}
+	}
+
+	public function updateOrganizationEvent(array $params): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$organizationId = (int) ($params[0] ?? 0);
+		$eventId = (int) ($params[1] ?? 0);
+		$event = $this->organizationService->findEventForUser($eventId, $userId);
+		$json = str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json');
+		if (!$event || (int) $event['organization_id'] !== $organizationId || !in_array($event['organization_user_role'], ['owner', 'admin', 'editor'], true)) {
+			if ($json) $this->dashboardJson(false, 'Non hai i permessi per modificare questa edizione.', 403);
+			header('Location: /dashboard/organizations/' . $organizationId); exit();
+		}
+		if (empty($_POST['csrf_token']) || !hash_equals((string) ($_SESSION['csrf_token'] ?? ''), (string) $_POST['csrf_token'])) {
+			if ($json) $this->dashboardJson(false, 'Token CSRF non valido.', 403);
+			header('Location: /dashboard/organizations/' . $organizationId . '/events/' . $eventId . '/edit'); exit();
+		}
+		try {
+			$data = $event;
+			foreach (['titolo', 'descrizione', 'data_inizio', 'data_fine', 'luogo', 'sito_web', 'social_facebook', 'social_twitter', 'social_instagram', 'social_tiktok', 'social_youtube'] as $field) {
+				if (array_key_exists($field, $_POST)) $data[$field] = trim((string) $_POST[$field]);
+			}
+			if ($data['titolo'] === '' || $data['data_inizio'] === '' || $data['luogo'] === '') throw new \InvalidArgumentException('Titolo, data di inizio e luogo sono obbligatori.');
+			if ($data['data_fine'] !== '' && strtotime($data['data_fine']) < strtotime($data['data_inizio'])) throw new \InvalidArgumentException('La data di fine non può precedere quella di inizio.');
+			$data['anno'] = (int) ($_POST['anno'] ?? ($event['year'] ?? date('Y')));
+			$data['regione_id'] = (int) ($_POST['regione_id'] ?? $event['regione_id']);
+			$data['provincia_id'] = (int) ($_POST['provincia_id'] ?? $event['provincia_id']);
+			$data['comune_id'] = (int) ($_POST['comune_id'] ?? $event['comune_id']);
+			$data['tipo_evento_id'] = (int) ($_POST['tipo_evento_id'] ?? $event['tipo_evento_id']);
+			$data['event_size'] = (int) ($_POST['event_size'] ?? ($event['event_size'] ?? 0));
+			$data['is_paid'] = !empty($_POST['is_paid']) ? 1 : 0;
+			$data['has_cosplay_contest'] = !empty($_POST['has_cosplay_contest']) ? 1 : 0;
+			$data['approvato'] = (int) ($event['approvato'] ?? 0);
+			$data['immagine'] = $event['immagine'] ?? null;
+			$data['event_master_id'] = (int) $event['event_master_id'];
+			$guestIds = json_decode((string) ($_POST['guest_ids'] ?? '[]'), true);
+			$guestIds = is_array($guestIds) ? array_values(array_filter(array_map('intval', $guestIds), static fn (int $id): bool => $id > 0)) : [];
+			if (!$this->eventModel->update($eventId, $data)) throw new \RuntimeException('Edizione non aggiornata.');
+			$this->guestModel->saveGuests($eventId, $guestIds);
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => AuditLogActionType::EVENT_UPDATED, 'entity_type' => 'event', 'entity_id' => $eventId, 'payload' => ['source' => 'dashboard', 'organization_id' => $organizationId]]);
+			if ($json) $this->dashboardJson(true, 'Edizione aggiornata correttamente.');
+			Session::setFlash('success', 'Edizione aggiornata correttamente.');
+		} catch (\Throwable $exception) {
+			$this->auditLogService->logAudit(['user_id' => $userId, 'action_type' => AuditLogActionType::EVENT_UPDATED, 'entity_type' => 'event', 'entity_id' => $eventId, 'success' => 0, 'error_message' => $exception->getMessage(), 'payload' => ['source' => 'dashboard', 'organization_id' => $organizationId]]);
+			if ($json) $this->dashboardJson(false, $exception->getMessage(), 400);
+			Session::setFlash('error', $exception->getMessage());
+		}
+		header('Location: /dashboard/organizations/' . $organizationId . '/events/' . $eventId . '/edit'); exit();
+	}
+
+	private function getOrganizationMemberRole(array $organization, int $userId): string
+	{
+		foreach ($organization['members'] as $member) {
+			if ((int) $member['user_id'] === $userId) return (string) $member['role'];
+		}
+		return 'viewer';
+	}
+
+	private function dashboardJson(bool $success, string $message, int $status = 200, array $data = []): void
+	{
+		http_response_code($status);
+		header('Content-Type: application/json; charset=utf-8');
+		echo json_encode(array_merge(['success' => $success, 'message' => $message], $data));
+		exit();
 	}
 
 	public function favorites(): void

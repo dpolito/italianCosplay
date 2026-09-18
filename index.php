@@ -1,12 +1,13 @@
 <?php
-// Impostazioni per il debugging: mostra tutti gli errori
 use App\Core\Database;
+use App\Core\ErrorHandler;
 use App\Core\Router;
 use App\Core\Session;
 
 
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+ini_set('display_errors', '0');
+ini_set('display_startup_errors', '0');
+ini_set('log_errors', '1');
 error_reporting(E_ALL);
 
 // Definizione di costanti per la root del progetto e il nome dell'applicazione
@@ -39,10 +40,12 @@ if (file_exists(APP_ROOT . '/vendor/autoload.php')) {
 	// Se Composer non è usato o le dipendenze non sono installate,
 	// carica manualmente le classi principali nell'ordine corretto.
 	// L'ordine è importante per le dipendenze tra classi (es. Controller prima dei Controller specifici).
-	require_once APP_ROOT . '/app/core/Database.php';
-	require_once APP_ROOT . '/app/core/Session.php';
-	require_once APP_ROOT . '/app/core/Router.php';
-	require_once APP_ROOT . '/app/core/Controller.php'; // I controller estendono questa classe
+	require_once APP_ROOT . '/app/Core/Database.php';
+	require_once APP_ROOT . '/app/Core/ErrorHandler.php';
+	require_once APP_ROOT . '/app/Core/Session.php';
+	require_once APP_ROOT . '/app/Core/Router.php';
+	require_once APP_ROOT . '/app/Core/Controller.php'; // I controller estendono questa classe
+	require_once APP_ROOT . '/app/Services/TelegramNotificationService.php';
 	require_once APP_ROOT . '/app/Models/BaseModel.php'; // I modelli estendono questa classe
 	require_once APP_ROOT . '/app/Models/User.php'; // Per AuthController e AdminController
 	require_once APP_ROOT . '/app/Models/Event.php'; // Per EventController
@@ -58,6 +61,8 @@ if (file_exists(APP_ROOT . '/vendor/autoload.php')) {
 	require_once APP_ROOT . '/app/Controllers/EventController.php';
 	require_once APP_ROOT . '/app/Controllers/ApiController.php';
 }
+
+ErrorHandler::register();
 
 // Avvia la sessione.
 // Si assume che Session::start() gestisca internamente session_start()

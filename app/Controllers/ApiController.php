@@ -2,6 +2,7 @@
 namespace App\Controllers;
 use App\Core\Controller;
 use App\Models\Comune;
+use App\Models\Event;
 use App\Models\Provincia;
 use App\Models\Regione;
 
@@ -10,12 +11,14 @@ class ApiController extends Controller
 	private Regione $regioneModel;
 	private Provincia $provinciaModel;
 	private Comune $comuneModel;
+	private Event $eventModel;
 
 	public function __construct()
 	{
 		$this->regioneModel = new Regione();
 		$this->provinciaModel = new Provincia();
 		$this->comuneModel = new Comune();
+		$this->eventModel = new Event();
 	}
 
 	/**
@@ -101,5 +104,36 @@ class ApiController extends Controller
 
 		// Termina l'output buffering
 		ob_end_flush();
+	}
+
+	public function searchEvents(): void
+	{
+		header('Content-Type: application/json; charset=utf-8');
+		header('X-Robots-Tag: noindex, nofollow');
+		header('Cache-Control: no-store');
+
+		$query = trim((string) ($_GET['q'] ?? ''));
+		if (mb_strlen($query) < 2) {
+			echo json_encode(['events' => []], JSON_UNESCAPED_UNICODE);
+			return;
+		}
+
+		$events = array_map(static function (array $event): array {
+			$location = implode(' · ', array_filter([
+				$event['comune_nome'] ?? '',
+				$event['provincia_nome'] ?? '',
+				$event['regione_nome'] ?? '',
+			]));
+
+			return [
+				'id' => (int) ($event['id'] ?? 0),
+				'title' => $event['titolo'] ?? '',
+				'url' => '/eventi-cosplay/' . rawurlencode((string) ($event['slug'] ?? '')),
+				'date' => !empty($event['data_inizio']) ? date('d/m/Y', strtotime((string) $event['data_inizio'])) : '',
+				'location' => $location,
+			];
+		}, $this->eventModel->searchApprovedEvents($query, 8));
+
+		echo json_encode(['events' => $events], JSON_UNESCAPED_UNICODE);
 	}
 }

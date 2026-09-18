@@ -255,6 +255,10 @@ foreach ($allVisibleEvents as $event) {
 			</div>
 		</header>
 
+		<div class="mb-8">
+			<?php $context = 'weekend'; require APP_ROOT . '/app/views/components/telegram-channel-cta.php'; ?>
+		</div>
+
 		<?php echo AdPlacement::render('events_weekend_specific_top', 'events_weekend_specific', 'mb-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md'); ?>
 
 		<nav class="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Navigazione rapida eventi">

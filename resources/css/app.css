@@ -3,6 +3,60 @@
 @source "../../app/**/*.php";
 @source "../../public_assets/**/*.js";
 
+@layer components {
+	.blog-article-content table {
+		@apply my-5 block max-w-full overflow-x-auto break-normal;
+	}
+
+	.blog-article-content th,
+	.blog-article-content td {
+		@apply border border-gray-200 p-3 text-left;
+	}
+
+	.blog-article-content th {
+		@apply bg-gray-50;
+	}
+
+	.blog-table-label {
+		display: none;
+	}
+
+	@media (width < 40rem) {
+		.blog-article-content .blog-table-responsive {
+			@apply w-full overflow-visible;
+		}
+
+		.blog-table-responsive thead {
+			@apply sr-only;
+		}
+
+		.blog-table-responsive tbody {
+			@apply block space-y-4;
+		}
+
+		.blog-table-responsive tbody tr {
+			@apply block overflow-hidden rounded-xl border border-gray-200;
+		}
+
+		.blog-table-responsive tbody :is(td, th) {
+			@apply block border-0 border-b border-gray-100 px-4 py-2 whitespace-normal;
+			overflow-wrap: anywhere;
+		}
+
+		.blog-table-responsive tbody :is(td, th):first-child {
+			@apply bg-green-50 font-bold text-green-950;
+		}
+
+		.blog-table-responsive tbody :is(td, th):last-child {
+			@apply border-b-0;
+		}
+
+		.blog-table-responsive .blog-table-label {
+			@apply block text-xs font-semibold text-gray-600;
+		}
+	}
+}
+
 @layer base {
 
 	.prose ul {

@@ -326,12 +326,12 @@ class User{
 	 * Aggiorna un utente esistente
 	 *
 	 * @param int   $id   L'ID dell'utente da aggiornare
-	 * @param array $data Dati dell'utente da aggiornare (username, email, password, role - password è opzionale)
+	 * @param array $data Dati dell'utente da aggiornare (username, email, password, role_id - password è opzionale)
 	 *
 	 * @return bool True se l'utente è stato aggiornato con successo, false altrimenti
 	 */
 	public function update($id, $data){
-		$query = "UPDATE " . $this->table . " SET username = :username, email = :email, role = :role, role_id = :role_id";
+		$query = "UPDATE " . $this->table . " SET username = :username, email = :email, role_id = :role_id, verified = :verified, first_name = :first_name, last_name = :last_name, website = :website, bio = :bio, social = :social, avatar = :avatar, profile_cover = :profile_cover, comune_id = :comune_id";
 		if(!empty($data['password'])){
 			$hashed_password = password_hash($data['password'], PASSWORD_DEFAULT);
 			$query .= ", password = :password";
@@ -340,8 +340,16 @@ class User{
 		$stmt = $this->db->prepare($query);
 		$stmt->bindParam(':username', $data['username'], PDO::PARAM_STR);
 		$stmt->bindParam(':email', $data['email'], PDO::PARAM_STR);
-		$stmt->bindParam(':role', $data['role'], PDO::PARAM_STR);
-		$stmt->bindParam(':role_id', $data['role_id'], PDO::PARAM_STR); // 'user' o 'admin'
+		$stmt->bindValue(':role_id', (int) $data['role_id'], PDO::PARAM_INT);
+		$stmt->bindValue(':verified', (int) ($data['verified'] ?? 0), PDO::PARAM_INT);
+		$stmt->bindValue(':first_name', $data['first_name'] ?? '', PDO::PARAM_STR);
+		$stmt->bindValue(':last_name', $data['last_name'] ?? '', PDO::PARAM_STR);
+		$stmt->bindValue(':website', $data['website'] ?? '', PDO::PARAM_STR);
+		$stmt->bindValue(':bio', $data['bio'] ?? '', PDO::PARAM_STR);
+		$stmt->bindValue(':social', $data['social'] ?? '{}', PDO::PARAM_STR);
+		$stmt->bindValue(':avatar', $data['avatar'] ?? '', PDO::PARAM_STR);
+		$stmt->bindValue(':profile_cover', $data['profile_cover'] ?? '', PDO::PARAM_STR);
+		$stmt->bindValue(':comune_id', ($data['comune_id'] ?? '') === '' ? null : (int) $data['comune_id'], PDO::PARAM_INT);
 		if(!empty($data['password'])){
 			$stmt->bindParam(':password', $hashed_password, PDO::PARAM_STR);
 		}

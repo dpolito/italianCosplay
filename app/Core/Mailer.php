@@ -9,6 +9,16 @@ class Mailer
 {
 	private PHPMailer $mail;
 
+	public const TAG_REGISTRATION = 'registration';
+	public const TAG_PASSWORD_RESET = 'password_reset';
+	public const TAG_EVENT_CLAIM = 'event_claim';
+	public const TAG_ORGANIZATION_INVITATION = 'organization_invitation';
+	public const TAG_EVENT_APPROVED = 'event_approved';
+	public const TAG_EVENT_REPORT = 'event_report';
+	public const TAG_ORGANIZATION_EMAIL = 'organization_email';
+	public const TAG_LEGACY_INVITATION = 'legacy_invitation';
+	public const TAG_ADVERTISING = 'advertising';
+
 	public function __construct()
 	{
 		// Carica manualmente i file di PHPMailer
@@ -42,19 +52,64 @@ class Mailer
 	 * @param string|null $bodyText
 	 * @return bool
 	 */
-	public function send(string $toEmail, string $toName, string $subject, string $bodyHtml, ?string $bodyText = null): bool
-	{
+	public function send(
+		string $toEmail,
+		string $toName,
+		string $subject,
+		string $bodyHtml,
+		?string $bodyText = null,
+		array $tags = []
+	): bool {
 		try {
 			$this->mail->clearAddresses();
+			$this->mail->clearCustomHeaders();
+
 			$this->mail->addAddress($toEmail, $toName);
 			$this->mail->Subject = $subject;
 			$this->mail->Body    = $bodyHtml;
 			$this->mail->AltBody = $bodyText ?? strip_tags($bodyHtml);
 
-			return $this->mail->send();
-		} catch (Exception $e) {
-			error_log('Mailer error: ' . $this->mail->ErrorInfo);
-			return false;
+			$this->applyTags($tags);
+
+			$sent = $this->mail->send();
+
+		} catch (\Throwable $e) {
+			$error = $this->mail->ErrorInfo ?: $e->getMessage();
+
+			error_log('Mailer exception: ' . $error);
+
+			throw new \RuntimeException(
+				'Errore durante l\'invio email: ' . $error,
+				0,
+				$e
+			);
 		}
+
+		if (!$sent) {
+			$error = $this->mail->ErrorInfo ?: 'Errore SMTP sconosciuto.';
+
+			error_log('Mailer error: ' . $error);
+
+			throw new \RuntimeException(
+				'Invio email fallito: ' . $error
+			);
+		}
+
+		return true;
+	}
+
+	private function applyTags(array $tags): void
+	{
+		$cleanTags = array_values(array_filter(array_map(static function ($tag): string {
+			$tag = strtolower(trim((string) $tag));
+
+			return preg_replace('/[^a-z0-9_-]/', '', $tag) ?? '';
+		}, $tags)));
+
+		if ($cleanTags === []) {
+			return;
+		}
+
+		$this->mail->addCustomHeader('X-Mailin-Tag', implode(',', array_unique($cleanTags)));
 	}
 }

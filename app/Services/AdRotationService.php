@@ -73,6 +73,10 @@ class AdRotationService
 			'campaign_id' => $campaign['id'],
 			'banner_id'   => $banner['id'],
 			'title'       => $banner['title'],
+			'description' => $banner['description'] ?? null,
+			'sponsor_name' => $banner['sponsor_name'] ?? null,
+			'alt_text'    => $banner['alt_text'] ?? null,
+			'logo'        => $banner['logo_path'] ?? null,
 			'image'       => $banner['image_path'],
 			'mobile_image' => $banner['mobile_image_path'] ?? null,
 			'target_url'  => '/ads/click/'.$campaign['id']

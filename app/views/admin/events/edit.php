@@ -117,6 +117,15 @@
 				<div id="editor"></div>
 			</div>
 
+			<div class="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
+				<h3 class="text-lg font-semibold text-gray-900 mb-2">SEO personalizzata (opzionale)</h3>
+				<p class="text-sm text-gray-600 mb-4">Se lasci i campi vuoti, vengono mantenuti i meta tag automatici dell'evento.</p>
+				<label for="seo_title" class="block text-gray-700 text-sm font-bold mb-2">SEO Title:</label>
+				<input type="text" id="seo_title" name="seo_title" maxlength="255" value="<?php echo htmlspecialchars($data['seo_title'] ?? $data['event']['seo_title'] ?? ''); ?>" class="shadow border rounded-lg w-full py-2 px-3 text-gray-700 focus:border-green-500">
+				<label for="seo_description" class="block text-gray-700 text-sm font-bold mt-4 mb-2">SEO Description:</label>
+				<textarea id="seo_description" name="seo_description" maxlength="500" rows="3" class="shadow border rounded-lg w-full py-2 px-3 text-gray-700 focus:border-green-500"><?php echo htmlspecialchars($data['seo_description'] ?? $data['event']['seo_description'] ?? ''); ?></textarea>
+			</div>
+
 			<!-- Date (2 colonne) -->
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
 				<div>

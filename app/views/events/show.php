@@ -7,8 +7,13 @@
 
 $breadcrumbs = $data['breadcrumbs'] ?? [];
 $event = $data['event'] ?? null;
+$eventMaster = $data['eventMaster'] ?? null;
 $similarEvents = $data['similarEvents'] ?? ($similarEvents ?? []);
 $hasVisibleMaster = !empty($data['hasVisibleMaster']);
+$organizations = $data['organizations'] ?? [];
+$masterClaimUrl = !empty($eventMaster['slug'])
+	? URL_ROOT_SITE . '/eventi-master/' . rawurlencode((string) $eventMaster['slug']) . '/riscatta'
+	: '';
 $eventsBaseUrl = rtrim(URL_ROOT_SITE, '/') . '/eventi-cosplay';
 $siteBaseUrl = rtrim(URL_ROOT_SITE, '/');
 $featureFlags = (new \App\Services\SiteFeatureFlagService())->getEnabledMap();
@@ -288,6 +293,16 @@ if (!function_exists('event_show_region_url')) {
 							<h1 class="text-3xl font-extrabold leading-tight text-gray-900 md:text-4xl">
 								<?php echo htmlspecialchars($h1, ENT_QUOTES, 'UTF-8'); ?>
 							</h1>
+							<?php if (!empty($organizations)): ?>
+								<div class="mt-3 flex flex-wrap items-center gap-2 text-sm text-gray-600">
+									<span>Organizzato da</span>
+									<?php foreach ($organizations as $organization): ?>
+										<a href="<?php echo htmlspecialchars(URL_ROOT_SITE . '/organizzazioni/' . rawurlencode((string) $organization['slug']), ENT_QUOTES, 'UTF-8'); ?>" class="font-bold text-green-900 hover:underline">
+											<?php echo htmlspecialchars($organization['name'], ENT_QUOTES, 'UTF-8'); ?>
+										</a>
+									<?php endforeach; ?>
+								</div>
+							<?php endif; ?>
 
 							<div class="mt-5 grid gap-3 text-base text-gray-700">
 								<p class="flex gap-3">
@@ -307,6 +322,23 @@ if (!function_exists('event_show_region_url')) {
 									</p>
 								<?php endif; ?>
 							</div>
+							<?php if ($masterClaimUrl): ?>
+								<div class="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+									<p class="text-sm leading-relaxed text-amber-950">
+										Sei l’organizzatore di questo evento?
+										La richiesta riguarda il master e tutte le sue edizioni.
+									</p>
+									<?php if (!empty($_SESSION['user_id'])): ?>
+										<a href="<?php echo htmlspecialchars($masterClaimUrl, ENT_QUOTES, 'UTF-8'); ?>" class="mt-3 inline-flex rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-gray-950 hover:bg-amber-400">
+											Richiedi gestione evento
+										</a>
+									<?php else: ?>
+										<a href="/register" class="mt-3 inline-flex rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-gray-950 hover:bg-amber-400">
+											Registrati per richiedere la gestione
+										</a>
+									<?php endif; ?>
+								</div>
+							<?php endif; ?>
 						</div>
 
 						<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
@@ -633,6 +665,8 @@ if (!function_exists('event_show_region_url')) {
 								<?php endif; ?>
 							</ul>
 						</section>
+
+						<?php $context = 'default'; require APP_ROOT . '/app/views/components/telegram-channel-cta.php'; ?>
 
 						<section class="rounded-xl border border-gray-200 bg-white p-5" aria-labelledby="condividi-evento">
 							<h2 id="condividi-evento" class="mb-4 text-xl font-bold text-gray-900">

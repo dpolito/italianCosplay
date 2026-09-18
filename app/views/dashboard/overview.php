@@ -5,8 +5,13 @@ $favoritesSummary = $data['favoritesSummary'] ?? [];
 $agendaCounts = $data['agendaCounts'] ?? [];
 $ciVadoEvents = $data['ciVadoEvents'] ?? [];
 $cosplayPortfolioCount = (int) ($data['cosplayPortfolioCount'] ?? 0);
+$organizations = $data['organizations'] ?? [];
+$eventMasterClaims = $data['eventMasterClaims'] ?? [];
+$organizationInvitations = $data['organizationInvitations'] ?? [];
+$claimStatuses = ['pending' => 'In attesa', 'approved' => 'Approvata', 'rejected' => 'Rifiutata', 'cancelled' => 'Annullata'];
 $avatar = $user['avatar'] ?? '/assets/img/default_avatar.png';
 $displayName = $user['username'] ?? $user['first_name'] ?? 'Cosplayer';
+$publicProfileUrl = rtrim(URL_ROOT_SITE, '/') . '/u/' . rawurlencode((string) ($user['username'] ?? ''));
 $featureFlags = (new \App\Services\SiteFeatureFlagService())->getEnabledMap();
 $completionSteps = 1
 	+ (!empty($user['avatar']) ? 1 : 0)
@@ -47,6 +52,74 @@ $completionPercent = min(100, (int) round(($completionSteps / 5) * 100));
 			</aside>
 		</div>
 	</header>
+
+	<?php if ($organizationInvitations): ?>
+	<section class="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm md:p-6" aria-labelledby="organization-invitations-title">
+		<div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+			<div>
+				<p class="text-sm font-bold uppercase tracking-wide text-amber-800">Inviti ricevuti</p>
+				<h2 id="organization-invitations-title" class="mt-1 text-2xl font-extrabold text-amber-950">Hai inviti da esaminare</h2>
+				<p class="mt-2 text-sm text-amber-900">Puoi accettare o rifiutare la partecipazione a un’organizzazione.</p>
+			</div>
+			<a href="/dashboard/organization-invitations" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-amber-800 px-4 py-3 text-sm font-bold text-white hover:bg-amber-900">Visualizza inviti (<?= count($organizationInvitations) ?>)</a>
+		</div>
+	</section>
+	<?php endif; ?>
+
+	<?php if ($organizations || $eventMasterClaims): ?>
+	<section class="grid gap-6 xl:grid-cols-2" aria-label="Gestione organizzazioni ed eventi master">
+		<div class="rounded-2xl bg-white p-5 shadow-sm md:p-6">
+				<div class="flex items-center justify-between gap-3"><div><p class="text-sm font-bold uppercase tracking-wide text-green-900">Organizzazioni</p><h2 class="mt-1 text-2xl font-extrabold text-gray-950">Le mie organizzazioni</h2></div><a href="/dashboard/organizations" class="text-sm font-bold text-green-900 hover:underline">Gestisci</a></div>
+			<?php if ($organizations): ?><div class="mt-5 space-y-3"><?php foreach ($organizations as $organization): ?><a href="/dashboard/organizations/<?= (int) $organization['id'] ?>" class="block rounded-xl border border-gray-200 p-4 hover:border-green-300"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-bold text-gray-950"><?= htmlspecialchars((string) $organization['name'], ENT_QUOTES, 'UTF-8') ?></h3><span class="text-sm font-semibold text-gray-600"><?= htmlspecialchars((string) $organization['role'], ENT_QUOTES, 'UTF-8') ?></span></div><p class="mt-2 text-sm text-gray-600"><?= (int) $organization['master_count'] ?> master · <?= (int) $organization['member_count'] ?> membri</p></a><?php endforeach; ?></div><?php else: ?><p class="mt-5 text-sm text-gray-600">Non gestisci ancora nessuna organizzazione.</p><?php endif; ?>
+		</div>
+		<div class="rounded-2xl bg-white p-5 shadow-sm md:p-6">
+			<div class="flex items-center justify-between gap-3"><div><p class="text-sm font-bold uppercase tracking-wide text-amber-800">Riscatti</p><h2 class="mt-1 text-2xl font-extrabold text-gray-950">Le mie richieste</h2></div><span class="rounded-full bg-amber-100 px-3 py-1 text-sm font-bold text-amber-900"><?= count($eventMasterClaims) ?></span></div>
+			<?php if ($eventMasterClaims): ?><div class="mt-5 space-y-3"><?php foreach ($eventMasterClaims as $claim): ?><div class="rounded-xl border border-gray-200 p-4"><div class="flex flex-wrap items-center justify-between gap-2"><a href="/eventi-master/<?= rawurlencode((string) $claim['event_master_slug']) ?>" class="font-bold text-green-900 hover:underline"><?= htmlspecialchars((string) $claim['event_master_name'], ENT_QUOTES, 'UTF-8') ?></a><span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-700"><?= htmlspecialchars($claimStatuses[(string) ($claim['status'] ?? '')] ?? (string) $claim['status'], ENT_QUOTES, 'UTF-8') ?></span></div><p class="mt-2 text-sm text-gray-600"><?= htmlspecialchars((string) $claim['organization_name'], ENT_QUOTES, 'UTF-8') ?></p><?php if (!empty($claim['review_notes'])): ?><p class="mt-2 text-sm text-gray-500">Nota dello staff: <?= htmlspecialchars((string) $claim['review_notes'], ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?></div><?php endforeach; ?></div><?php else: ?><p class="mt-5 text-sm text-gray-600">Non hai ancora inviato richieste di gestione.</p><?php endif; ?>
+		</div>
+	</section>
+	<?php endif; ?>
+
+	<section class="rounded-2xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm md:p-6" aria-labelledby="dashboard-public-profile-title">
+		<div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+			<div>
+				<p class="text-sm font-bold uppercase tracking-wide text-emerald-800">Profilo pubblico</p>
+				<h2 id="dashboard-public-profile-title" class="mt-1 text-xl font-extrabold text-emerald-950">
+					Questo è il tuo profilo pubblico
+				</h2>
+				<p class="mt-1 text-sm leading-relaxed text-gray-700">
+					Consulta la pagina che vedono gli altri utenti o condividi il tuo profilo ItalianCosplay.
+				</p>
+				<p class="mt-3 break-all rounded-lg bg-white/70 px-3 py-2 text-sm text-gray-700">
+					<?php echo htmlspecialchars($publicProfileUrl, ENT_QUOTES, 'UTF-8'); ?>
+				</p>
+			</div>
+
+			<div class="flex flex-col gap-3 sm:flex-row">
+				<a href="<?php echo htmlspecialchars($publicProfileUrl, ENT_QUOTES, 'UTF-8'); ?>"
+				   target="_blank"
+				   rel="noopener noreferrer"
+				   class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-800 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2">
+					<i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+					Consulta profilo
+				</a>
+				<button type="button"
+				        class="copy-dashboard-profile-link inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-800 bg-white px-4 py-3 text-sm font-bold text-emerald-900 transition hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2"
+				        data-copy="<?php echo htmlspecialchars($publicProfileUrl, ENT_QUOTES, 'UTF-8'); ?>">
+					<i class="fa-solid fa-share-nodes" aria-hidden="true"></i>
+					<span>Condividi</span>
+				</button>
+			</div>
+		</div>
+		<p class="copy-dashboard-profile-feedback mt-3 hidden text-sm font-semibold text-emerald-800" role="status" aria-live="polite"></p>
+	</section>
+
+	<script>
+		document.addEventListener('DOMContentLoaded', function () {
+			const publicProfile = document.querySelector('[aria-labelledby="dashboard-public-profile-title"]');
+			const organizationSection = document.querySelector('[aria-label="Gestione organizzazioni ed eventi master"]');
+			if (publicProfile && organizationSection) organizationSection.parentNode.insertBefore(publicProfile, organizationSection);
+		});
+	</script>
 
 	<div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
 		<a href="/dashboard/profile" class="rounded-2xl bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-green-700">
@@ -275,3 +348,35 @@ $completionPercent = min(100, (int) round(($completionSteps / 5) * 100));
 		</div>
 	</section>
 </section>
+
+<script>
+	document.addEventListener('DOMContentLoaded', () => {
+		document.querySelectorAll('.copy-dashboard-profile-link').forEach(button => {
+			button.addEventListener('click', async () => {
+				const value = button.dataset.copy || '';
+				const feedback = button.closest('section')?.querySelector('.copy-dashboard-profile-feedback');
+				if (!value || !feedback) return;
+
+				try {
+					if (navigator.share) {
+						await navigator.share({
+							title: 'Il mio profilo su ItalianCosplay',
+							url: value,
+						});
+						feedback.textContent = 'Profilo condiviso.';
+					} else {
+						await navigator.clipboard.writeText(value);
+						feedback.textContent = 'Link del profilo copiato.';
+					}
+				} catch (error) {
+					if (error?.name === 'AbortError') return;
+					window.prompt('Copia il link del profilo:', value);
+					feedback.textContent = 'Puoi copiare il link dalla finestra aperta.';
+				}
+
+				feedback.classList.remove('hidden');
+				window.setTimeout(() => feedback.classList.add('hidden'), 2500);
+			});
+		});
+	});
+</script>

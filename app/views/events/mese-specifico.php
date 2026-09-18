@@ -8,6 +8,7 @@ $breadcrumbs = $data['breadcrumbs'] ?? [];
 $mese = $data['mese'] ?? '';
 $testoDescrittivo = $data['testo_descrittivo'] ?? '';
 $weekendDelMese = $data['weekendDelMese'] ?? '';
+$eventCount = (int) ($data['eventCount'] ?? 0);
 
 $siteBaseUrl = rtrim(URL_ROOT_SITE, '/');
 $eventsBaseUrl = $siteBaseUrl . '/eventi-cosplay';
@@ -242,7 +243,7 @@ foreach ($allVisibleEvents as $event) {
 
 				<aside class="rounded-lg border border-green-100 bg-green-50 p-4" aria-label="Riepilogo mese">
 					<p class="text-sm font-semibold text-green-900">Eventi del mese</p>
-					<p class="mt-1 text-4xl font-extrabold text-gray-950"><?php echo count($seenSlugs); ?></p>
+					<p class="mt-1 text-4xl font-extrabold text-gray-950"><?php echo $eventCount; ?></p>
 					<p class="mt-2 text-sm text-gray-700">
 						Eventi con date, località, immagini, dettagli e link alle schede complete.
 					</p>

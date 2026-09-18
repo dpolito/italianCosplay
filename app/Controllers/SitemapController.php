@@ -6,6 +6,7 @@ use App\Models\BlogPost;
 use App\Models\Comune;
 use App\Models\Event;
 use App\Models\EventMaster;
+use App\Repositories\OrganizationRepository;
 use App\Models\Provincia;
 use App\Models\Regione;
 use function date;
@@ -22,6 +23,7 @@ class SitemapController extends Controller
 	private BlogPost $blogPostModel;
 	private BlogCategory $blogCategoryModel;
 	private EventMaster $eventMasterModel;
+	private OrganizationRepository $organizationRepository;
 
 	public function __construct()
 	{
@@ -32,6 +34,7 @@ class SitemapController extends Controller
 		$this->blogPostModel = new BlogPost();
 		$this->blogCategoryModel = new BlogCategory();
 		$this->eventMasterModel = new EventMaster();
+		$this->organizationRepository = new OrganizationRepository();
 	}
 	public function index()
 	{
@@ -52,6 +55,7 @@ class SitemapController extends Controller
 		// =========================
 		$xml .= $this->addSitemap($base . '/sitemap-events.xml');
 		$xml .= $this->addSitemap($base . '/sitemap-events-master.xml');
+		$xml .= $this->addSitemap($base . '/sitemap-organizations.xml');
 
 		// =========================
 		// GEOGRAPHY SITEMAP
@@ -64,6 +68,20 @@ class SitemapController extends Controller
 
 		$xml .= '</sitemapindex>';
 
+		echo $xml;
+	}
+
+	public function organizations()
+	{
+		header('Content-Type: application/xml; charset=utf-8');
+		$xml = '<?xml version="1.0" encoding="UTF-8"?>' . PHP_EOL;
+		$xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . PHP_EOL;
+		foreach ($this->organizationRepository->findAllPublic() as $organization) {
+			$url = 'https://www.italiancosplay.it/organizzazioni/' . rawurlencode((string) $organization['slug']);
+			$lastmod = !empty($organization['updated_at']) ? date('Y-m-d', strtotime($organization['updated_at'])) : date('Y-m-d');
+			$xml .= $this->addUrl($url, '0.6', $lastmod);
+		}
+		$xml .= '</urlset>';
 		echo $xml;
 	}
 
@@ -85,9 +103,13 @@ class SitemapController extends Controller
 		$xml .= $this->addUrl('https://www.italiancosplay.it/eventi-cosplay', '0.9');
 		$xml .= $this->addUrl('https://www.italiancosplay.it/eventi-cosplay-mese', '0.6');
 		$xml .= $this->addUrl('https://www.italiancosplay.it/eventi-cosplay-weekend', '0.6');
+		$xml .= $this->addUrl('https://www.italiancosplay.it/agenda-cosplay', '0.7');
+		$xml .= $this->addUrl('https://www.italiancosplay.it/cosplan', '0.7');
+		$xml .= $this->addUrl('https://www.italiancosplay.it/organizzatori-eventi-cosplay', '0.7');
 		$xml .= $this->addUrl('https://www.italiancosplay.it/segnala-evento-cosplay', '0.6');
 		$xml .= $this->addUrl('https://www.italiancosplay.it/privacy', '0.3');
 		$xml .= $this->addUrl('https://www.italiancosplay.it/cookies', '0.3');
+		$xml .= $this->addUrl('https://www.italiancosplay.it/faq', '0.6');
 		$xml .= $this->addUrl('https://www.italiancosplay.it/blog', '0.9');
 
 		$xml .= '</urlset>';
@@ -123,7 +145,7 @@ class SitemapController extends Controller
 	{
 		header('Content-Type: application/xml; charset=utf-8');
 
-		$eventMasters = $this->eventMasterModel->getAll();
+		$eventMasters = $this->eventMasterModel->getPublic();
 
 		$xml  = '<?xml version="1.0" encoding="UTF-8"?>' . PHP_EOL;
 		$xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . PHP_EOL;

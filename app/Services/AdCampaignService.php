@@ -210,7 +210,9 @@ class AdCampaignService
 				$user['email'],
 				$user['username'] ?? $user['email'],
 				$subject,
-				$body
+				$body,
+				null,
+				[Mailer::TAG_ADVERTISING]
 			);
 		}
 

@@ -29,7 +29,7 @@ class AuthController extends Controller
 		if (!isset($_SESSION['csrf_token'])) {
 			$_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 		}
-		$this->view('auth/login', ['csrf_token' => $_SESSION['csrf_token']]); // Passa il token alla vista
+		$this->view('home/auth/login', ['csrf_token' => $_SESSION['csrf_token']]); // Passa il token alla vista
 	}
 
 	/*public function login()
@@ -82,7 +82,7 @@ class AuthController extends Controller
 					'old_identifier' => $identifier,
 					'csrf_token' => $_SESSION['csrf_token'] // Passa il token anche in caso di errore
 				];
-				$this->view('auth/login', $data);
+				$this->view('home/auth/login', $data);
 			}
 		} else {
 			// Se non è una richiesta POST o i campi non sono settati, reindirizza alla pagina di login
@@ -115,7 +115,7 @@ class AuthController extends Controller
 				]
 			]);
 
-			$this->view('auth/login', [
+			$this->view('home/auth/login', [
 				'error' => 'Errore di sicurezza: richiesta non valida (CSRF).',
 				'csrf_token' => $_SESSION['csrf_token']
 			]);
@@ -138,7 +138,7 @@ class AuthController extends Controller
 				]
 			]);
 
-			$this->view('auth/login', [
+			$this->view('home/auth/login', [
 				'error' => 'Compila tutti i campi.',
 				'old_identifier' => $identifier,
 				'csrf_token' => $_SESSION['csrf_token']
@@ -161,7 +161,7 @@ class AuthController extends Controller
 				]
 			]);
 
-			$this->view('auth/login', [
+			$this->view('home/auth/login', [
 				'error' => 'Username/Email o password non validi.',
 				'old_identifier' => $identifier,
 				'csrf_token' => $_SESSION['csrf_token']
@@ -182,7 +182,7 @@ class AuthController extends Controller
 				]
 			]);
 
-			$this->view('auth/login', [
+			$this->view('home/auth/login', [
 				'error' => 'Devi verificare la tua email prima di accedere. Controlla la tua casella di posta.',
 				'old_identifier' => $identifier,
 				'csrf_token' => $_SESSION['csrf_token']
@@ -223,7 +223,7 @@ class AuthController extends Controller
 			$_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 		}
 
-		$this->view('auth/register', [
+		$this->view('home/auth/register', [
 			'csrf_token' => $_SESSION['csrf_token'],
 			'pageTitle' => 'Registrati su ItalianCosplay',
 			'metaDescription' => 'Crea il tuo account su ItalianCosplay per salvare eventi, seguire i cosplay preferiti e accedere alla tua area personale.',
@@ -232,13 +232,35 @@ class AuthController extends Controller
 		]); // Passa il token alla vista
 	}
 
+	public function agendaLanding(): void
+	{
+		$this->requireFeature('enable_user_registration', 'La registrazione utenti è temporaneamente disattivata.');
+
+		$this->view('home/auth/agenda-landing', [
+			'pageTitle' => 'Agenda cosplay personale: salva eventi vicini | ItalianCosplay',
+			'metaDescription' => 'Crea la tua agenda cosplay gratuita: salva eventi, segui le zone che frequenti e ritrova gli appuntamenti che non vuoi perdere.',
+			'canonicalUrl' => URL_ROOT_SITE . '/agenda-cosplay',
+		]);
+	}
+
+	public function cosplanLanding(): void
+	{
+		$this->requireFeature('enable_user_registration', 'La registrazione utenti è temporaneamente disattivata.');
+
+		$this->view('home/auth/cosplan-landing', [
+			'pageTitle' => 'Cosplan gratis: organizza cosplay ed eventi | ItalianCosplay',
+			'metaDescription' => 'Organizza gratis il tuo cosplan su ItalianCosplay: pianifica personaggio, costume, preparazione ed eventi cosplay dove portarlo.',
+			'canonicalUrl' => URL_ROOT_SITE . '/cosplan',
+		]);
+	}
+
 	public function register()
 	{
 		$this->requireFeature('enable_user_registration', 'La registrazione utenti è temporaneamente disattivata.');
 		if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 			$csrf_token = bin2hex(random_bytes(32));
 			$_SESSION['csrf_token'] = $csrf_token;
-			$this->view('auth/register', [
+			$this->view('home/auth/register', [
 				'csrf_token' => $csrf_token,
 				'pageTitle' => 'Registrati su ItalianCosplay',
 				'metaDescription' => 'Crea il tuo account su ItalianCosplay per salvare eventi, seguire i cosplay preferiti e accedere alla tua area personale.',
@@ -251,7 +273,7 @@ class AuthController extends Controller
 		// Protezione CSRF
 		if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
 
-			$this->view('auth/register', [
+			$this->view('home/auth/register', [
 				'errors' => 'Errore di sicurezza: richiesta non valida (CSRF).',
 				'old' => $_POST,
 				'csrf_token' => $_SESSION['csrf_token'],
@@ -294,7 +316,7 @@ class AuthController extends Controller
 		if ($userModel->findByEmail($email)) $errors[] = 'Email già registrata.';
 
 		if (!empty($errors)) {
-			$this->view('auth/register', [
+			$this->view('home/auth/register', [
 				'errors' => $errors,
 				'old' => $_POST,
 				'age_declaration' => $ageDeclarationAccepted,
@@ -343,12 +365,21 @@ class AuthController extends Controller
 			}
 		}
 
-		// Invia email di verifica (funzione mail personalizzata)
+		// Invia l'email di verifica usando il template dedicato alla registrazione.
 		$verificationLink = 'https://www.italiancosplay.it/verify/' . $verification_token;
+		$template = file_get_contents(__DIR__ . '/../views/email_template_registrazione.php');
+		$template = str_replace(
+			['{{nome}}', '{{link_conferma}}'],
+			[
+				htmlspecialchars($username, ENT_QUOTES, 'UTF-8'),
+				htmlspecialchars($verificationLink, ENT_QUOTES, 'UTF-8'),
+			],
+			$template
+		);
 		$mailer = new Mailer();
-		$mailer->send($email, $email, "Verifica la tua email", "Clicca qui per verificare il tuo account: $verificationLink");
+		$mailer->send($email, $username, 'Conferma la tua email', $template, null, [Mailer::TAG_REGISTRATION]);
 
-		$this->view('auth/login', [
+		$this->view('home/auth/login', [
 			'success' => 'Registrazione completata! Controlla la tua email per verificare il tuo account.',
 			'old' => $_POST,
 			'age_declaration' => $ageDeclarationAccepted,
@@ -358,12 +389,26 @@ class AuthController extends Controller
 	}
 	public function verify($token)
 	{
+		if (empty($_SESSION['csrf_token'])) {
+			$_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+		}
+
+		$verificationToken = is_array($token) ? trim((string) ($token[0] ?? '')) : trim((string) $token);
+		if ($verificationToken === '') {
+			Session::setFlash('error', 'Link di verifica non valido o incompleto.');
+			$this->view('home/auth/login', [
+				'error' => 'Link di verifica non valido o incompleto.',
+				'csrf_token' => $_SESSION['csrf_token']
+			]);
+			return;
+		}
+
 		$userModel = new User();
-		$user = $userModel->findByVerificationToken($token[1]);
+		$user = $userModel->findByVerificationToken($verificationToken);
 
 		if (!$user) {
 			Session::setFlash('error', 'Token di verifica non valido.');
-			$this->view('auth/login', [
+			$this->view('home/auth/login', [
 				'error' => 'Token di verifica non valido.',
 				'csrf_token' => $_SESSION['csrf_token']
 			]);
@@ -379,7 +424,7 @@ class AuthController extends Controller
 				)
 			);
 		}
-		$this->view('auth/login', [
+		$this->view('home/auth/login', [
 			'success' => 'Email verificata! Ora puoi accedere.',
 			'csrf_token' => $_SESSION['csrf_token']
 		]);

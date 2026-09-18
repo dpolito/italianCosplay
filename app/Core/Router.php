@@ -107,6 +107,7 @@ class Router
 			// 🔹 Compila pattern route
 			$pattern = $route_pattern;
 			$pattern = preg_replace('/\{id\}/', '(\d+)', $pattern);
+			$pattern = preg_replace('/\{masterId\}/', '(\d+)', $pattern);
 			$pattern = preg_replace('/\{[a-zA-Z_]+\}/', '([^/]+)', $pattern);
 			$pattern = '#^' . $pattern . '$#';
 
@@ -200,6 +201,7 @@ class Router
 		foreach ($this->routes[$method] as $route_pattern => $handler) {
 			// Converte i placeholder in regex come già fai nel dispatch
 			$pattern = preg_replace('/\{id\}/', '(\d+)', $route_pattern);
+			$pattern = preg_replace('/\{masterId\}/', '(\d+)', $pattern);
 			$pattern = preg_replace('/\{provincia_slug\}/', '([a-zA-Z0-9-]+)', $pattern);
 			$pattern = preg_replace('/\{regione_slug\}/', '([a-zA-Z0-9-]+)', $pattern);
 			$pattern = preg_replace('/\{comune_slug\}/', '([a-zA-Z0-9-]+)', $pattern);
@@ -223,6 +225,8 @@ class Router
 					'EventController_show' => 'dettaglio-evento',
 					'AuthController_showLoginForm' => 'login',
 					'AuthController_showRegisterForm' => 'register',
+					'AuthController_agendaLanding' => 'agenda-cosplay',
+					'AuthController_cosplanLanding' => 'cosplan',
 					'EventController_create' => 'segnalazione-evento',
 					'EventController_weekend' => 'weekend',
 					'EventController_weekendSpecifico' => 'weekend_specifico',
@@ -238,6 +242,10 @@ class Router
 					'BlogController_category' => 'blog_categoria',
 					'ProfileController_index' => 'profili-pubblici',
 					'ProfileController_publicProfile' => 'profilo-pubblico',
+					'OrganizationController_show' => 'organizzazione-dettaglio',
+					'OrganizationController_index' => 'organizzazioni-lista',
+					'HomeController_organizersLanding' => 'organizzatori-eventi-cosplay',
+					'FaqController_index' => 'faq',
 				];
 				if (isset($this->controllerInstance) && method_exists($this->controllerInstance, 'getPageNameOverride')) {
 					$override = $this->controllerInstance->getPageNameOverride();
@@ -259,6 +267,15 @@ class Router
 		$page = $router->getCurrentPageName();
 		$meta_fb = '';
 		switch ($page) {
+			case 'faq':
+				$title = 'FAQ e guida alle funzionalità | ItalianCosplay';
+				$description = 'Trova risposte e guide per usare eventi, profilo, preferiti e tutte le funzionalità disponibili su ItalianCosplay.';
+				$meta_fb = '<meta property="og:type" content="website">' . "\n"
+					. '<meta property="og:site_name" content="ItalianCosplay">' . "\n"
+					. '<meta property="og:title" content="' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '">' . "\n"
+					. '<meta property="og:description" content="' . htmlspecialchars($description, ENT_QUOTES, 'UTF-8') . '">' . "\n"
+					. '<meta property="og:url" content="' . htmlspecialchars($data['canonicalUrl'] ?? '', ENT_QUOTES, 'UTF-8') . '">';
+				break;
 			case 'lista-eventi':
 				if (!empty($data['comune_nome'])) {
 					$title = "Eventi Cosplay a " . $data['comune_nome'] . " | ItalianCosplay";
@@ -329,13 +346,35 @@ class Router
 					$description = "Scopri un evento e tutte le sue edizioni collegate con informazioni principali e link utili.";
 				}
 				break;
+			case 'organizzazione-dettaglio':
+				$organization = $data['organization'] ?? [];
+				$organizationName = $organization['name'] ?? 'Organizzazione';
+				$title = $data['organization_meta_title'] ?? ($organizationName . " | Organizzazione cosplay | ItalianCosplay");
+				$description = $data['organization_meta_description'] ?? ("Scopri " . $organizationName . ": organizzazione, eventi master ed edizioni cosplay pubblicate su ItalianCosplay.");
+				$organizationImage = $data['organization_image'] ?? '';
+				$meta_fb = '<meta property="og:type" content="profile">' . "\n"
+					. '<meta property="og:site_name" content="ItalianCosplay">' . "\n"
+					. '<meta property="og:title" content="' . htmlspecialchars($title, ENT_QUOTES, "UTF-8") . '">' . "\n"
+					. '<meta property="og:description" content="' . htmlspecialchars($description, ENT_QUOTES, "UTF-8") . '">' . "\n"
+					. '<meta property="og:url" content="' . htmlspecialchars($data['canonicalUrl'] ?? '', ENT_QUOTES, "UTF-8") . '">' . "\n"
+					. ($organizationImage !== '' ? '<meta property="og:image" content="' . htmlspecialchars($organizationImage, ENT_QUOTES, "UTF-8") . '">' . "\n" : '')
+					. '<meta name="twitter:card" content="summary_large_image">' . "\n"
+					. '<meta name="twitter:title" content="' . htmlspecialchars($title, ENT_QUOTES, "UTF-8") . '">' . "\n"
+					. '<meta name="twitter:description" content="' . htmlspecialchars($description, ENT_QUOTES, "UTF-8") . '">' . "\n"
+					. ($organizationImage !== '' ? '<meta name="twitter:image" content="' . htmlspecialchars($organizationImage, ENT_QUOTES, "UTF-8") . '">' : '');
+				break;
+			case 'organizzazioni-lista':
+				$title = "Organizzazioni cosplay in Italia | ItalianCosplay";
+				$description = "Scopri le organizzazioni che curano eventi, fiere e appuntamenti cosplay pubblicati su ItalianCosplay.";
+				break;
 			case 'pagina-sconosciuta':
 				if (!empty($data['evento'])) {
 					$evento = $data['evento'];
-					$title = $evento['titolo'] . " "
+					$defaultTitle = $evento['titolo'] . " "
 						. date("Y", strtotime($evento['data_inizio']))
 						. ": date, programma, biglietti e info"
 						. " | ItalianCosplay";
+					$title = trim((string) ($evento['seo_title'] ?? '')) ?: $defaultTitle;
 
 					//Teramo Comix 2026: date 8-10 maggio, location, programma cosplay, stand e info utili. Scopri cosa fare e come partecipare.
 					$dataDescription = DateHelper::formatEventoPeriodo(
@@ -346,9 +385,10 @@ class Router
 					/*$description = "Scopri " . $evento['titolo'] . " a " . $evento['comune_nome']
 						. ": date, luogo, cosplay, fumetti e tanto divertimento. "
 						. "Dettagli e info su ItalianCosplay!";*/
-					$description =$evento['titolo'] . " "
+					$defaultDescription = $evento['titolo'] . " "
 						. date("Y", strtotime($evento['data_inizio']))
 						. ": ".$dataDescription.", location, programma cosplay, stand e info utili. Scopri cosa fare e come partecipare.";
+					$description = trim((string) ($evento['seo_description'] ?? '')) ?: $defaultDescription;
 					$meta_fb = '<!-- Open Graph (Facebook / WhatsApp / Messenger) -->
 							    <meta property="og:type" content="website">
 							    <meta property="og:site_name" content="ItalianCosplay">
@@ -377,14 +417,16 @@ class Router
 			case 'dettaglio-evento':
 				if (!empty($data['evento'])) {
 					$evento = $data['evento'];
-					$title = $evento['titolo'] . " "
+					$defaultTitle = $evento['titolo'] . " "
 						. date("Y", strtotime($evento['data_inizio']))
 						. " a " . $evento['comune_nome']
 						. " | ItalianCosplay";
+					$title = trim((string) ($evento['seo_title'] ?? '')) ?: $defaultTitle;
 
-					$description = "Scopri " . $evento['titolo'] . " a " . $evento['comune_nome']
+					$defaultDescription = "Scopri " . $evento['titolo'] . " a " . $evento['comune_nome']
 						. ": date, luogo, cosplay, fumetti e tanto divertimento. "
 						. "Dettagli e info su ItalianCosplay!";
+					$description = trim((string) ($evento['seo_description'] ?? '')) ?: $defaultDescription;
 					$meta_fb = '<!-- Open Graph (Facebook / WhatsApp / Messenger) -->
 							    <meta property="og:type" content="website">
 							    <meta property="og:site_name" content="ItalianCosplay">
@@ -423,6 +465,45 @@ class Router
 			case 'register':
 				$title = "Registrati | ItalianCosplay";
 				$description = "Crea il tuo account su ItalianCosplay per segnalare eventi, salvare fiere e partecipare alla community cosplay.";
+				break;
+
+			case 'organizzatori-eventi-cosplay':
+				$title = "Organizzatori eventi cosplay: gestisci la scheda | ItalianCosplay";
+				$description = "Richiedi gratis la gestione della scheda del tuo evento cosplay su ItalianCosplay e aggiorna date, luogo, immagini e link ufficiali.";
+				$meta_fb = '<meta property="og:type" content="website">' . "\n"
+					. '<meta property="og:site_name" content="ItalianCosplay">' . "\n"
+					. '<meta property="og:title" content="' . htmlspecialchars($title, ENT_QUOTES, "UTF-8") . '">' . "\n"
+					. '<meta property="og:description" content="' . htmlspecialchars($description, ENT_QUOTES, "UTF-8") . '">' . "\n"
+					. '<meta property="og:url" content="' . htmlspecialchars($data['canonicalUrl'] ?? '', ENT_QUOTES, "UTF-8") . '">' . "\n"
+					. '<meta name="twitter:card" content="summary">' . "\n"
+					. '<meta name="twitter:title" content="' . htmlspecialchars($title, ENT_QUOTES, "UTF-8") . '">' . "\n"
+					. '<meta name="twitter:description" content="' . htmlspecialchars($description, ENT_QUOTES, "UTF-8") . '">';
+				break;
+
+			case 'agenda-cosplay':
+				$title = "Agenda cosplay personale: salva eventi vicini | ItalianCosplay";
+				$description = "Crea la tua agenda cosplay gratuita: salva eventi, segui le zone che frequenti e ritrova gli appuntamenti che non vuoi perdere.";
+				$meta_fb = '<meta property="og:type" content="website">' . "\n"
+					. '<meta property="og:site_name" content="ItalianCosplay">' . "\n"
+					. '<meta property="og:title" content="' . htmlspecialchars($title, ENT_QUOTES, "UTF-8") . '">' . "\n"
+					. '<meta property="og:description" content="' . htmlspecialchars($description, ENT_QUOTES, "UTF-8") . '">' . "\n"
+					. '<meta property="og:url" content="' . htmlspecialchars($data['canonicalUrl'] ?? '', ENT_QUOTES, "UTF-8") . '">' . "\n"
+					. '<meta name="twitter:card" content="summary">' . "\n"
+					. '<meta name="twitter:title" content="' . htmlspecialchars($title, ENT_QUOTES, "UTF-8") . '">' . "\n"
+					. '<meta name="twitter:description" content="' . htmlspecialchars($description, ENT_QUOTES, "UTF-8") . '">';
+				break;
+
+			case 'cosplan':
+				$title = "Cosplan gratis: organizza cosplay ed eventi | ItalianCosplay";
+				$description = "Organizza gratis il tuo cosplan su ItalianCosplay: pianifica personaggio, costume, preparazione ed eventi cosplay dove portarlo.";
+				$meta_fb = '<meta property="og:type" content="website">' . "\n"
+					. '<meta property="og:site_name" content="ItalianCosplay">' . "\n"
+					. '<meta property="og:title" content="' . htmlspecialchars($title, ENT_QUOTES, "UTF-8") . '">' . "\n"
+					. '<meta property="og:description" content="' . htmlspecialchars($description, ENT_QUOTES, "UTF-8") . '">' . "\n"
+					. '<meta property="og:url" content="' . htmlspecialchars($data['canonicalUrl'] ?? '', ENT_QUOTES, "UTF-8") . '">' . "\n"
+					. '<meta name="twitter:card" content="summary">' . "\n"
+					. '<meta name="twitter:title" content="' . htmlspecialchars($title, ENT_QUOTES, "UTF-8") . '">' . "\n"
+					. '<meta name="twitter:description" content="' . htmlspecialchars($description, ENT_QUOTES, "UTF-8") . '">';
 				break;
 
 			case 'profili-pubblici':

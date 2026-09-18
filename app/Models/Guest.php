@@ -98,6 +98,13 @@ class Guest extends BaseModel
 		}
 	}
 
+	public function removeFromEvent(int $eventId, int $guestId): bool
+	{
+		$stmt = $this->db->prepare('DELETE FROM event_guests WHERE event_id = :event_id AND guest_id = :guest_id');
+		$stmt->execute([':event_id' => $eventId, ':guest_id' => $guestId]);
+		return $stmt->rowCount() > 0;
+	}
+
 	public function getAll(): array
 	{
 		$stmt = $this->db->prepare("

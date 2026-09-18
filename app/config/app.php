@@ -18,6 +18,14 @@ if (!defined('TELEGRAM_CHAT_ID')) {
 	define('TELEGRAM_CHAT_ID', '');
 }
 
+if (!defined('TELEGRAM_CHANNEL_CHAT_ID')) {
+	define('TELEGRAM_CHANNEL_CHAT_ID', '');
+}
+
+if (!defined('TELEGRAM_CHANNEL_URL')) {
+	define('TELEGRAM_CHANNEL_URL', '');
+}
+
 if (!function_exists('dd')) {
 	function dd(...$vars) {
 		echo '<style>

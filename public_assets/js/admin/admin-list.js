@@ -21,7 +21,7 @@ class AdminList {
 
 		this.search = '';
 
-		this.filters = {};
+		this.filters = this.config.initialFilters ?? {};
 
 		this.formatters = {};
 
@@ -38,9 +38,46 @@ class AdminList {
 
 		this.registerFormatters();
 
+		this.applyInitialState();
+
 		this.bindEvents();
 
 		this.load();
+
+	}
+
+	applyInitialState() {
+
+		if(this.config.initialSearch && this.searchInput){
+
+			this.search =
+				String(this.config.initialSearch);
+
+			this.searchInput.value =
+				this.search;
+
+		}
+
+		this.element
+			.querySelectorAll(
+				'[data-admin-list-filter]'
+			)
+			.forEach(filter=>{
+
+				const name =
+					filter.dataset.adminListFilter;
+
+				if(
+					name &&
+					this.filters[name] !== undefined
+				){
+
+					filter.value =
+						this.filters[name];
+
+				}
+
+			});
 
 	}
 
@@ -225,6 +262,74 @@ class AdminList {
 						className: 'bg-red-100 text-red-800'
 					};
 
+
+			};
+
+		this.formatters.emailEvent =
+			value => {
+
+				const normalized =
+					String(value ?? '')
+						.replace(/([a-z])([A-Z])/g, '$1_$2')
+						.toLowerCase();
+
+				const statuses = {
+					request: { label: 'Inviata', className: 'bg-blue-100 text-blue-800' },
+					delivered: { label: 'Consegnata', className: 'bg-green-100 text-green-800' },
+					opened: { label: 'Aperta', className: 'bg-emerald-100 text-emerald-800' },
+					unique_opened: { label: 'Prima apertura', className: 'bg-emerald-100 text-emerald-800' },
+					click: { label: 'Click', className: 'bg-indigo-100 text-indigo-800' },
+					clicked: { label: 'Click', className: 'bg-indigo-100 text-indigo-800' },
+					soft_bounce: { label: 'Soft bounce', className: 'bg-amber-100 text-amber-800' },
+					hard_bounce: { label: 'Hard bounce', className: 'bg-red-100 text-red-800' },
+					blocked: { label: 'Bloccata', className: 'bg-red-100 text-red-800' },
+					spam: { label: 'Spam', className: 'bg-red-100 text-red-800' },
+					invalid: { label: 'Non valida', className: 'bg-red-100 text-red-800' },
+					deferred: { label: 'Rimandata', className: 'bg-yellow-100 text-yellow-800' },
+					unsubscribed: { label: 'Disiscritta', className: 'bg-gray-100 text-gray-800' }
+				};
+
+				return statuses[normalized] ?? {
+					label: value ?? 'N/D',
+					className: 'bg-gray-100 text-gray-800'
+				};
+
+			};
+
+		this.formatters.emailTag =
+			value => {
+
+				return {
+					label: value || 'senza_tag',
+					className: value
+						? 'bg-slate-100 text-slate-800'
+						: 'bg-gray-100 text-gray-700'
+				};
+
+			};
+
+		this.formatters.legacyInvitationStatus =
+			value => {
+
+				const statuses = {
+					pending: {
+						label: 'Da inviare',
+						className: 'bg-gray-100 text-gray-800'
+					},
+					sent: {
+						label: 'Inviata',
+						className: 'bg-green-100 text-green-800'
+					},
+					failed: {
+						label: 'Fallita',
+						className: 'bg-red-100 text-red-800'
+					}
+				};
+
+				return statuses[value] ?? {
+					label: value ?? '',
+					className: 'bg-gray-100 text-gray-800'
+				};
 
 			};
 
@@ -924,6 +1029,14 @@ class AdminList {
 
 		}
 
+		if(column.type==='datetime'){
+
+			return this.createText(
+				this.formatDateTime(value)
+			);
+
+		}
+
 
 
 		return this.createText(
@@ -1456,6 +1569,29 @@ class AdminList {
 		return new Date(value)
 			.toLocaleDateString(
 				'it-IT'
+			);
+
+
+	}
+
+	formatDateTime(value){
+
+		if(!value){
+
+			return '';
+
+		}
+
+		return new Date(String(value).replace(' ', 'T'))
+			.toLocaleString(
+				'it-IT',
+				{
+					day:'2-digit',
+					month:'2-digit',
+					year:'numeric',
+					hour:'2-digit',
+					minute:'2-digit'
+				}
 			);
 
 

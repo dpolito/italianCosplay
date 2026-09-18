@@ -1,4 +1,15 @@
 <?php
+
+use App\Services\BrevoEmailQuotaService;
+
+$brevoEmailQuota = (new BrevoEmailQuotaService())->getTodayQuota();
+$brevoQuotaClasses = [
+	'ok' => 'bg-emerald-100 text-emerald-900 border-emerald-200',
+	'warning' => 'bg-amber-100 text-amber-900 border-amber-200',
+	'critical' => 'bg-red-100 text-red-900 border-red-200',
+	'exhausted' => 'bg-gray-950 text-white border-gray-700',
+];
+$brevoQuotaClass = $brevoQuotaClasses[$brevoEmailQuota['status'] ?? 'ok'] ?? 'bg-gray-100 text-gray-700 border-gray-200';
 ?>
 <!DOCTYPE html>
 <html lang="it">
@@ -169,12 +180,32 @@
 	<div class="container mx-auto flex justify-between items-center">
 		<h1 class="text-xl font-bold">Dashboard Admin</h1>
 
-		<form action="/logout" method="POST">
-			<input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-			<button class="bg-red-600 px-4 py-2 rounded">
-				Logout
-			</button>
-		</form>
+		<div class="flex items-center gap-3">
+			<?php if (!empty($brevoEmailQuota['configured'])): ?>
+				<div
+					class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-semibold <?= htmlspecialchars($brevoQuotaClass, ENT_QUOTES, 'UTF-8') ?>"
+					title="Email transazionali Brevo. Inviate oggi: <?= (int) $brevoEmailQuota['sentToday'] ?>. Disponibili: <?= (int) $brevoEmailQuota['remaining'] ?>. Limite giornaliero: <?= (int) $brevoEmailQuota['dailyLimit'] ?>. Ultimo aggiornamento: <?= htmlspecialchars((string) $brevoEmailQuota['updatedAt'], ENT_QUOTES, 'UTF-8') ?>."
+				>
+					<i class="fa-solid fa-envelope" aria-hidden="true"></i>
+					<span><?= (int) $brevoEmailQuota['remaining'] ?> / <?= (int) $brevoEmailQuota['dailyLimit'] ?></span>
+				</div>
+			<?php else: ?>
+				<div
+					class="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700"
+					title="Configura BREVO_API_KEY per mostrare la quota email transazionale."
+				>
+					<i class="fa-solid fa-envelope" aria-hidden="true"></i>
+					<span>Brevo non configurato</span>
+				</div>
+			<?php endif; ?>
+
+			<form action="/logout" method="POST">
+				<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+				<button class="bg-red-600 px-4 py-2 rounded">
+					Logout
+				</button>
+			</form>
+		</div>
 	</div>
 </header>
 
@@ -210,7 +241,30 @@
 						Cookie Policy
 					</a>
 				</li>
+				<li>
+					<a href="/admin/email-delivery-events" class="<?= (strpos($_SERVER['REQUEST_URI'], '/admin/email-delivery-events') !== false) ? 'active' : '' ?>">
+						Email Brevo
+					</a>
+				</li>
 				</ul>
+			<ul class="nav-group">
+				<li class="group-title toggle" data-target="telegram-admin">
+					Telegram
+					<span>▾</span>
+				</li>
+				<ul id="telegram-admin" class="group-items <?= strpos($_SERVER['REQUEST_URI'], '/admin/telegram') !== false ? '' : 'closed' ?>">
+					<li>
+						<a href="/admin/telegram" class="<?= ($_SERVER['REQUEST_URI'] === '/admin/telegram' || strpos($_SERVER['REQUEST_URI'], '/admin/telegram?') === 0) ? 'active' : '' ?>">
+							Calendario
+						</a>
+					</li>
+					<li>
+						<a href="/admin/telegram/create" class="<?= (strpos($_SERVER['REQUEST_URI'], '/admin/telegram/create') !== false) ? 'active' : '' ?>">
+							Crea messaggio
+						</a>
+					</li>
+				</ul>
+			</ul>
 				<!-- EVENTI -->
 
 				<ul class="nav-group">
@@ -235,6 +289,26 @@
 					<li>
 						<a href="/admin/events-master" class="<?= (strpos($_SERVER['REQUEST_URI'], '/admin/events-master') !== false) ? 'active' : '' ?>">
 							Eventi master
+						</a>
+					</li>
+					<li>
+						<a href="/admin/event-master-claims" class="<?= (strpos($_SERVER['REQUEST_URI'], '/admin/event-master-claims') !== false) ? 'active' : '' ?>">
+							Richieste di riscatto
+						</a>
+					</li>
+					<li>
+						<a href="/admin/organizations" class="<?= (strpos($_SERVER['REQUEST_URI'], '/admin/organizations') !== false) ? 'active' : '' ?>">
+							Organizzazioni
+						</a>
+					</li>
+					<li>
+						<a href="/admin/organization-emails" class="<?= (strpos($_SERVER['REQUEST_URI'], '/admin/organization-emails') !== false) ? 'active' : '' ?>">
+							Email organizzazioni
+						</a>
+					</li>
+					<li>
+						<a href="/admin/legacy-invitation-emails" class="<?= (strpos($_SERVER['REQUEST_URI'], '/admin/legacy-invitation-emails') !== false) ? 'active' : '' ?>">
+							Email vecchio sito
 						</a>
 					</li>
 				</ul>
@@ -285,6 +359,17 @@
 						</li>
 					</ul>
 				</ul>
+
+			<ul class="nav-group">
+				<li class="group-title toggle" data-target="faq-admin">
+					FAQ
+					<span>▾</span>
+				</li>
+				<ul id="faq-admin" class="group-items <?= strpos($_SERVER['REQUEST_URI'], '/admin/faq') !== false ? '' : 'closed' ?>">
+					<li><a href="/admin/faq/categories" class="<?= (strpos($_SERVER['REQUEST_URI'], '/admin/faq/categories') !== false) ? 'active' : '' ?>">Categorie</a></li>
+					<li><a href="/admin/faq/items" class="<?= (strpos($_SERVER['REQUEST_URI'], '/admin/faq/items') !== false) ? 'active' : '' ?>">Domande/risposte</a></li>
+				</ul>
+			</ul>
 
 			<!-- CONTENUTI -->
 			<ul class="nav-group">
@@ -344,6 +429,7 @@
 <script src="/public_assets/js/admin/detail-panel/renderers/user.js"></script>
 <script src="/public_assets/js/admin/detail-panel/renderers/ad-campaign.js"></script>
 <script src="/public_assets/js/admin/detail-panel/renderers/ad-position.js"></script>
+<script src="/public_assets/js/admin/detail-panel/renderers/email-delivery-event.js"></script>
 <script src="/public_assets/js/admin/detail-panel/panel.js"></script>
 </body>
 </html>

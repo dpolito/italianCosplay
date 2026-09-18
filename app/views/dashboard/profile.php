@@ -7,6 +7,7 @@ $social = json_decode($user['social'] ?? '{}', true);
 
 $avatar = $user['avatar'] ?? '/assets/img/default_avatar.png';
 $displayName = $user['username'] ?? 'Cosplayer';
+$publicProfileUrl = rtrim(URL_ROOT_SITE, '/') . '/u/' . rawurlencode((string) ($user['username'] ?? ''));
 
 $completionSteps = 1
 	+ (!empty($user['avatar']) ? 1 : 0)
@@ -60,6 +61,45 @@ $completionPercent = min(100, (int) round(($completionSteps / 5) * 100));
 
 		</div>
 	</header>
+
+	<!-- PUBLIC PROFILE -->
+	<section class="rounded-2xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm md:p-6" aria-labelledby="public-profile-title">
+		<div class="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+			<div class="flex items-start gap-4">
+				<div class="flex h-11 w-11 flex-none items-center justify-center rounded-xl bg-emerald-800 text-white" aria-hidden="true">
+					<i class="fa-solid fa-eye"></i>
+				</div>
+				<div>
+					<h2 id="public-profile-title" class="text-lg font-extrabold text-emerald-950">
+						Questo è il tuo profilo pubblico
+					</h2>
+					<p class="mt-1 max-w-2xl text-sm leading-relaxed text-gray-700">
+						Consulta come lo vedono gli altri utenti oppure condividi il link del tuo profilo ItalianCosplay.
+					</p>
+					<p class="mt-3 break-all rounded-lg bg-white/70 px-3 py-2 text-sm text-gray-700">
+						<?php echo htmlspecialchars($publicProfileUrl, ENT_QUOTES, 'UTF-8'); ?>
+					</p>
+				</div>
+			</div>
+
+			<div class="flex flex-col gap-3 sm:flex-row md:flex-col lg:flex-row">
+				<a href="<?php echo htmlspecialchars($publicProfileUrl, ENT_QUOTES, 'UTF-8'); ?>"
+				   target="_blank"
+				   rel="noopener noreferrer"
+				   class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-800 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2">
+					<i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+					Consulta il profilo
+				</a>
+				<button type="button"
+				        class="copy-profile-link inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-800 bg-white px-4 py-3 text-sm font-bold text-emerald-900 transition hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2"
+				        data-copy="<?php echo htmlspecialchars($publicProfileUrl, ENT_QUOTES, 'UTF-8'); ?>">
+					<i class="fa-solid fa-share-nodes" aria-hidden="true"></i>
+					<span>Condividi profilo</span>
+				</button>
+			</div>
+		</div>
+		<p class="copy-profile-feedback mt-3 hidden text-sm font-semibold text-emerald-800" role="status" aria-live="polite"></p>
+	</section>
 
 	<!-- ALERT -->
 	<?php if (!empty($data['success'])): ?>
@@ -409,6 +449,34 @@ $completionPercent = min(100, (int) round(($completionSteps / 5) * 100));
 				} catch (error) {
 					window.prompt('Copia username:', value);
 				}
+			});
+		});
+
+		document.querySelectorAll('.copy-profile-link').forEach(button => {
+			button.addEventListener('click', async () => {
+				const value = button.dataset.copy || '';
+				const feedback = button.closest('section')?.querySelector('.copy-profile-feedback');
+				if (!value || !feedback) return;
+
+				try {
+					if (navigator.share) {
+						await navigator.share({
+							title: 'Il mio profilo su ItalianCosplay',
+							url: value,
+						});
+						feedback.textContent = 'Profilo condiviso.';
+					} else {
+						await navigator.clipboard.writeText(value);
+						feedback.textContent = 'Link del profilo copiato.';
+					}
+				} catch (error) {
+					if (error?.name === 'AbortError') return;
+					window.prompt('Copia il link del profilo:', value);
+					feedback.textContent = 'Puoi copiare il link dalla finestra aperta.';
+				}
+
+				feedback.classList.remove('hidden');
+				window.setTimeout(() => feedback.classList.add('hidden'), 2500);
 			});
 		});
 

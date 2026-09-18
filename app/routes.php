@@ -10,6 +10,9 @@ use App\Middleware\PermissionMiddleware;
 $router->get('/', ['uses' => ['HomeController', 'index']]);
 $router->get('/login', ['uses' => ['AuthController', 'showLoginForm']]);
 $router->post('/login', ['uses' => ['AuthController', 'login']]);
+$router->get('/agenda-cosplay', ['uses' => ['AuthController', 'agendaLanding']]);
+$router->get('/legacy-invitation/agenda', ['uses' => ['LegacyInvitationEmailController', 'agenda']]);
+$router->get('/cosplan', ['uses' => ['AuthController', 'cosplanLanding']]);
 $router->get('/register', ['uses' => ['AuthController', 'showRegisterForm']]);
 $router->post('/register', ['uses' => ['AuthController', 'register']]);
 
@@ -32,10 +35,13 @@ $router->post('/eventi-cosplay/agenda/update', [
 ]);
 $router->get('/privacy', ['uses' => ['HomeController', 'privacy']]);
 $router->get('/cookies', ['uses' => ['HomeController', 'cookies']]);
+$router->get('/organizzatori-eventi-cosplay', ['uses' => ['HomeController', 'organizersLanding']]);
+$router->get('/faq', ['uses' => ['FaqController', 'index']]);
 $router->get('/sitemap.xml', ['uses' => ['SitemapController', 'index']]);
 $router->get('/sitemap-static.xml', ['uses' => ['SitemapController', 'static']]);
 $router->get('/sitemap-events.xml', ['uses' => ['SitemapController', 'events']]);
 $router->get('/sitemap-events-master.xml', ['uses' => ['SitemapController', 'events_master']]);
+$router->get('/sitemap-organizations.xml', ['uses' => ['SitemapController', 'organizations']]);
 $router->get('/sitemap-locations.xml', ['uses' => ['SitemapController', 'locations']]);
 $router->get('/sitemap-blog-categorie.xml', ['uses' => ['SitemapController', 'blog_categorie']]);
 $router->get('/sitemap-blog-post.xml', ['uses' => ['SitemapController', 'blog_post']]);
@@ -46,21 +52,26 @@ $router->get('/ads/click/{campaignId}', ['uses' => ['AdCampaignController', 'cli
 // Eventi Cosplay
 $router->get('/eventi-master', ['uses' => ['EventController', 'masterIndex']]);
 $router->get('/eventi-master/{slug}', ['uses' => ['EventController', 'masterShow']]);
+$router->get('/eventi-master/{slug}/riscatta', ['uses' => ['EventMasterClaimController', 'create']]);
+$router->get('/eventi-master/{slug}/organizzazioni/search', ['uses' => ['EventMasterClaimController', 'organizationSearch']]);
+$router->post('/eventi-master/{slug}/riscatta', ['uses' => ['EventMasterClaimController', 'store']]);
+$router->get('/organizzazioni/{slug}', ['uses' => ['OrganizationController', 'show']]);
+$router->get('/organizzazioni', ['uses' => ['OrganizationController', 'index']]);
 $router->get('/eventi-cosplay', ['uses' => ['EventController', 'index']]);
 $router->get('/eventi-cosplay/create', ['uses' => ['EventController', 'create']]);
 $router->post('/eventi-cosplay/report/track', ['uses' => ['EventController', 'trackReportForm']]);
 $router->post('/eventi-cosplay/store', ['uses' => ['EventController', 'store']]);
 
+// Slug breve: disambigua tra dettaglio evento e filtro regione.
+$router->get('/eventi-cosplay/{slug}', ['uses' => ['EventController', 'shortUrl']]);
+
 // Filtri avanzati per eventi
 $router->get('/eventi-cosplay/{regione_slug}/{provincia_slug}/{comune_slug}', ['uses' => ['EventController', 'index']]);
 $router->get('/eventi-cosplay/{regione_slug}/{provincia_slug}', ['uses' => ['EventController', 'index']]);
-// $router->get('/eventi-cosplay/{regione_slug}', ['uses' => ['EventController', 'index']]); // se servisse Regione sola
-
-// Dettaglio evento con slug (deve venire dopo i filtri)
-$router->get('/eventi-cosplay/{slug}', ['uses' => ['EventController', 'shortUrl']]);
 
 // API pubblica eventi
 $router->get('/api/eventi', ['uses' => ['ApiEventController', 'index']]);
+$router->get('/api/eventi/search', ['uses' => ['ApiController', 'searchEvents']]);
 $router->get('/api/eventi/{slug}', ['uses' => ['ApiEventController', 'show']]);
 
 // API dropdown dinamiche
@@ -68,6 +79,31 @@ $router->get('/api/regioni', ['uses' => ['ApiController', 'getRegioni']]);
 $router->get('/api/province/{id}', ['uses' => ['ApiController', 'getProvinceByRegione']]);
 $router->get('/api/comuni/{id}', ['uses' => ['ApiController', 'getComuniByProvincia']]);
 $router->get('/api/search/{q}', ['uses' => ['ApiController', 'searchComuni']]);
+
+// Webhook Brevo per eventi email transazionali.
+$router->post('/webhooks/brevo/email-events', ['uses' => ['BrevoWebhookController', 'receive']]);
+
+$router->get('/admin/email-delivery-events', [
+	'uses' => ['AdminEmailDeliveryEventController', 'index'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'view_admin_dashboard']
+	]
+]);
+$router->get('/admin/email-delivery-events/data', [
+	'uses' => ['AdminEmailDeliveryEventController', 'data'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'view_admin_dashboard']
+	]
+]);
+$router->get('/admin/email-delivery-events/detail/{id}', [
+	'uses' => ['AdminEmailDeliveryEventController', 'detail'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'view_admin_dashboard']
+	]
+]);
 
 // Area admin (middleware Auth + permesso)
 $router->get('/admin/dashboard', [
@@ -91,6 +127,59 @@ $router->post('/admin/setup', [
 		[PermissionMiddleware::class, 'view_admin_dashboard']
 	]
 ]);
+$router->get('/admin/telegram', [
+	'uses' => ['AdminTelegramController', 'index'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'manage_events']
+	]
+]);
+$router->get('/admin/telegram/create', [
+	'uses' => ['AdminTelegramController', 'create'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'manage_events']
+	]
+]);
+$router->post('/admin/telegram/send', [
+	'uses' => ['AdminTelegramController', 'send'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'manage_events']
+	]
+]);
+$router->post('/admin/telegram/schedule', [
+	'uses' => ['AdminTelegramController', 'schedule'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'manage_events']
+	]
+]);
+$router->post('/admin/telegram/{id}/cancel', [
+	'uses' => ['AdminTelegramController', 'cancel'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'manage_events']
+	]
+]);
+
+// Gestione FAQ
+$faqAdminMiddleware = [AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']];
+$router->get('/admin/faq', ['uses' => ['AdminFaqController', 'index'], 'middlewares' => $faqAdminMiddleware]);
+$router->get('/admin/faq/categories', ['uses' => ['AdminFaqController', 'categories'], 'middlewares' => $faqAdminMiddleware]);
+$router->get('/admin/faq/categories/data', ['uses' => ['AdminFaqController', 'categoriesData'], 'middlewares' => $faqAdminMiddleware]);
+$router->get('/admin/faq/items', ['uses' => ['AdminFaqController', 'items'], 'middlewares' => $faqAdminMiddleware]);
+$router->get('/admin/faq/items/data', ['uses' => ['AdminFaqController', 'itemsData'], 'middlewares' => $faqAdminMiddleware]);
+$router->get('/admin/faq/categories/create', ['uses' => ['AdminFaqController', 'categoryForm'], 'middlewares' => $faqAdminMiddleware]);
+$router->get('/admin/faq/categories/{id}/edit', ['uses' => ['AdminFaqController', 'categoryForm'], 'middlewares' => $faqAdminMiddleware]);
+$router->post('/admin/faq/categories/store', ['uses' => ['AdminFaqController', 'saveCategory'], 'middlewares' => $faqAdminMiddleware]);
+$router->post('/admin/faq/categories/{id}/update', ['uses' => ['AdminFaqController', 'saveCategory'], 'middlewares' => $faqAdminMiddleware]);
+$router->post('/admin/faq/categories/{id}/delete', ['uses' => ['AdminFaqController', 'deleteCategory'], 'middlewares' => $faqAdminMiddleware]);
+$router->get('/admin/faq/items/create', ['uses' => ['AdminFaqController', 'itemForm'], 'middlewares' => $faqAdminMiddleware]);
+$router->get('/admin/faq/items/{id}/edit', ['uses' => ['AdminFaqController', 'itemForm'], 'middlewares' => $faqAdminMiddleware]);
+$router->post('/admin/faq/items/store', ['uses' => ['AdminFaqController', 'saveItem'], 'middlewares' => $faqAdminMiddleware]);
+$router->post('/admin/faq/items/{id}/update', ['uses' => ['AdminFaqController', 'saveItem'], 'middlewares' => $faqAdminMiddleware]);
+$router->post('/admin/faq/items/{id}/delete', ['uses' => ['AdminFaqController', 'deleteItem'], 'middlewares' => $faqAdminMiddleware]);
 
 $router->get('/admin/privacy', [
 	'uses' => ['AdminPrivacyPolicyController', 'index'],
@@ -379,6 +468,76 @@ $router->post('/admin/events-master/delete/{id}', ['uses' => ['AdminEventMasterC
 	AuthMiddleware::class,
 	[PermissionMiddleware::class, 'manage_events']
 ]]);
+$router->get('/admin/event-master-claims', ['uses' => ['AdminEventMasterClaimController', 'index'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'manage_events']
+]]);
+$router->get('/admin/event-master-claims/data', ['uses' => ['AdminEventMasterClaimController', 'data'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'manage_events']
+]]);
+$router->get('/admin/event-master-claims/{id}', ['uses' => ['AdminEventMasterClaimController', 'show'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'manage_events']
+]]);
+$router->post('/admin/event-master-claims/{id}/approve', ['uses' => ['AdminEventMasterClaimController', 'approve'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'manage_events']
+]]);
+$router->post('/admin/event-master-claims/{id}/reject', ['uses' => ['AdminEventMasterClaimController', 'reject'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'manage_events']
+]]);
+$router->get('/admin/organization-emails', ['uses' => ['AdminOrganizationEmailController', 'index'], 'middlewares' => [
+	AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']
+]]);
+$router->post('/admin/organization-emails/send', ['uses' => ['AdminOrganizationEmailController', 'send'], 'middlewares' => [
+	AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']
+]]);
+$router->post('/admin/organization-emails/test', ['uses' => ['AdminOrganizationEmailController', 'test'], 'middlewares' => [
+	AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']
+]]);
+$router->get('/admin/legacy-invitation-emails', ['uses' => ['AdminLegacyInvitationEmailController', 'index'], 'middlewares' => [
+	AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']
+]]);
+$router->get('/admin/legacy-invitation-emails/data', ['uses' => ['AdminLegacyInvitationEmailController', 'data'], 'middlewares' => [
+	AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']
+]]);
+$router->post('/admin/legacy-invitation-emails/import', ['uses' => ['AdminLegacyInvitationEmailController', 'import'], 'middlewares' => [
+	AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']
+]]);
+$router->post('/admin/legacy-invitation-emails/import-json', ['uses' => ['AdminLegacyInvitationEmailController', 'importJson'], 'middlewares' => [
+	AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']
+]]);
+$router->post('/admin/legacy-invitation-emails/send', ['uses' => ['AdminLegacyInvitationEmailController', 'send'], 'middlewares' => [
+	AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']
+]]);
+$router->post('/admin/legacy-invitation-emails/test', ['uses' => ['AdminLegacyInvitationEmailController', 'test'], 'middlewares' => [
+	AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']
+]]);
+$router->get('/admin/organizations', ['uses' => ['AdminOrganizationController', 'index'], 'middlewares' => [
+	AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']
+]]);
+$router->get('/admin/organizations/data', ['uses' => ['AdminOrganizationController', 'data'], 'middlewares' => [
+	AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']
+]]);
+$router->get('/admin/organizations/create', ['uses' => ['AdminOrganizationController', 'create'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']]]);
+$router->post('/admin/organizations/store', ['uses' => ['AdminOrganizationController', 'store'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']]]);
+$router->get('/admin/organizations/{id}/users/search', ['uses' => ['AdminOrganizationController', 'userSearch'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']]]);
+$router->get('/admin/organizations/{id}/masters/search', ['uses' => ['AdminOrganizationController', 'masterSearch'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']]]);
+$router->get('/admin/organizations/{id}', ['uses' => ['AdminOrganizationController', 'show'], 'middlewares' => [
+	AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']
+]]);
+$router->get('/admin/organizations/{id}/edit', ['uses' => ['AdminOrganizationController', 'edit'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']]]);
+$router->post('/admin/organizations/{id}/update', ['uses' => ['AdminOrganizationController', 'update'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']]]);
+$router->post('/admin/organizations/{id}/status', ['uses' => ['AdminOrganizationController', 'updateStatus'], 'middlewares' => [
+	AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']
+]]);
+$router->post('/admin/organizations/{id}/members/add', ['uses' => ['AdminOrganizationController', 'addMember'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']]]);
+$router->post('/admin/organizations/{id}/members/update', ['uses' => ['AdminOrganizationController', 'updateMember'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']]]);
+$router->post('/admin/organizations/{id}/masters/add', ['uses' => ['AdminOrganizationController', 'addMaster'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']]]);
+$router->post('/admin/organizations/{id}/masters/update', ['uses' => ['AdminOrganizationController', 'updateMaster'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']]]);
+$router->post('/admin/organizations/{id}/masters/remove', ['uses' => ['AdminOrganizationController', 'removeMaster'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'manage_events']]]);
 
 $router->get('/admin/regioni/all', ['uses' => ['RegionController', 'all'], 'middlewares' => [
 	AuthMiddleware::class,
@@ -415,6 +574,53 @@ $router->get('/dashboard',
 	AuthMiddleware::class,
 	[PermissionMiddleware::class, 'access_dashboard'] // il permesso corretto dal DB
 ]]);
+$router->get('/dashboard/organizations', ['uses' => ['DashboardController', 'organizations'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->get('/dashboard/organization-invitations', ['uses' => ['DashboardController', 'organizationInvitations'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->get('/dashboard/organization-invitations/accept', ['uses' => ['DashboardController', 'organizationInvitationPreview'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->post('/dashboard/organization-invitations/accept', ['uses' => ['DashboardController', 'acceptOrganizationInvitation'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->post('/dashboard/organization-invitations/decline', ['uses' => ['DashboardController', 'declineOrganizationInvitation'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->get('/dashboard/organizations/create', ['uses' => ['DashboardController', 'createOrganization'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->post('/dashboard/organizations/create', ['uses' => ['DashboardController', 'storeOrganization'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->get('/dashboard/organizations/{id}', ['uses' => ['DashboardController', 'organizationDetail'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->get('/dashboard/organizations/{organizationId}/masters/create', ['uses' => ['DashboardController', 'organizationMasterCreate'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->post('/dashboard/organizations/{organizationId}/masters/create', ['uses' => ['DashboardController', 'storeOrganizationMaster'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->get('/dashboard/organizations/{organizationId}/masters/{masterId}', ['uses' => ['DashboardController', 'organizationMasterDetail'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->get('/dashboard/organizations/{organizationId}/masters/{masterId}/events/create', ['uses' => ['DashboardController', 'organizationEventCreate'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->post('/dashboard/organizations/{organizationId}/masters/{masterId}/events/create', ['uses' => ['DashboardController', 'storeOrganizationEvent'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->get('/dashboard/organizations/{organizationId}/masters/{masterId}/edit', ['uses' => ['DashboardController', 'organizationMasterEdit'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->post('/dashboard/organizations/{organizationId}/masters/{masterId}/update', ['uses' => ['DashboardController', 'updateOrganizationMaster'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->get('/dashboard/organizations/{organizationId}/events/{eventId}/edit', ['uses' => ['DashboardController', 'organizationEventEdit'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->post('/dashboard/organizations/{organizationId}/events/{eventId}/update', ['uses' => ['DashboardController', 'updateOrganizationEvent'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->get('/dashboard/events/{eventId}/guests/search', ['uses' => ['DashboardController', 'organizationGuestSearch'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->post('/dashboard/events/{eventId}/guests/create', ['uses' => ['DashboardController', 'organizationGuestCreate'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->post('/dashboard/events/{eventId}/guests/{guestId}/remove', ['uses' => ['DashboardController', 'organizationGuestRemove'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->get('/dashboard/guests/search', ['uses' => ['DashboardController', 'dashboardGuestSearch'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->post('/dashboard/guests/create', ['uses' => ['DashboardController', 'dashboardGuestCreate'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->post('/dashboard/organizations/{id}/update', ['uses' => ['DashboardController', 'updateOrganization'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->post('/dashboard/organizations/{id}/withdraw', ['uses' => ['DashboardController', 'withdrawOrganization'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->post('/dashboard/organizations/{organizationId}/masters/{masterId}/withdraw', ['uses' => ['DashboardController', 'withdrawOrganizationMaster'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->post('/dashboard/organizations/{organizationId}/events/{eventId}/withdraw', ['uses' => ['DashboardController', 'withdrawOrganizationEvent'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->post('/dashboard/organizations/{id}/members', ['uses' => ['DashboardController', 'organizationMember'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->post('/dashboard/organizations/{id}/invitations/{invitationId}/revoke', ['uses' => ['DashboardController', 'revokeOrganizationInvitation'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->post('/dashboard/organizations/{id}/invitations/{invitationId}/resend', ['uses' => ['DashboardController', 'resendOrganizationInvitation'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->get('/dashboard/organizations/{id}/members/search', ['uses' => ['DashboardController', 'organizationMemberSearch'], 'middlewares' => [
+	AuthMiddleware::class,
+	[PermissionMiddleware::class, 'access_dashboard']
+]]);
+$router->get('/dashboard/organizations/{id}/masters/search', ['uses' => ['DashboardController', 'organizationMasterSearch'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->post('/dashboard/organizations/{id}/masters', ['uses' => ['DashboardController', 'organizationMaster'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
 
 
 $router->get('/dashboard/profile', ['uses' => ['DashboardController', 'profile'], 'middlewares' => [
