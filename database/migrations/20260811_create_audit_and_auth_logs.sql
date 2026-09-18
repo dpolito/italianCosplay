@@ -1,0 +1,40 @@
+CREATE TABLE IF NOT EXISTS `audit_logs` (
+  `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `user_id` BIGINT UNSIGNED NULL,
+  `action_type` VARCHAR(100) NOT NULL,
+  `entity_type` VARCHAR(100) NOT NULL,
+  `entity_id` BIGINT UNSIGNED NULL,
+  `payload_json` JSON NULL,
+  `ip_address` VARCHAR(45) NULL,
+  `user_agent` VARCHAR(255) NULL,
+  `request_uri` VARCHAR(255) NULL,
+  `http_method` VARCHAR(10) NULL,
+  `success` TINYINT(1) NOT NULL DEFAULT 1,
+  `error_message` VARCHAR(255) NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY `idx_audit_logs_user_id` (`user_id`),
+  KEY `idx_audit_logs_action_type` (`action_type`),
+  KEY `idx_audit_logs_entity_type_entity_id` (`entity_type`, `entity_id`),
+  KEY `idx_audit_logs_created_at` (`created_at`),
+  KEY `idx_audit_logs_success` (`success`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `auth_logs` (
+  `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `user_id` BIGINT UNSIGNED NULL,
+  `identifier` VARCHAR(191) NULL,
+  `action_type` VARCHAR(50) NOT NULL,
+  `success` TINYINT(1) NOT NULL DEFAULT 0,
+  `failure_reason` VARCHAR(191) NULL,
+  `payload_json` JSON NULL,
+  `ip_address` VARCHAR(45) NULL,
+  `user_agent` VARCHAR(255) NULL,
+  `request_uri` VARCHAR(255) NULL,
+  `http_method` VARCHAR(10) NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY `idx_auth_logs_user_id` (`user_id`),
+  KEY `idx_auth_logs_identifier` (`identifier`),
+  KEY `idx_auth_logs_action_type` (`action_type`),
+  KEY `idx_auth_logs_success` (`success`),
+  KEY `idx_auth_logs_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
