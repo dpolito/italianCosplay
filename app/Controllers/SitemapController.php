@@ -103,6 +103,13 @@ class SitemapController extends Controller
 		$xml .= $this->addUrl('https://www.italiancosplay.it/eventi-cosplay', '0.9');
 		$xml .= $this->addUrl('https://www.italiancosplay.it/eventi-cosplay-mese', '0.6');
 		$xml .= $this->addUrl('https://www.italiancosplay.it/eventi-cosplay-weekend', '0.6');
+		foreach ($this->eventModel->getAvailableYears() as $year) {
+			$lastmod = !empty($year['last_modified']) ? date('Y-m-d', strtotime($year['last_modified'])) : date('Y-m-d');
+			$xml .= $this->addUrl('https://www.italiancosplay.it/eventi-cosplay-' . $year['year'], '0.7', $lastmod);
+		}
+		foreach ($this->eventModel->getAvailableMonths() as $month) {
+			$xml .= $this->addUrl('https://www.italiancosplay.it/eventi-cosplay-mese/' . $month['slug'], '0.6');
+		}
 		$xml .= $this->addUrl('https://www.italiancosplay.it/agenda-cosplay', '0.7');
 		$xml .= $this->addUrl('https://www.italiancosplay.it/cosplan', '0.7');
 		$xml .= $this->addUrl('https://www.italiancosplay.it/organizzatori-eventi-cosplay', '0.7');

@@ -108,6 +108,7 @@ class Router
 			$pattern = $route_pattern;
 			$pattern = preg_replace('/\{id\}/', '(\d+)', $pattern);
 			$pattern = preg_replace('/\{masterId\}/', '(\d+)', $pattern);
+			$pattern = preg_replace('/\{year\}/', '(\d{4})', $pattern);
 			$pattern = preg_replace('/\{[a-zA-Z_]+\}/', '([^/]+)', $pattern);
 			$pattern = '#^' . $pattern . '$#';
 
@@ -205,6 +206,7 @@ class Router
 			$pattern = preg_replace('/\{provincia_slug\}/', '([a-zA-Z0-9-]+)', $pattern);
 			$pattern = preg_replace('/\{regione_slug\}/', '([a-zA-Z0-9-]+)', $pattern);
 			$pattern = preg_replace('/\{comune_slug\}/', '([a-zA-Z0-9-]+)', $pattern);
+			$pattern = preg_replace('/\{year\}/', '(\d{4})', $pattern);
 			$pattern = preg_replace('/\{slug\}/', '([a-zA-Z0-9-]+)', $pattern);
 			$pattern = '#^' . $pattern . '$#';
 
@@ -232,6 +234,7 @@ class Router
 					'EventController_weekendSpecifico' => 'weekend_specifico',
 					'EventController_mese' => 'mese',
 					'EventController_meseSpecifico' => 'mese_specifico',
+					'EventController_year' => 'eventi-anno',
 					'EventController_masterIndex' => 'eventi-master-lista',
 					'EventController_masterShow' => 'eventi-master-dettaglio',
 					'EventController_segnalaEvento' => 'segnalaevento',
@@ -330,6 +333,15 @@ class Router
 			case 'mese_specifico':
 				$title = "Eventi Cosplay ".$data['mese'].": i migliori eventi da non perdere in Italia";
 				$description = "Quali sono i migliori eventi cosplay di ".$data['mese']."? Scopri fiere, festival e raduni in tutta Italia: ecco i top eventi del mese e le novità più interessanti.";
+				break;
+			case 'eventi-anno':
+				$year = (int) ($data['year'] ?? date('Y'));
+				$eventCount = (int) ($data['eventCount'] ?? 0);
+				$title = "Eventi Cosplay {$year} in Italia | Calendario fiere";
+				$description = "Scopri il calendario degli eventi cosplay {$year} in Italia: fiere del fumetto, festival nerd, raduni e contest aggiornati.";
+				if ($eventCount > 0) {
+					$description = "Scopri {$eventCount} eventi cosplay {$year} in Italia: fiere del fumetto, festival nerd, raduni, contest e calendario aggiornato.";
+				}
 				break;
 			case 'eventi-master-lista':
 				$title = "Eventi e edizioni cosplay in Italia | ItalianCosplay";

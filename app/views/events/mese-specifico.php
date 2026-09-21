@@ -15,9 +15,6 @@ $eventsBaseUrl = $siteBaseUrl . '/eventi-cosplay';
 $monthUrl = $siteBaseUrl . '/eventi-cosplay-mese';
 $weekendUrl = $siteBaseUrl . '/eventi-cosplay-weekend';
 $pageTitle = 'Eventi cosplay ' . $mese;
-$allVisibleEvents = array_values(array_filter(array_merge($top3, $piuImportanti, $nuovi, $events), function ($event) {
-	return !empty($event['slug']);
-}));
 
 if (!function_exists('event_month_h')) {
 	function event_month_h($value): string
@@ -25,6 +22,51 @@ if (!function_exists('event_month_h')) {
 		return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 	}
 }
+
+if (!function_exists('event_month_unique_sections')) {
+	function event_month_unique_sections(array $sections): array
+	{
+		$seen = [];
+		$uniqueSections = [];
+
+		foreach ($sections as $sectionName => $sectionEvents) {
+			$uniqueSections[$sectionName] = [];
+
+			foreach ($sectionEvents as $event) {
+				$id = (int) ($event['id'] ?? 0);
+				$slug = trim((string) ($event['slug'] ?? ''));
+				$key = $id > 0 ? 'id:' . $id : 'slug:' . $slug;
+
+				if ($key === 'slug:' || isset($seen[$key])) {
+					continue;
+				}
+
+				$seen[$key] = true;
+				$uniqueSections[$sectionName][] = $event;
+			}
+		}
+
+		return $uniqueSections;
+	}
+}
+
+$uniqueSections = event_month_unique_sections([
+	'top3' => $top3,
+	'piuImportanti' => $piuImportanti,
+	'nuovi' => $nuovi,
+]);
+$top3 = $uniqueSections['top3'];
+$piuImportanti = $uniqueSections['piuImportanti'];
+$nuovi = $uniqueSections['nuovi'];
+$events = event_month_unique_sections(['events' => $events])['events'];
+if (count($events) <= 3) {
+	$top3 = [];
+	$piuImportanti = [];
+	$nuovi = [];
+}
+$allVisibleEvents = array_values(array_filter(array_merge($top3, $piuImportanti, $nuovi, $events), function ($event) {
+	return !empty($event['slug']);
+}));
 
 if (!function_exists('event_month_absolute_url')) {
 	function event_month_absolute_url(?string $url, string $siteBaseUrl): string

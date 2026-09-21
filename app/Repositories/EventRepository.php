@@ -81,7 +81,7 @@ class EventRepository
 		if (!empty($filters['year'])) {
 
 			$where[] =
-				"e.year = :year";
+				"YEAR(e.data_inizio) = :year";
 
 			$params['year'] =
 				(int)$filters['year'];
@@ -362,7 +362,7 @@ class EventRepository
 			$filters['year'] !== ''
 		) {
 			$where[] =
-				'e.year = :year';
+				'YEAR(e.data_inizio) = :year';
 			$queryParams['year'] =
 				(int) $filters['year'];
 		}

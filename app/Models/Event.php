@@ -628,6 +628,171 @@ class Event extends BaseModel
 		return $months;
 	}
 
+	public function getAvailableYears(): array
+	{
+		$sql = "
+			SELECT
+				YEAR(data_inizio) AS year,
+				COUNT(*) AS total,
+				MAX(COALESCE(updated_at, created_at, data_inizio)) AS last_modified
+			FROM {$this->table}
+			WHERE approvato = 1
+			GROUP BY YEAR(data_inizio)
+			ORDER BY year ASC
+		";
+
+		$stmt = $this->db->prepare($sql);
+		$stmt->execute();
+
+		return array_map(static function (array $row): array {
+			return [
+				'year' => (int) $row['year'],
+				'total' => (int) $row['total'],
+				'last_modified' => $row['last_modified'] ?? null,
+			];
+		}, $stmt->fetchAll(PDO::FETCH_ASSOC));
+	}
+
+	public function getAdminAvailableYears(): array
+	{
+		$sql = "
+			SELECT DISTINCT YEAR(data_inizio) AS year
+			FROM {$this->table}
+			WHERE data_inizio IS NOT NULL
+			ORDER BY year DESC
+		";
+
+		$stmt = $this->db->prepare($sql);
+		$stmt->execute();
+
+		return array_values(array_filter(array_map(
+			static fn(array $row): int => (int) $row['year'],
+			$stmt->fetchAll(PDO::FETCH_ASSOC)
+		)));
+	}
+
+	public function getYearSummary(int $year): ?array
+	{
+		$sql = "
+			SELECT
+				COUNT(*) AS total,
+				COUNT(DISTINCT regione_id) AS region_count,
+				MIN(data_inizio) AS first_date,
+				MAX(data_fine) AS last_date,
+				MAX(COALESCE(updated_at, created_at, data_inizio)) AS last_modified
+			FROM {$this->table}
+			WHERE approvato = 1
+			  AND YEAR(data_inizio) = :year
+		";
+
+		$stmt = $this->db->prepare($sql);
+		$stmt->bindValue(':year', $year, PDO::PARAM_INT);
+		$stmt->execute();
+		$row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+		if (!$row || (int) $row['total'] === 0) {
+			return null;
+		}
+
+		return [
+			'total' => (int) $row['total'],
+			'region_count' => (int) $row['region_count'],
+			'first_date' => $row['first_date'] ?? null,
+			'last_date' => $row['last_date'] ?? null,
+			'last_modified' => $row['last_modified'] ?? null,
+		];
+	}
+
+	public function getEventsByYear(int $year): array
+	{
+		$sql = "
+			SELECT e.*, r.nome AS regione_nome, p.nome AS provincia_nome, c.nome AS comune_nome, te.nome AS tipo_evento_nome
+			FROM {$this->table} e
+			LEFT JOIN regioni r ON e.regione_id = r.id
+			LEFT JOIN province p ON e.provincia_id = p.id
+			LEFT JOIN comuni c ON e.comune_id = c.id
+			LEFT JOIN tipo_evento te ON e.tipo_evento_id = te.id
+			WHERE e.approvato = 1
+			  AND YEAR(e.data_inizio) = :year
+			ORDER BY e.data_inizio ASC, e.data_fine ASC
+		";
+
+		$stmt = $this->db->prepare($sql);
+		$stmt->bindValue(':year', $year, PDO::PARAM_INT);
+		$stmt->execute();
+
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
+	public function getEventsByMonth(int $year, int $month): array
+	{
+		$sql = "
+			SELECT e.*, r.nome AS regione_nome, p.nome AS provincia_nome, c.nome AS comune_nome, te.nome AS tipo_evento_nome
+			FROM {$this->table} e
+			LEFT JOIN regioni r ON e.regione_id = r.id
+			LEFT JOIN province p ON e.provincia_id = p.id
+			LEFT JOIN comuni c ON e.comune_id = c.id
+			LEFT JOIN tipo_evento te ON e.tipo_evento_id = te.id
+			WHERE e.approvato = 1
+			  AND YEAR(e.data_inizio) = :year
+			  AND MONTH(e.data_inizio) = :month
+			ORDER BY e.data_inizio ASC, e.data_fine ASC
+		";
+
+		$stmt = $this->db->prepare($sql);
+		$stmt->bindValue(':year', $year, PDO::PARAM_INT);
+		$stmt->bindValue(':month', $month, PDO::PARAM_INT);
+		$stmt->execute();
+
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
+	public function getAvailableMonthsByYear(int $year): array
+	{
+		$sql = "
+			SELECT
+				YEAR(data_inizio) AS year,
+				MONTH(data_inizio) AS month,
+				COUNT(*) AS total
+			FROM {$this->table}
+			WHERE approvato = 1
+			  AND YEAR(data_inizio) = :year
+			GROUP BY YEAR(data_inizio), MONTH(data_inizio)
+			ORDER BY month ASC
+		";
+
+		$stmt = $this->db->prepare($sql);
+		$stmt->bindValue(':year', $year, PDO::PARAM_INT);
+		$stmt->execute();
+
+		$months = $stmt->fetchAll(PDO::FETCH_ASSOC);
+		$italianMonths = [
+			1 => 'Gennaio',
+			2 => 'Febbraio',
+			3 => 'Marzo',
+			4 => 'Aprile',
+			5 => 'Maggio',
+			6 => 'Giugno',
+			7 => 'Luglio',
+			8 => 'Agosto',
+			9 => 'Settembre',
+			10 => 'Ottobre',
+			11 => 'Novembre',
+			12 => 'Dicembre',
+		];
+
+		foreach ($months as &$month) {
+			$month['year'] = (int) $month['year'];
+			$month['month'] = (int) $month['month'];
+			$month['total'] = (int) $month['total'];
+			$month['label'] = $italianMonths[$month['month']] . ' ' . $month['year'];
+			$month['slug'] = strtolower($italianMonths[$month['month']] . '-' . $month['year']);
+		}
+		unset($month);
+
+		return $months;
+	}
+
 	/**
 	 * Approva un evento.
 	 * @param int $id L'ID dell'evento da approvare.
@@ -648,7 +813,7 @@ class Event extends BaseModel
               LEFT JOIN province p ON e.provincia_id = p.id
               LEFT JOIN comuni c ON e.comune_id = c.id
               WHERE e.approvato = 1
-              AND e.data_fine >= :from
+              AND COALESCE(e.data_fine, e.data_inizio) >= :from
               AND e.data_inizio <= :to";
 
 		$params = [

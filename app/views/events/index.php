@@ -9,6 +9,7 @@ $selectedComune = $data['selected_comune'] ?? null;
 $breadcrumbs = $data['breadcrumbs'] ?? [];
 $provinceCorrelate = $data['provinceCorrelate'] ?? [];
 $searchQuery = trim((string) ($data['searchQuery'] ?? ''));
+$availableYears = $data['availableYears'] ?? [];
 
 $siteBaseUrl = rtrim(URL_ROOT_SITE, '/');
 $eventsBasePath = $siteBaseUrl . '/eventi-cosplay';
@@ -533,6 +534,12 @@ foreach (array_slice($events, 0, 24) as $index => $event) {
 			<a href="<?php echo event_index_h($eventsBasePath . '-weekend'); ?>" class="events-mobile-action rounded-xl border border-slate-200 bg-white px-3 py-3 text-center text-sm font-black leading-tight text-slate-900 transition hover:border-emerald-300 hover:bg-emerald-50 md:min-h-0 md:px-5">
 				Eventi cosplay nel weekend
 			</a>
+			<?php if (!empty($availableYears)): ?>
+				<?php $latestYear = end($availableYears); reset($availableYears); ?>
+				<a href="<?php echo event_index_h($siteBaseUrl . '/eventi-cosplay-' . (int) ($latestYear['year'] ?? date('Y'))); ?>" class="events-mobile-action rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-center text-sm font-black leading-tight text-emerald-950 transition hover:bg-emerald-100 md:min-h-0 md:px-5">
+					Calendario <?php echo (int) ($latestYear['year'] ?? date('Y')); ?>
+				</a>
+			<?php endif; ?>
 			<?php if ($selectedRegione): ?>
 				<a href="<?php echo event_index_h(event_index_location_url($eventsBasePath, $selectedRegione)); ?>" class="events-mobile-action rounded-xl border border-slate-200 bg-white px-3 py-3 text-center text-sm font-black leading-tight text-slate-900 transition hover:border-emerald-300 hover:bg-emerald-50 md:min-h-0 md:px-5">
 					Prossimi eventi in <?php echo event_index_h($selectedRegione['nome']); ?>

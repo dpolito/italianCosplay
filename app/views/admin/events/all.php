@@ -61,6 +61,19 @@ $adminList = [
 
 
 		[
+			'name' => 'year',
+
+			'label' => 'Anno',
+
+			'type' => 'select',
+
+			'options' =>
+				$data['years'] ?? []
+
+		],
+
+
+		[
 			'name' => 'regione_id',
 
 			'label' => 'Regione',

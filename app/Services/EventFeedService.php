@@ -182,7 +182,18 @@ class EventFeedService
 	public function getMonthSpecific (DateTimeInterface $start, DateTimeInterface $end): array
 	{
 
-		$events = $this->eventModel->getEventsByDateRange($start, $end);
+		$events = $this->eventModel->getEventsByMonth(
+			(int) $start->format('Y'),
+			(int) $start->format('n')
+		);
+		$eventsById = [];
+		foreach ($events as $event) {
+			$eventId = (int) ($event['id'] ?? 0);
+			if ($eventId > 0 && !isset($eventsById[$eventId])) {
+				$eventsById[$eventId] = $event;
+			}
+		}
+		$events = array_values($eventsById);
 
 		// 👉 views tutte in una botta sola
 		$viewsMap = $this->eventSignalService->getViews7d();

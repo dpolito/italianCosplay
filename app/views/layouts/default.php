@@ -69,6 +69,8 @@ if (isset($_SESSION['user_id'])) {
 			'comune_nome'    => $comune_nome,
 			'weekend'    => $weekend,
 			'mese'    => $mese,
+			'year'    => $year ?? null,
+			'eventCount' => $eventCount ?? null,
 			'guest' =>$guest,
 			'blog' =>$post_seo,
 			'blog_categoria' =>$blog_categoria,

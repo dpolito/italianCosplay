@@ -58,6 +58,7 @@ $router->post('/eventi-master/{slug}/riscatta', ['uses' => ['EventMasterClaimCon
 $router->get('/organizzazioni/{slug}', ['uses' => ['OrganizationController', 'show']]);
 $router->get('/organizzazioni', ['uses' => ['OrganizationController', 'index']]);
 $router->get('/eventi-cosplay', ['uses' => ['EventController', 'index']]);
+$router->get('/eventi-cosplay-{year}', ['uses' => ['EventController', 'year']]);
 $router->get('/eventi-cosplay/create', ['uses' => ['EventController', 'create']]);
 $router->post('/eventi-cosplay/report/track', ['uses' => ['EventController', 'trackReportForm']]);
 $router->post('/eventi-cosplay/store', ['uses' => ['EventController', 'store']]);

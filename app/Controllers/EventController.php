@@ -297,6 +297,72 @@ class EventController extends Controller{
 			'provinceCorrelate'   => $provinceCorrelate,
 			'agendaStates'        => $agendaStates,
 			'searchQuery'         => $searchQuery,
+			'availableYears'      => $this->eventModel->getAvailableYears(),
+		]);
+	}
+
+	public function year(array $params): void
+	{
+		$this->requireFeature('enable_events', 'Gli eventi pubblici sono temporaneamente disattivati.');
+
+		$yearValue = (string) ($params[0] ?? '');
+		if (!preg_match('/^\d{4}$/', $yearValue)) {
+			header('Location: ' . $this->eventsBasePath);
+			exit();
+		}
+
+		$year = (int) $yearValue;
+		$currentYear = (int) date('Y');
+		if ($year < 2020 || $year > ($currentYear + 5)) {
+			header('Location: ' . $this->eventsBasePath);
+			exit();
+		}
+
+		$summary = $this->eventModel->getYearSummary($year);
+		if ($summary === null) {
+			header('Location: ' . $this->eventsBasePath);
+			exit();
+		}
+
+		$events = $this->eventModel->getEventsByYear($year);
+		foreach ($events as $index => &$event) {
+			$cover = $this->imageService->getPrimary('event', $event['id']);
+			if (!empty($cover)) {
+				$event['immagine'] = '/public_assets/' . $cover['path'];
+				$event['immagine_width'] = $cover['width'];
+				$event['immagine_height'] = $cover['height'];
+			} else {
+				$event['immagine'] = '';
+				$event['immagine_width'] = '';
+				$event['immagine_height'] = '';
+			}
+			$event['lazy'] = ($index < 3) ? false : true;
+		}
+		unset($event);
+
+		$eventsByMonth = [];
+		foreach ($events as $event) {
+			$monthNumber = (int) date('n', strtotime((string) $event['data_inizio']));
+			$eventsByMonth[$monthNumber][] = $event;
+		}
+
+		$months = $this->eventModel->getAvailableMonthsByYear($year);
+		$canonicalUrl = URL_ROOT_SITE . '/eventi-cosplay-' . $year;
+		$breadcrumbs = [
+			['label' => 'Home', 'url' => URL_ROOT_SITE . '/'],
+			['label' => 'Eventi Cosplay Italia', 'url' => URL_ROOT_SITE . '/eventi-cosplay'],
+			['label' => 'Eventi Cosplay ' . $year, 'url' => $canonicalUrl],
+		];
+
+		$this->view('events/year', [
+			'year' => $year,
+			'events' => $events,
+			'eventsByMonth' => $eventsByMonth,
+			'months' => $months,
+			'summary' => $summary,
+			'breadcrumbs' => $breadcrumbs,
+			'canonicalUrl' => $canonicalUrl,
+			'eventCount' => (int) $summary['total'],
 		]);
 	}
 
@@ -940,8 +1006,16 @@ class EventController extends Controller{
 		}
 
 		$events = $this->eventModel->getEventsByMasterId((int) $eventMaster['id']);
-		$organizations = $this->organizationRepository->findPublicForMaster((int) $eventMaster['id']);
-		$hasOrganizationAssociation = $this->organizationRepository->hasMasterAssociation((int) $eventMaster['id']);
+		$organizations = [];
+		$hasOrganizationAssociation = false;
+
+		try {
+			$organizations = $this->organizationRepository->findPublicForMaster((int) $eventMaster['id']);
+			$hasOrganizationAssociation = $this->organizationRepository->hasMasterAssociation((int) $eventMaster['id']);
+		} catch (\Throwable $exception) {
+			error_log('EventController::masterShow organization lookup failed: ' . $exception->getMessage());
+		}
+
 		$cover = $this->imageService->getPrimary('event_master', (int) $eventMaster['id'], 'large');
 		$coverUrl = !empty($cover['path']) ? '/public_assets' . $cover['path'] : '';
 		$canonicalUrl = URL_ROOT_SITE . '/eventi-master/' . $eventMaster['slug'];
@@ -1084,6 +1158,7 @@ class EventController extends Controller{
 	public function allEvents(){
 		$events = $this->eventModel->getAllEvents();
 		$regions = $this->regioneModel->getAll();
+		$years = $this->eventModel->getAdminAvailableYears();
 		$data['regions'] = array_map(
 			static function(array $region): array {
 
@@ -1095,6 +1170,17 @@ class EventController extends Controller{
 			},
 			$regions
 		);
+		$data['years'] = array_map(
+			static function(int $year): array {
+
+				return [
+					'value' => (string) $year,
+					'label' => (string) $year
+				];
+
+			},
+			$years
+		);
 
 		$breadcrumbs = [
 			['label' => 'Dashboard Admin', 'url' => URL_ROOT . '/admin/dashboard'],
@@ -1104,7 +1190,8 @@ class EventController extends Controller{
 			'events' => $events,
 			'csrf_token' => $_SESSION['csrf_token'],
 			'breadcrumbs' => $breadcrumbs,
-			'regions' => $data['regions']
+			'regions' => $data['regions'],
+			'years' => $data['years']
 		],
 			'admin');
 	}
@@ -2346,8 +2433,17 @@ nei prossimi fine settimana.";
 			$mese['year'],
 			$mese['month']
 		);
-		$feed = $this->eventFeedService->getMonthSpecific($from, $to);
-		foreach($feed['all'] as $index => &$event){
+		$monthlyEvents = array_values(array_filter(
+			$this->eventModel->getEventsByYear($mese['year']),
+			static function (array $event) use ($mese): bool {
+				if (empty($event['data_inizio'])) {
+					return false;
+				}
+
+				return (int) date('n', strtotime((string) $event['data_inizio'])) === (int) $mese['month'];
+			}
+		));
+		foreach($monthlyEvents as $index => &$event){
 			$cover = $this->imageService->getPrimary('event', $event['id']);
 			if(!empty($cover)){
 				$event['immagine'] = '/public_assets/' . $cover['path'];
@@ -2359,50 +2455,20 @@ nei prossimi fine settimana.";
 				$event['immagine_height'] = '';
 			}
 		}
-		foreach($feed['new'] as $index => &$event){
-			$cover = $this->imageService->getPrimary('event', $event['id']);
-			if(!empty($cover)){
-				$event['immagine'] = '/public_assets/' . $cover['path'];
-				$event['immagine_width'] = $cover['width'];
-				$event['immagine_height'] = $cover['height'];
-			}else{
-				$event['immagine'] = '';
-				$event['immagine_width'] = '';
-				$event['immagine_height'] = '';
-			}
-		}
-		foreach($feed['big'] as $index => &$event){
-			$cover = $this->imageService->getPrimary('event', $event['id']);
-			if(!empty($cover)){
-				$event['immagine'] = '/public_assets/' . $cover['path'];
-				$event['immagine_width'] = $cover['width'];
-				$event['immagine_height'] = $cover['height'];
-			}else{
-				$event['immagine'] = '';
-				$event['immagine_width'] = '';
-				$event['immagine_height'] = '';
-			}
-		}
-		foreach($feed['top3'] as $index => &$event){
-			$cover = $this->imageService->getPrimary('event', $event['id']);
-			if(!empty($cover)){
-				$event['immagine'] = '/public_assets/' . $cover['path'];
-				$event['immagine_width'] = $cover['width'];
-				$event['immagine_height'] = $cover['height'];
-			}else{
-				$event['immagine'] = '';
-				$event['immagine_width'] = '';
-				$event['immagine_height'] = '';
-			}
-		}
+		unset($event);
+
+		$topEvents = count($monthlyEvents) > 3 ? array_slice($monthlyEvents, 0, 3) : [];
+		$importantEvents = [];
+		$newEvents = [];
+
 		// 📅 nome mese SEO
-		$mese = $feed['label'];
+		$mese = $mese['label'];
 		$frasi = [
 			"un mese imperdibile per gli appassionati",
 			"uno dei momenti migliori dell’anno per il cosplay",
 			"un periodo ricco di eventi in tutta Italia",
 		];
-		$eventiMese = array_merge($feed['top3'], $feed['big'], $feed['new'], $feed['all']);
+		$eventiMese = $monthlyEvents;
 		$eventiMeseUnici = [];
 		foreach ($eventiMese as $event) {
 			$eventId = (int) ($event['id'] ?? 0);
@@ -2413,7 +2479,7 @@ nei prossimi fine settimana.";
 		$totEventi = count($eventiMeseUnici);
 		$listaTop = implode(', ', array_filter(array_map(
 			static fn(array $event): string => trim((string) ($event['titolo'] ?? '')),
-			$feed['top3']
+			$topEvents
 		)));
 		if ($listaTop === '') {
 			$listaTop = 'i principali appuntamenti del mese';
@@ -2435,10 +2501,10 @@ Dai grandi eventi come {$listaTop}, fino alle fiere locali in crescita, ecco i m
 
 
 		$this->view('events/mese-specifico', [
-			'events'            => $feed['all'],
-			'nuovi'             => $feed['new'],
-			'piuImportanti'     => $feed['big'],
-			'top3'              => $feed['top3'],
+			'events'            => $monthlyEvents,
+			'nuovi'             => $newEvents,
+			'piuImportanti'     => $importantEvents,
+			'top3'              => $topEvents,
 			'mese'              => $mese,
 			'breadcrumbs'       => $breadcrumbs,
 			'testo_descrittivo' => $testo,
