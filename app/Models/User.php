@@ -22,11 +22,12 @@ class User{
 	public function hasRole(string $roleName): bool
 	{
 		$sql = "
-        SELECT COUNT(*)
-        FROM users u
-        JOIN user_roles r ON u.role_id = r.id
-        WHERE u.id = :user_id
-        AND r.name = :role
+	        SELECT COUNT(*)
+	        FROM users u
+	        JOIN user_roles r ON u.role_id = r.id
+	        WHERE u.id = :user_id
+	        AND u.anonymized_at IS NULL
+	        AND r.name = :role
     ";
 
 		$stmt = $this->db->prepare($sql);
@@ -81,6 +82,7 @@ class User{
             JOIN role_permissions rp ON u.role_id = rp.role_id
             JOIN permissions p ON rp.permission_id = p.id
             WHERE u.id = :user_id
+            AND u.anonymized_at IS NULL
             AND p.name = :permission";
 
 		$stmt = $this->db->prepare($sql);
@@ -126,7 +128,8 @@ class User{
 			) privacy_accept ON privacy_accept.user_id = u.id
 			LEFT JOIN user_marketing_consents marketing_consent ON marketing_consent.user_id = u.id
 			LEFT JOIN user_age_declarations age_declaration ON age_declaration.user_id = u.id
-			WHERE u.id = :id";
+			WHERE u.id = :id
+			  AND u.anonymized_at IS NULL";
 		$stmt = $this->db->prepare($sql);
 		$stmt->bindParam(':id', $id, PDO::PARAM_INT);
 		$stmt->execute();
@@ -142,7 +145,7 @@ class User{
 	 * @return array|null L'utente come array associativo o null se non trovato
 	 */
 	public function findByUsername($username){
-		$stmt = $this->db->prepare("SELECT * FROM " . $this->table . " WHERE username = :username");
+		$stmt = $this->db->prepare("SELECT * FROM " . $this->table . " WHERE username = :username AND anonymized_at IS NULL");
 		$stmt->bindParam(':username', $username, PDO::PARAM_STR);
 		$stmt->execute();
 
@@ -157,7 +160,7 @@ class User{
 	 * @return array|null L'utente come array associativo o null se non trovato
 	 */
 	public function findByEmail($email){
-		$stmt = $this->db->prepare("SELECT * FROM " . $this->table . " WHERE email = :email");
+		$stmt = $this->db->prepare("SELECT * FROM " . $this->table . " WHERE email = :email AND anonymized_at IS NULL");
 		$stmt->bindParam(':email', $email, PDO::PARAM_STR);
 		$stmt->execute();
 
@@ -192,7 +195,8 @@ class User{
 				   AND latest_pa.max_accepted_at = pa.accepted_at
 			) privacy_accept ON privacy_accept.user_id = u.id
 			LEFT JOIN user_marketing_consents marketing_consent ON marketing_consent.user_id = u.id
-			LEFT JOIN user_age_declarations age_declaration ON age_declaration.user_id = u.id";
+			LEFT JOIN user_age_declarations age_declaration ON age_declaration.user_id = u.id
+			WHERE u.anonymized_at IS NULL";
 		$stmt = $this->db->query($sql);
 
 		return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -206,6 +210,7 @@ class User{
 				LEFT JOIN user_roles ur ON ur.id = u.role_id
 				WHERE 1=1
 				AND u.verified = 1
+				AND u.anonymized_at IS NULL
 				AND (ur.name IS NULL OR ur.name <> 'admin')";
 
 		$params = [];
@@ -257,9 +262,10 @@ class User{
 				FROM users u
 				LEFT JOIN comuni ON comuni.id = u.comune_id
 				LEFT JOIN user_roles ur ON ur.id = u.role_id
-				WHERE 1=1
-				AND u.verified = 1
-				AND (ur.name IS NULL OR ur.name <> 'admin')";
+					WHERE 1=1
+					AND u.verified = 1
+					AND u.anonymized_at IS NULL
+					AND (ur.name IS NULL OR ur.name <> 'admin')";
 		$params = [];
 
 		if (!empty($filters['q'])) {
@@ -310,7 +316,7 @@ class User{
 	}
 	public function findByVerificationToken($token)
 	{
-		$stmt = $this->db->prepare("SELECT * FROM users WHERE verification_token = :token");
+		$stmt = $this->db->prepare("SELECT * FROM users WHERE verification_token = :token AND anonymized_at IS NULL");
 		$stmt->execute([':token' => $token]);
 		return $stmt->fetch(PDO::FETCH_ASSOC);
 	}
@@ -416,11 +422,9 @@ class User{
 	 *
 	 * @return bool True se l'utente è stato eliminato con successo, false altrimenti
 	 */
-	public function delete($id){
-		$stmt = $this->db->prepare("DELETE FROM " . $this->table . " WHERE id = :id");
-		$stmt->bindParam(':id', $id, PDO::PARAM_INT);
-
-		return $stmt->execute();
+	public function delete($id, ?int $deletedBy = null, ?string $reason = null): bool
+	{
+		return $this->anonymizeAccount((int) $id, $deletedBy, $reason);
 	}
 	function processAvatar($tmpFile, $destPath, $maxSize = 100) {
 		list($width, $height, $type) = getimagesize($tmpFile);
@@ -508,7 +512,7 @@ class User{
 		]);
 	}
 
-	public function anonymizeAccount(int $id): bool
+	public function anonymizeAccount(int $id, ?int $anonymizedBy = null, ?string $reason = null): bool
 	{
 		$anonymousSuffix = bin2hex(random_bytes(8));
 		$anonymousUsername = 'deleted_user_' . $id . '_' . $anonymousSuffix;
@@ -531,8 +535,16 @@ class User{
 				cover_position_y = 50,
 				comune_id = NULL,
 				profile_settings = '{}',
+				deactivated_at = COALESCE(deactivated_at, NOW()),
+				deactivated_by = :deactivated_by,
+				deactivation_reason = :deactivation_reason,
+				anonymized_at = NOW(),
+				anonymized_by = :anonymized_by,
+				account_deletion_requested_at = COALESCE(account_deletion_requested_at, NOW()),
+				account_deletion_reason = :account_deletion_reason,
 				updated_at = NOW()
-			WHERE id = :id";
+			WHERE id = :id
+			  AND anonymized_at IS NULL";
 
 		$stmt = $this->db->prepare($sql);
 
@@ -540,6 +552,10 @@ class User{
 			'username' => $anonymousUsername,
 			'email' => $anonymousEmail,
 			'password' => password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT),
+			'deactivated_by' => $anonymizedBy,
+			'deactivation_reason' => $reason,
+			'anonymized_by' => $anonymizedBy,
+			'account_deletion_reason' => $reason,
 			'id' => $id,
 		]);
 	}

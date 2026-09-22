@@ -434,7 +434,14 @@ class AdminBlogController extends Controller
 			exit();
 		}
 
-		if ($this->blogModel->delete($id)) {
+		$post = $this->blogModel->find((int) $id);
+		if (!$post) {
+			http_response_code(404);
+			echo json_encode(['success' => false, 'message' => 'Articolo non trovato.']);
+			exit();
+		}
+
+		if ($this->blogModel->delete((int) $id, isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null)) {
 			$this->auditLogService->logAudit([
 				'user_id' => $_SESSION['user_id'] ?? null,
 				'action_type' => AuditLogActionType::BLOG_POST_DELETED,

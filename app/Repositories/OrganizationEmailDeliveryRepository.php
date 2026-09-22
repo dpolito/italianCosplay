@@ -24,6 +24,7 @@ class OrganizationEmailDeliveryRepository
 			LEFT JOIN organization_email_deliveries d
 				ON d.organization_id = o.id AND d.email = o.email
 			WHERE o.email IS NOT NULL AND o.email <> ''
+			  AND o.deleted_at IS NULL
 			ORDER BY d.sent_at IS NULL DESC, o.name ASC");
 
 		return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -34,6 +35,7 @@ class OrganizationEmailDeliveryRepository
 		$stmt = $this->db->query("SELECT o.id, o.name, o.email
 			FROM organizations o
 			WHERE o.email IS NOT NULL AND o.email <> ''
+			AND o.deleted_at IS NULL
 			AND NOT EXISTS (
 				SELECT 1
 				FROM organization_email_deliveries d

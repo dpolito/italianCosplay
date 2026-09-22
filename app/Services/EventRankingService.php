@@ -92,6 +92,7 @@ class EventRankingService
             SELECT *
             FROM events
             WHERE approvato = 1
+            AND deleted_at IS NULL
             AND data_fine >= CURDATE()
         ";
 
@@ -131,7 +132,7 @@ class EventRankingService
 	 */
 	public function updateSingleEvent(int $eventId): void
 	{
-		$stmt = $this->db->prepare("SELECT * FROM events WHERE id = :id");
+		$stmt = $this->db->prepare("SELECT * FROM events WHERE id = :id AND deleted_at IS NULL");
 		$stmt->execute([':id' => $eventId]);
 
 		$event = $stmt->fetch(PDO::FETCH_ASSOC);

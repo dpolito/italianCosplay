@@ -1892,7 +1892,7 @@ class EventController extends Controller{
 
 
 		if(
-			$this->eventModel->delete($id)
+			$this->eventModel->delete((int) $id, isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null)
 		){
 			$this->auditLogService->logAudit([
 				'user_id' => $_SESSION['user_id'] ?? null,

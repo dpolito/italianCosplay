@@ -110,6 +110,7 @@ class ImageService
         FROM entity_images
         WHERE entity_type = :type
         AND entity_id = :id
+        AND deleted_at IS NULL
     ");
 
 		$stmt->execute([
@@ -129,10 +130,11 @@ class ImageService
 		}
 
 		$stmt = $this->db->prepare("
-        DELETE
-        FROM entity_images
+        UPDATE entity_images
+        SET deleted_at = NOW()
         WHERE entity_type = :type
         AND entity_id = :id
+        AND deleted_at IS NULL
     ");
 
 		$stmt->execute([
@@ -169,6 +171,7 @@ class ImageService
 			FROM entity_images
 			WHERE entity_type = :type
 			  AND entity_id = :source_id
+			  AND deleted_at IS NULL
 			ORDER BY preset = 'original' DESC, preset = 'large' DESC, preset = 'medium' DESC, preset = 'thumb' DESC
 		");
 		$stmt->execute([
@@ -324,33 +327,36 @@ class ImageService
 	/**
 	 * DELETE IMMAGINE (tutte le varianti)
 	 */
-	public function deleteByEntityImageId(int $imageId): void
+	public function deleteByEntityImageId(int $imageId, ?int $deletedBy = null, ?string $reason = null): void
 	{
 		$stmt = $this->db->prepare("
-            SELECT path 
-            FROM entity_images 
-            WHERE id = :id OR (entity_type, entity_id) = (
-                SELECT entity_type, entity_id FROM entity_images WHERE id = :id
-            )
+            SELECT entity_type, entity_id
+            FROM entity_images
+            WHERE id = :id
+              AND deleted_at IS NULL
+            LIMIT 1
         ");
 
 		$stmt->execute(['id' => $imageId]);
-		$files = $stmt->fetchAll(PDO::FETCH_COLUMN);
-
-		foreach ($files as $file) {
-			$full = APP_ROOT . $file;
-			if (file_exists($full)) {
-				unlink($full);
-			}
+		$image = $stmt->fetch(PDO::FETCH_ASSOC);
+		if (!$image) {
+			return;
 		}
 
 		$this->db->prepare("
-            DELETE FROM entity_images 
-            WHERE id = :id
-            OR (entity_type, entity_id) = (
-                SELECT entity_type, entity_id FROM entity_images WHERE id = :id
-            )
-        ")->execute(['id' => $imageId]);
+            UPDATE entity_images
+            SET deleted_at = NOW(),
+                deleted_by = :deleted_by,
+                deletion_reason = :deletion_reason
+            WHERE deleted_at IS NULL
+              AND entity_type = :entity_type
+              AND entity_id = :entity_id
+        ")->execute([
+			'entity_type' => $image['entity_type'],
+			'entity_id' => $image['entity_id'],
+			'deleted_by' => $deletedBy,
+			'deletion_reason' => $reason,
+		]);
 	}
 
 	/**
@@ -364,6 +370,7 @@ class ImageService
             WHERE entity_type = :type
               AND entity_id = :id
               AND preset = :preset
+              AND deleted_at IS NULL
             ORDER BY is_primary DESC, id ASC
             LIMIT 1
         ");
@@ -388,6 +395,7 @@ class ImageService
             WHERE entity_type = :type
               AND entity_id = :id
               AND preset = :preset
+              AND deleted_at IS NULL
             ORDER BY is_primary DESC, id ASC
         ");
 

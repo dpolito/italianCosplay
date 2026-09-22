@@ -30,7 +30,7 @@ class Event extends BaseModel
 		$counter = 1;
 
 		while (true) {
-			$query = "SELECT COUNT(*) FROM " . $this->table . " WHERE slug = :slug";
+			$query = "SELECT COUNT(*) FROM " . $this->table . " WHERE slug = :slug AND deleted_at IS NULL";
 			if ($excludeId !== null) {
 				$query .= " AND id != :exclude_id";
 			}
@@ -68,7 +68,7 @@ class Event extends BaseModel
                   LEFT JOIN province p ON e.provincia_id = p.id
                   LEFT JOIN comuni c ON e.comune_id = c.id
                   LEFT JOIN tipo_evento te ON e.tipo_evento_id = te.id
-                  WHERE e.approvato = 1 AND e.data_fine >= CURDATE()"; // Solo eventi approvati e non scaduti
+                  WHERE e.approvato = 1 AND e.deleted_at IS NULL AND e.data_fine >= CURDATE()"; // Solo eventi approvati e non scaduti
 
 		$params = [];
 
@@ -115,6 +115,7 @@ class Event extends BaseModel
 			SELECT COUNT(*)
 			FROM " . $this->table . "
 			WHERE approvato = 1
+			  AND deleted_at IS NULL
 			  AND data_fine >= CURDATE()
 		");
 		$stmt->execute();
@@ -136,6 +137,7 @@ class Event extends BaseModel
 			LEFT JOIN comuni c ON e.comune_id = c.id
 			LEFT JOIN tipo_evento te ON e.tipo_evento_id = te.id
 			WHERE e.approvato = 1
+			  AND e.deleted_at IS NULL
 			  AND e.data_fine >= CURDATE()
 			ORDER BY e.created_at DESC, e.id DESC
 			LIMIT :limit
@@ -172,6 +174,7 @@ class Event extends BaseModel
         LEFT JOIN comuni c ON e.comune_id = c.id
         LEFT JOIN tipo_evento te ON e.tipo_evento_id = te.id
         WHERE e.approvato = 1
+          AND e.deleted_at IS NULL
           AND e.data_fine >= CURDATE()
     ";
 
@@ -230,7 +233,7 @@ class Event extends BaseModel
 			LEFT JOIN regioni r ON e.regione_id = r.id
 			LEFT JOIN province p ON e.provincia_id = p.id
 			LEFT JOIN comuni c ON e.comune_id = c.id
-			WHERE e.approvato = 1 AND e.data_fine >= CURDATE()
+			WHERE e.approvato = 1 AND e.deleted_at IS NULL AND e.data_fine >= CURDATE()
 		";
 		$params = [];
 		$excludeIds = array_values(array_filter(array_map('intval', $excludeIds), static fn (int $id): bool => $id > 0));
@@ -275,6 +278,7 @@ class Event extends BaseModel
                                   LEFT JOIN province p ON e.provincia_id = p.id
                                   LEFT JOIN comuni c ON e.comune_id = c.id
                                   LEFT JOIN tipo_evento te ON e.tipo_evento_id = te.id
+                                  WHERE e.deleted_at IS NULL
                                   ORDER BY e.created_at DESC");
 		return $stmt->fetchAll(PDO::FETCH_ASSOC);
 	}
@@ -291,7 +295,7 @@ class Event extends BaseModel
                                   LEFT JOIN province p ON e.provincia_id = p.id
                                   LEFT JOIN comuni c ON e.comune_id = c.id
                                   LEFT JOIN tipo_evento te ON e.tipo_evento_id = te.id
-                                  WHERE e.approvato = 0 ORDER BY e.created_at DESC");
+                                  WHERE e.approvato = 0 AND e.deleted_at IS NULL ORDER BY e.created_at DESC");
 		return $stmt->fetchAll(PDO::FETCH_ASSOC);
 	}
 
@@ -308,7 +312,7 @@ class Event extends BaseModel
                                   LEFT JOIN province p ON e.provincia_id = p.id
                                   LEFT JOIN comuni c ON e.comune_id = c.id
                                   LEFT JOIN tipo_evento te ON e.tipo_evento_id = te.id
-                                  WHERE e.id = :id");
+                                  WHERE e.id = :id AND e.deleted_at IS NULL");
 
 		$stmt->bindParam(':id', $id, PDO::PARAM_INT);
 		$stmt->execute();
@@ -328,7 +332,7 @@ class Event extends BaseModel
                                   LEFT JOIN province p ON e.provincia_id = p.id
                                   LEFT JOIN comuni c ON e.comune_id = c.id
                                   LEFT JOIN tipo_evento te ON e.tipo_evento_id = te.id
-                                  WHERE e.slug = :slug");
+                                  WHERE e.slug = :slug AND e.deleted_at IS NULL");
 		$stmt->bindParam(':slug', $slug, PDO::PARAM_STR);
 		$stmt->execute();
 		return $stmt->fetch(PDO::FETCH_ASSOC);
@@ -356,6 +360,7 @@ class Event extends BaseModel
         LEFT JOIN tipo_evento te ON e.tipo_evento_id = te.id
         WHERE e.slug = :slug
           AND e.approvato = 1
+          AND e.deleted_at IS NULL
         LIMIT 1
     ";
 
@@ -403,6 +408,7 @@ class Event extends BaseModel
 			LEFT JOIN province p ON e.provincia_id = p.id
 			LEFT JOIN comuni c ON e.comune_id = c.id
 			WHERE e.id IN ({$placeholders})
+			  AND e.deleted_at IS NULL
 			ORDER BY e.data_inizio ASC, e.data_fine ASC
 			LIMIT {$limit}
 		";
@@ -521,7 +527,7 @@ class Event extends BaseModel
                       has_cosplay_contest = :has_cosplay_contest,
                       event_master_id = :event_master_id,
                       updated_at = NOW()
-                  WHERE id = :id";
+                  WHERE id = :id AND deleted_at IS NULL";
 
 		$stmt = $this->db->prepare($query);
 
@@ -564,10 +570,20 @@ class Event extends BaseModel
 	 * @param int $id L'ID dell'evento da eliminare.
 	 * @return bool True se l'evento è stato eliminato con successo, false altrimenti.
 	 */
-	public function delete(int $id): bool
+	public function delete(int $id, ?int $deletedBy = null, ?string $reason = null): bool
 	{
-		$stmt = $this->db->prepare("DELETE FROM " . $this->table . " WHERE id = :id");
-		$stmt->bindParam(':id', $id, PDO::PARAM_INT);
+		$stmt = $this->db->prepare("
+			UPDATE " . $this->table . "
+			SET deleted_at = NOW(),
+			    deleted_by = :deleted_by,
+			    deletion_reason = :deletion_reason,
+			    updated_at = NOW()
+			WHERE id = :id
+			  AND deleted_at IS NULL
+		");
+		$stmt->bindValue(':id', $id, PDO::PARAM_INT);
+		$stmt->bindValue(':deleted_by', $deletedBy, $deletedBy === null ? PDO::PARAM_NULL : PDO::PARAM_INT);
+		$stmt->bindValue(':deletion_reason', $reason);
 		return $stmt->execute();
 	}
 
@@ -580,6 +596,7 @@ class Event extends BaseModel
             COUNT(*) AS total
         FROM events
         WHERE approvato = 1
+        AND deleted_at IS NULL
         AND data_inizio >= CURDATE()
         GROUP BY YEAR(data_inizio), MONTH(data_inizio)
         ORDER BY year ASC, month ASC
@@ -637,6 +654,7 @@ class Event extends BaseModel
 				MAX(COALESCE(updated_at, created_at, data_inizio)) AS last_modified
 			FROM {$this->table}
 			WHERE approvato = 1
+			  AND deleted_at IS NULL
 			GROUP BY YEAR(data_inizio)
 			ORDER BY year ASC
 		";
@@ -659,6 +677,7 @@ class Event extends BaseModel
 			SELECT DISTINCT YEAR(data_inizio) AS year
 			FROM {$this->table}
 			WHERE data_inizio IS NOT NULL
+			  AND deleted_at IS NULL
 			ORDER BY year DESC
 		";
 
@@ -682,6 +701,7 @@ class Event extends BaseModel
 				MAX(COALESCE(updated_at, created_at, data_inizio)) AS last_modified
 			FROM {$this->table}
 			WHERE approvato = 1
+			  AND deleted_at IS NULL
 			  AND YEAR(data_inizio) = :year
 		";
 
@@ -713,6 +733,7 @@ class Event extends BaseModel
 			LEFT JOIN comuni c ON e.comune_id = c.id
 			LEFT JOIN tipo_evento te ON e.tipo_evento_id = te.id
 			WHERE e.approvato = 1
+			  AND e.deleted_at IS NULL
 			  AND YEAR(e.data_inizio) = :year
 			ORDER BY e.data_inizio ASC, e.data_fine ASC
 		";
@@ -734,6 +755,7 @@ class Event extends BaseModel
 			LEFT JOIN comuni c ON e.comune_id = c.id
 			LEFT JOIN tipo_evento te ON e.tipo_evento_id = te.id
 			WHERE e.approvato = 1
+			  AND e.deleted_at IS NULL
 			  AND YEAR(e.data_inizio) = :year
 			  AND MONTH(e.data_inizio) = :month
 			ORDER BY e.data_inizio ASC, e.data_fine ASC
@@ -756,6 +778,7 @@ class Event extends BaseModel
 				COUNT(*) AS total
 			FROM {$this->table}
 			WHERE approvato = 1
+			  AND deleted_at IS NULL
 			  AND YEAR(data_inizio) = :year
 			GROUP BY YEAR(data_inizio), MONTH(data_inizio)
 			ORDER BY month ASC
@@ -800,7 +823,7 @@ class Event extends BaseModel
 	 */
 	public function approveEvent(int $id): bool
 	{
-		$stmt = $this->db->prepare("UPDATE " . $this->table . " SET approvato = 1, updated_at = NOW() WHERE id = :id");
+		$stmt = $this->db->prepare("UPDATE " . $this->table . " SET approvato = 1, updated_at = NOW() WHERE id = :id AND deleted_at IS NULL");
 		$stmt->bindParam(':id', $id, PDO::PARAM_INT);
 		return $stmt->execute();
 	}
@@ -813,6 +836,7 @@ class Event extends BaseModel
               LEFT JOIN province p ON e.provincia_id = p.id
               LEFT JOIN comuni c ON e.comune_id = c.id
               WHERE e.approvato = 1
+              AND e.deleted_at IS NULL
               AND COALESCE(e.data_fine, e.data_inizio) >= :from
               AND e.data_inizio <= :to";
 
@@ -900,6 +924,7 @@ class Event extends BaseModel
 
         WHERE 
             e.approvato = 1
+            AND e.deleted_at IS NULL
             AND e.data_inizio <= :end
             AND e.data_fine >= :start
 
@@ -932,6 +957,7 @@ class Event extends BaseModel
 
         WHERE 
             e.approvato = 1
+            AND e.deleted_at IS NULL
             AND e.id != :event_id
             AND e.data_fine >= CURDATE()
 
@@ -965,6 +991,7 @@ class Event extends BaseModel
 			FROM {$this->table} e
 			WHERE e.event_master_id = :master_id
 			  AND e.approvato = 1
+			  AND e.deleted_at IS NULL
 		";
 
 		if ($excludeEventId !== null) {
@@ -1014,6 +1041,7 @@ class Event extends BaseModel
             AND yv.view_date = CURDATE() - INTERVAL 1 DAY
 
         WHERE e.approvato = 1
+        AND e.deleted_at IS NULL
         AND e.data_fine >= :start
         AND e.data_inizio <= :end
 
@@ -1150,6 +1178,7 @@ class Event extends BaseModel
 			FROM entity_images ei
 			WHERE ei.entity_type = 'event'
 			  AND ei.entity_id = :event_id
+			  AND ei.deleted_at IS NULL
 			ORDER BY sort_order ASC, ei.id ASC
 		");
 		$stmt->execute(['event_id' => $eventId]);

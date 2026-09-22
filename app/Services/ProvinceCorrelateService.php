@@ -95,6 +95,7 @@ class ProvinceCorrelateService
 
             WHERE e.provincia_id = :provincia_id
               AND e.approvato = 1
+              AND e.deleted_at IS NULL
               AND e.data_inizio >= CURDATE()
 
             ORDER BY e.data_inizio ASC

@@ -78,6 +78,7 @@ class BlogImageService
 			JOIN images i ON i.id = bp.cover_image_id
 			JOIN image_variants iv ON iv.image_id = i.id
 			WHERE bp.id = :id
+			  AND bp.deleted_at IS NULL
 			  AND iv.preset = 'large'
 			LIMIT 1
 		");

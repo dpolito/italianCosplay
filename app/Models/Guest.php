@@ -144,7 +144,9 @@ class Guest extends BaseModel
             AND i.entity_id = e.id 
             AND i.is_primary = 1
          	AND i.preset='medium'
+            AND i.deleted_at IS NULL
         WHERE eg.guest_id = :guest_id
+          AND e.deleted_at IS NULL
         ORDER BY e.data_inizio DESC
     ";
 

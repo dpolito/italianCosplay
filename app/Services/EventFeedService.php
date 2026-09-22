@@ -31,6 +31,8 @@ class EventFeedService
 		return $this->db->query("
 			SELECT *
 			FROM events
+			WHERE approvato = 1
+			  AND deleted_at IS NULL
 			ORDER BY final_score DESC
 			LIMIT 30
 		")->fetchAll(PDO::FETCH_ASSOC);

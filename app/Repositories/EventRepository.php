@@ -21,7 +21,7 @@ class EventRepository
 	public function getAll(): array
 	{
 		return $this->db
-			->query("SELECT * FROM events")
+			->query("SELECT * FROM events WHERE deleted_at IS NULL")
 			->fetchAll(PDO::FETCH_ASSOC);
 	}
 
@@ -35,7 +35,7 @@ class EventRepository
 		string $direction = 'desc'
 	): array {
 
-		$where = [];
+		$where = ['e.deleted_at IS NULL'];
 
 		$params = [];
 
@@ -328,7 +328,7 @@ class EventRepository
 		if (!in_array($direction, ['asc', 'desc'], true)) {
 			$direction = 'desc';
 		}
-		$where = [];
+		$where = ['e.deleted_at IS NULL'];
 		$queryParams = [];
 
 
@@ -498,6 +498,7 @@ class EventRepository
 		SELECT *
 		FROM events
 		WHERE id = :id
+		  AND deleted_at IS NULL
 		"
 		);
 

@@ -778,7 +778,7 @@ class AdminController extends Controller
 			exit();
 		}
 
-		if ($this->userModel->delete($id)) {
+		if ($this->userModel->delete((int) $id, isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null, 'Admin account deletion')) {
 			$this->auditLogService->logAudit([
 				'user_id' => $_SESSION['user_id'] ?? null,
 				'action_type' => AuditLogActionType::USER_DELETED,

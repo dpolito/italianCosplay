@@ -52,6 +52,7 @@ class AdminEngagementAnalyticsService
 					GROUP BY event_id
 				) a ON a.event_id = e.id
 				WHERE e.approvato = 1
+				  AND e.deleted_at IS NULL
 				ORDER BY engagement_actions DESC, views DESC, e.data_inizio ASC
 				LIMIT :limit"
 			);
@@ -100,6 +101,7 @@ class AdminEngagementAnalyticsService
 					GROUP BY event_id
 				) a ON a.event_id = e.id
 				WHERE e.approvato = 1
+				  AND e.deleted_at IS NULL
 				  AND v.views >= 10
 				ORDER BY (COALESCE(f.favorites, 0) + COALESCE(a.agenda_actions, 0)) / NULLIF(v.views, 0) ASC, v.views DESC
 				LIMIT :limit"

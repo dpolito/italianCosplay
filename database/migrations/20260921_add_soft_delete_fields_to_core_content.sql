@@ -1,0 +1,65 @@
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'events' AND COLUMN_NAME = 'deleted_at') = 0, 'ALTER TABLE `events` ADD COLUMN `deleted_at` DATETIME NULL DEFAULT NULL AFTER `updated_at`', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'events' AND COLUMN_NAME = 'deleted_by') = 0, 'ALTER TABLE `events` ADD COLUMN `deleted_by` INT NULL DEFAULT NULL AFTER `deleted_at`', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'events' AND COLUMN_NAME = 'deletion_reason') = 0, 'ALTER TABLE `events` ADD COLUMN `deletion_reason` VARCHAR(255) NULL DEFAULT NULL AFTER `deleted_by`', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'events' AND INDEX_NAME = 'idx_events_public_soft_delete') = 0, 'ALTER TABLE `events` ADD INDEX `idx_events_public_soft_delete` (`deleted_at`, `approvato`, `data_inizio`)', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'events' AND INDEX_NAME = 'idx_events_deleted_by') = 0, 'ALTER TABLE `events` ADD INDEX `idx_events_deleted_by` (`deleted_by`)', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'events_master' AND COLUMN_NAME = 'deleted_at') = 0, 'ALTER TABLE `events_master` ADD COLUMN `deleted_at` DATETIME NULL DEFAULT NULL AFTER `updated_at`', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'events_master' AND COLUMN_NAME = 'deleted_by') = 0, 'ALTER TABLE `events_master` ADD COLUMN `deleted_by` INT NULL DEFAULT NULL AFTER `deleted_at`', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'events_master' AND COLUMN_NAME = 'deletion_reason') = 0, 'ALTER TABLE `events_master` ADD COLUMN `deletion_reason` VARCHAR(255) NULL DEFAULT NULL AFTER `deleted_by`', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'events_master' AND INDEX_NAME = 'idx_events_master_public_soft_delete') = 0, 'ALTER TABLE `events_master` ADD INDEX `idx_events_master_public_soft_delete` (`deleted_at`, `status`, `is_public`)', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'events_master' AND INDEX_NAME = 'idx_events_master_deleted_by') = 0, 'ALTER TABLE `events_master` ADD INDEX `idx_events_master_deleted_by` (`deleted_by`)', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'organizations' AND COLUMN_NAME = 'deleted_at') = 0, 'ALTER TABLE `organizations` ADD COLUMN `deleted_at` DATETIME NULL DEFAULT NULL AFTER `updated_at`', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'organizations' AND COLUMN_NAME = 'deleted_by') = 0, 'ALTER TABLE `organizations` ADD COLUMN `deleted_by` INT NULL DEFAULT NULL AFTER `deleted_at`', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'organizations' AND COLUMN_NAME = 'deletion_reason') = 0, 'ALTER TABLE `organizations` ADD COLUMN `deletion_reason` VARCHAR(255) NULL DEFAULT NULL AFTER `deleted_by`', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'organizations' AND INDEX_NAME = 'idx_organizations_public_soft_delete') = 0, 'ALTER TABLE `organizations` ADD INDEX `idx_organizations_public_soft_delete` (`deleted_at`, `status`, `is_public`)', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'organizations' AND INDEX_NAME = 'idx_organizations_deleted_by') = 0, 'ALTER TABLE `organizations` ADD INDEX `idx_organizations_deleted_by` (`deleted_by`)', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'organization_users' AND COLUMN_NAME = 'deleted_at') = 0, 'ALTER TABLE `organization_users` ADD COLUMN `deleted_at` DATETIME NULL DEFAULT NULL AFTER `updated_at`', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'organization_users' AND COLUMN_NAME = 'deleted_by') = 0, 'ALTER TABLE `organization_users` ADD COLUMN `deleted_by` INT NULL DEFAULT NULL AFTER `deleted_at`', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'organization_users' AND COLUMN_NAME = 'deletion_reason') = 0, 'ALTER TABLE `organization_users` ADD COLUMN `deletion_reason` VARCHAR(255) NULL DEFAULT NULL AFTER `deleted_by`', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'organization_users' AND INDEX_NAME = 'idx_organization_users_soft_delete') = 0, 'ALTER TABLE `organization_users` ADD INDEX `idx_organization_users_soft_delete` (`organization_id`, `deleted_at`, `status`)', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'organization_users' AND INDEX_NAME = 'idx_organization_users_deleted_by') = 0, 'ALTER TABLE `organization_users` ADD INDEX `idx_organization_users_deleted_by` (`deleted_by`)', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'blog_posts' AND COLUMN_NAME = 'deleted_at') = 0, 'ALTER TABLE `blog_posts` ADD COLUMN `deleted_at` DATETIME NULL DEFAULT NULL AFTER `updated_at`', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'blog_posts' AND COLUMN_NAME = 'deleted_by') = 0, 'ALTER TABLE `blog_posts` ADD COLUMN `deleted_by` INT NULL DEFAULT NULL AFTER `deleted_at`', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'blog_posts' AND COLUMN_NAME = 'deletion_reason') = 0, 'ALTER TABLE `blog_posts` ADD COLUMN `deletion_reason` VARCHAR(255) NULL DEFAULT NULL AFTER `deleted_by`', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'blog_posts' AND INDEX_NAME = 'idx_blog_posts_public_soft_delete') = 0, 'ALTER TABLE `blog_posts` ADD INDEX `idx_blog_posts_public_soft_delete` (`deleted_at`, `status`, `published_at`)', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'blog_posts' AND INDEX_NAME = 'idx_blog_posts_deleted_by') = 0, 'ALTER TABLE `blog_posts` ADD INDEX `idx_blog_posts_deleted_by` (`deleted_by`)', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'entity_images' AND COLUMN_NAME = 'deleted_at') = 0, 'ALTER TABLE `entity_images` ADD COLUMN `deleted_at` DATETIME NULL DEFAULT NULL AFTER `created_at`', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'entity_images' AND COLUMN_NAME = 'deleted_by') = 0, 'ALTER TABLE `entity_images` ADD COLUMN `deleted_by` INT NULL DEFAULT NULL AFTER `deleted_at`', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'entity_images' AND COLUMN_NAME = 'deletion_reason') = 0, 'ALTER TABLE `entity_images` ADD COLUMN `deletion_reason` VARCHAR(255) NULL DEFAULT NULL AFTER `deleted_by`', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'entity_images' AND INDEX_NAME = 'idx_entity_images_soft_delete') = 0, 'ALTER TABLE `entity_images` ADD INDEX `idx_entity_images_soft_delete` (`entity_type`, `entity_id`, `deleted_at`, `is_primary`)', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'entity_images' AND INDEX_NAME = 'idx_entity_images_deleted_by') = 0, 'ALTER TABLE `entity_images` ADD INDEX `idx_entity_images_deleted_by` (`deleted_by`)', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;

@@ -31,10 +31,11 @@ class EventImageMigrationService
                 id,
                 titolo,
                 immagine
-            FROM events
-            WHERE immagine IS NOT NULL
-            AND immagine != ''
-        ";
+	            FROM events
+	            WHERE immagine IS NOT NULL
+	            AND immagine != ''
+	            AND deleted_at IS NULL
+	        ";
 
 		$stmt = $this->db->query($sql);
 

@@ -45,6 +45,7 @@ LEFT JOIN entity_images i
           AND i2.entity_type = 'blog_post'
           AND i2.preset = 'thumb'
           AND i2.is_primary = 1
+          AND i2.deleted_at IS NULL
         ORDER BY i2.id ASC
         LIMIT 1
     )
@@ -52,6 +53,7 @@ LEFT JOIN entity_images i
 WHERE p.categoria_id = :categoria_id
 AND p.id != :post_id
 AND p.status = 'published'
+AND p.deleted_at IS NULL
 
 ORDER BY p.created_at DESC
 LIMIT 5;");
@@ -115,20 +117,24 @@ LIMIT 5;");
             AND i_medium.entity_id = p.id
             AND i_medium.is_primary = 1
             AND i_medium.preset = 'medium'
+            AND i_medium.deleted_at IS NULL
 
         LEFT JOIN entity_images i_thumb
             ON i_thumb.entity_type = 'blog_post'
             AND i_thumb.entity_id = p.id
             AND i_thumb.is_primary = 1
             AND i_thumb.preset = 'thumb'
+            AND i_thumb.deleted_at IS NULL
 
         LEFT JOIN entity_images i_original
             ON i_original.entity_type = 'blog_post'
             AND i_original.entity_id = p.id
             AND i_original.is_primary = 1
             AND i_original.preset = 'original'
+            AND i_original.deleted_at IS NULL
 
         WHERE p.status = 'published'
+          AND p.deleted_at IS NULL
 
         ORDER BY p.created_at DESC
         LIMIT :limit OFFSET :offset
@@ -186,21 +192,25 @@ COALESCE(
 			AND i_medium.entity_id = p.id
 			AND i_medium.is_primary = 1
 			AND i_medium.preset = 'medium'
+			AND i_medium.deleted_at IS NULL
 
 		LEFT JOIN entity_images i_thumb
 			ON i_thumb.entity_type = 'blog_post'
 			AND i_thumb.entity_id = p.id
 			AND i_thumb.is_primary = 1
 			AND i_thumb.preset = 'thumb'
+			AND i_thumb.deleted_at IS NULL
 
 		LEFT JOIN entity_images i_original
 			ON i_original.entity_type = 'blog_post'
 			AND i_original.entity_id = p.id
 			AND i_original.is_primary = 1
 			AND i_original.preset = 'original'
+			AND i_original.deleted_at IS NULL
 
 		WHERE pc.slug = :slug
 		  AND p.status = 'published'
+		  AND p.deleted_at IS NULL
 
 		ORDER BY p.created_at DESC
 
@@ -226,6 +236,7 @@ COALESCE(
 			FROM blog_posts p
 			JOIN blog_categories c ON c.id = p.categoria_id
 			WHERE p.status = 'published'
+			  AND p.deleted_at IS NULL
 			  AND c.slug = :slug
 		");
 
@@ -235,6 +246,7 @@ COALESCE(
 			SELECT COUNT(*) 
 			FROM blog_posts
 			WHERE status = 'published'
+			  AND deleted_at IS NULL
 		");
 
 			$stmt->execute();
@@ -249,6 +261,7 @@ COALESCE(
             SELECT * 
             FROM blog_posts
             WHERE status = 'published'
+              AND deleted_at IS NULL
             ORDER BY created_at DESC
             LIMIT :limit
         ");
@@ -264,6 +277,7 @@ COALESCE(
             SELECT * 
             FROM blog_posts
             WHERE status = 'published'
+              AND deleted_at IS NULL
             ORDER BY created_at DESC
         ");
 		$stmt->execute();
@@ -276,7 +290,7 @@ COALESCE(
 		$stmt = $this->db->prepare("
             SELECT * 
             FROM blog_posts
-            WHERE slug = :slug AND status = 'published'
+            WHERE slug = :slug AND status = 'published' AND deleted_at IS NULL
             LIMIT 1
         ");
 
@@ -294,6 +308,7 @@ COALESCE(
             JOIN blog_categories c ON c.id = pc.category_id
             WHERE c.slug = :slug
               AND p.status = 'published'
+              AND p.deleted_at IS NULL
             ORDER BY p.created_at DESC
         ");
 
@@ -402,6 +417,7 @@ COALESCE(
 			status = :status,
 			published_at=:published_at
 		WHERE id = :id
+		  AND deleted_at IS NULL
 	");
 
 		return $stmt->execute([
@@ -418,16 +434,21 @@ COALESCE(
 			'published_at' => $data['published_at'],
 		]);
 	}
-	public function delete(int $id): bool
+	public function delete(int $id, ?int $deletedBy = null, ?string $reason = null): bool
 	{
 		$stmt = $this->db->prepare("
 		UPDATE blog_posts
-		SET deleted_at = NOW()
+		SET deleted_at = NOW(),
+		    deleted_by = :deleted_by,
+		    deletion_reason = :deletion_reason
 		WHERE id = :id
+		  AND deleted_at IS NULL
 	");
 
 		return $stmt->execute([
 			'id' => $id,
+			'deleted_by' => $deletedBy,
+			'deletion_reason' => $reason,
 		]);
 	}
 	public function slugExists(string $slug, ?int $excludeId = null): bool
@@ -436,6 +457,7 @@ COALESCE(
 		SELECT COUNT(*)
 		FROM blog_posts
 		WHERE slug = :slug
+		AND deleted_at IS NULL
 	";
 
 		$params = [
@@ -461,6 +483,7 @@ COALESCE(
 	LEFT JOIN image_variants iv ON iv.image_id = i.id
 	WHERE ei.entity_type = 'blog'
 	AND ei.entity_id = :id
+	AND ei.deleted_at IS NULL
 	    ");
 
 		$stmt->execute(['id' => $postId]);

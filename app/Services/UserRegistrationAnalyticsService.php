@@ -27,7 +27,8 @@ class UserRegistrationAnalyticsService
 					SUM(CASE WHEN verified = 1 THEN 1 ELSE 0 END) AS activated,
 					SUM(CASE WHEN verified = 0 THEN 1 ELSE 0 END) AS not_activated
 				FROM users
-				WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL :days DAY)"
+				WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL :days DAY)
+				  AND anonymized_at IS NULL"
 			);
 			$stmt->bindValue(':days', $days, PDO::PARAM_INT);
 			$stmt->execute();

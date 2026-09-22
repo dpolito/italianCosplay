@@ -21,6 +21,8 @@ class EventMasterClaimRepository
 	{
 		$stmt = $this->db->query($this->baseSelect() . "
 			WHERE c.status = 'pending'
+			  AND em.deleted_at IS NULL
+			  AND o.deleted_at IS NULL
 			ORDER BY c.created_at ASC, c.id ASC
 		");
 
@@ -29,7 +31,7 @@ class EventMasterClaimRepository
 
 	public function findById(int $id): ?array
 	{
-		$stmt = $this->db->prepare($this->baseSelect() . ' WHERE c.id = :id LIMIT 1');
+		$stmt = $this->db->prepare($this->baseSelect() . ' WHERE c.id = :id AND em.deleted_at IS NULL AND o.deleted_at IS NULL LIMIT 1');
 		$stmt->execute([':id' => $id]);
 		$row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -38,7 +40,7 @@ class EventMasterClaimRepository
 
 	public function findForUser(int $userId): array
 	{
-		$stmt = $this->db->prepare($this->baseSelect() . ' WHERE c.requested_by = :user_id ORDER BY c.created_at DESC, c.id DESC');
+		$stmt = $this->db->prepare($this->baseSelect() . ' WHERE c.requested_by = :user_id AND em.deleted_at IS NULL AND o.deleted_at IS NULL ORDER BY c.created_at DESC, c.id DESC');
 		$stmt->execute([':user_id' => $userId]);
 		return $stmt->fetchAll(PDO::FETCH_ASSOC);
 	}
@@ -48,8 +50,9 @@ class EventMasterClaimRepository
 		$stmt = $this->db->prepare("SELECT o.id, o.name
 			FROM organizations o
 			INNER JOIN organization_users ou ON ou.organization_id = o.id
-			WHERE ou.user_id = :user_id AND ou.status = 'active'
+			WHERE ou.user_id = :user_id AND ou.status = 'active' AND ou.deleted_at IS NULL
 				AND ou.role IN ('owner', 'admin') AND o.status <> 'archived'
+				AND o.deleted_at IS NULL
 			ORDER BY o.name ASC");
 		$stmt->execute([':user_id' => $userId]);
 
@@ -61,10 +64,11 @@ class EventMasterClaimRepository
 		$limit = max(1, min($limit, 50));
 		$stmt = $this->db->prepare("SELECT o.id, o.name
 			FROM organizations o
-			WHERE (o.status = 'active' AND o.is_public = 1 OR EXISTS (
+			WHERE o.deleted_at IS NULL
+			AND (o.status = 'active' AND o.is_public = 1 OR EXISTS (
 				SELECT 1 FROM organization_users ou
 				WHERE ou.organization_id = o.id AND ou.user_id = :user_id
-				AND ou.status = 'active' AND ou.role IN ('owner', 'admin')
+				AND ou.status = 'active' AND ou.deleted_at IS NULL AND ou.role IN ('owner', 'admin')
 			))
 			AND o.name LIKE :name_query
 			AND NOT EXISTS (
@@ -97,10 +101,11 @@ class EventMasterClaimRepository
 				$organization = $this->db->prepare("SELECT o.id, o.name
 					FROM organizations o
 					WHERE o.id = :organization_id
+						AND o.deleted_at IS NULL
 						AND (o.status = 'active' AND o.is_public = 1 OR EXISTS (
 							SELECT 1 FROM organization_users ou
 							WHERE ou.organization_id = o.id AND ou.user_id = :user_id
-								AND ou.status = 'active' AND ou.role IN ('owner', 'admin')
+								AND ou.status = 'active' AND ou.deleted_at IS NULL AND ou.role IN ('owner', 'admin')
 						))
 					LIMIT 1");
 				$organization->execute([':organization_id' => $organizationId, ':user_id' => $userId]);
@@ -162,7 +167,7 @@ class EventMasterClaimRepository
 		$base = strtolower(trim((string) preg_replace('/[^a-z0-9]+/i', '-', $name), '-')) ?: 'organizzazione';
 		$slug = $base;
 		$counter = 1;
-		$stmt = $this->db->prepare('SELECT COUNT(*) FROM organizations WHERE slug = :slug');
+		$stmt = $this->db->prepare('SELECT COUNT(*) FROM organizations WHERE slug = :slug AND deleted_at IS NULL');
 		while (true) {
 			$stmt->execute([':slug' => $slug]);
 			if ((int) $stmt->fetchColumn() === 0) {
@@ -200,7 +205,7 @@ class EventMasterClaimRepository
 			$memberRole = $isStaffOwnedPlaceholder ? 'owner' : 'admin';
 
 			if ($isStaffOwnedPlaceholder && $ownerUserId > 0 && $ownerUserId !== $requestedBy) {
-				$transfer = $this->db->prepare('UPDATE organizations SET owner_user_id = :requested_by, updated_at = NOW() WHERE id = :organization_id');
+				$transfer = $this->db->prepare('UPDATE organizations SET owner_user_id = :requested_by, updated_at = NOW() WHERE id = :organization_id AND deleted_at IS NULL');
 				$transfer->execute([
 					':requested_by' => $requestedBy,
 					':organization_id' => $organizationId,
@@ -208,7 +213,7 @@ class EventMasterClaimRepository
 
 				$previousOwner = $this->db->prepare("UPDATE organization_users
 					SET status = 'removed', updated_at = NOW()
-					WHERE organization_id = :organization_id AND user_id = :owner_user_id AND role = 'owner'");
+					WHERE organization_id = :organization_id AND user_id = :owner_user_id AND role = 'owner' AND deleted_at IS NULL");
 				$previousOwner->execute([
 					':organization_id' => $organizationId,
 					':owner_user_id' => $ownerUserId,
@@ -218,7 +223,7 @@ class EventMasterClaimRepository
 			$member = $this->db->prepare("INSERT INTO organization_users
 				(organization_id, user_id, role, status, joined_at, created_at)
 				VALUES (:organization_id, :user_id, :role, 'active', NOW(), NOW())
-				ON DUPLICATE KEY UPDATE role = IF(role = 'owner', 'owner', :role_update), status = 'active', joined_at = COALESCE(joined_at, NOW()), updated_at = NOW()");
+				ON DUPLICATE KEY UPDATE role = IF(role = 'owner', 'owner', :role_update), status = 'active', joined_at = COALESCE(joined_at, NOW()), deleted_at = NULL, deleted_by = NULL, deletion_reason = NULL, updated_at = NOW()");
 			$member->execute([
 				':organization_id' => $organizationId,
 				':user_id' => $requestedBy,
@@ -269,7 +274,7 @@ class EventMasterClaimRepository
 
 	private function lockPendingClaim(int $id): ?array
 	{
-		$stmt = $this->db->prepare($this->baseSelect() . ' WHERE c.id = :id AND c.status = \'pending\' FOR UPDATE');
+		$stmt = $this->db->prepare($this->baseSelect() . ' WHERE c.id = :id AND c.status = \'pending\' AND em.deleted_at IS NULL AND o.deleted_at IS NULL FOR UPDATE');
 		$stmt->execute([':id' => $id]);
 		$row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -292,7 +297,7 @@ class EventMasterClaimRepository
 		FROM event_master_claims c
 		INNER JOIN events_master em ON em.id = c.event_master_id
 		INNER JOIN organizations o ON o.id = c.organization_id
-		INNER JOIN users u ON u.id = c.requested_by
-		LEFT JOIN users r ON r.id = c.reviewed_by";
+		INNER JOIN users u ON u.id = c.requested_by AND u.anonymized_at IS NULL
+		LEFT JOIN users r ON r.id = c.reviewed_by AND r.anonymized_at IS NULL";
 	}
 }
