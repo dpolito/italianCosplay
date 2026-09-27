@@ -75,14 +75,49 @@ lint -> PHPUnit -> commit -> push -> riepilogo diff -> conferma -> upload -> smo
 
 Se uno step fallisce, gli step successivi non vengono eseguiti.
 
+## Git non significa FTP
+
+Non tutti i file committati devono essere caricati su Aruba via FTP/SFTP.
+
+Questi file servono al repository, alla pipeline o allo sviluppo locale e non devono essere pubblicati sul server remoto:
+
+- `.env`
+- `.env.example`
+- `.gitignore`
+- `.agents/`
+- `.codex/`
+- `.continue/`
+- `.playwright-cli/`
+- `.traeignore`
+- `composer.json`
+- `composer.lock`
+- `docs/`
+- `phpunit.xml.dist`
+- `scripts/`
+- `tests/`
+- `vendor/`
+- `node_modules/`
+- `app/config/database.php`
+
+Le variabili `IC_DEPLOY_*` possono stare nel `.env` locale, ma lo script deve usarle senza stamparle e senza caricare il `.env` sul server.
+
+Se il filtro dei file deployabili restituisce una lista vuota, non bisogna aprire una connessione FTP/SFTP: non c'è nulla da pubblicare.
+
 ## Esclusioni
 
 Sono esclusi dal deploy:
 
 - `.env`
+- `.env.example`
 - `.git`
+- `.gitignore`
 - `vendor`
 - `node_modules`
+- `docs`
+- `phpunit.xml.dist`
+- `scripts`
+- `tests`
+- `app/config/database.php`
 - `public_assets/uploads`
 - `storage/logs`
 - `storage/cache`

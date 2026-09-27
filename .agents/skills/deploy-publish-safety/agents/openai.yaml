@@ -1,0 +1,7 @@
+interface:
+  display_name: "Deploy Publish Safety"
+  short_description: "Keep Git/test files out of FTP production uploads"
+  default_prompt: "Use $deploy-publish-safety to verify which Git changes may safely be uploaded to production."
+
+policy:
+  allow_implicit_invocation: true
