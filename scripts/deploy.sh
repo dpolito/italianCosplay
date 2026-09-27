@@ -4,6 +4,13 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+if [[ -f ".env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source ".env"
+  set +a
+fi
+
 COMMIT_MESSAGE="${1:-}"
 REMOTE_NAME="${IC_DEPLOY_GIT_REMOTE:-origin}"
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
@@ -76,8 +83,13 @@ commit_and_push_if_needed() {
 
 show_changes_since_deploy() {
   if [[ -z "$LAST_DEPLOY" ]]; then
-    echo "No deploy tag found. The first deploy would compare the initial commit to HEAD."
-    LAST_DEPLOY="$(git rev-list --max-parents=0 HEAD | tail -n 1)"
+    if [[ -z "${IC_DEPLOY_BASE_REF:-}" ]]; then
+      echo "No deploy tag found. Set IC_DEPLOY_BASE_REF explicitly for the first deploy preview."
+      echo "Example: IC_DEPLOY_BASE_REF=HEAD~1 ./scripts/deploy.sh"
+      exit 1
+    fi
+
+    LAST_DEPLOY="$IC_DEPLOY_BASE_REF"
   fi
 
   echo
@@ -90,6 +102,15 @@ show_changes_since_deploy() {
     ':(exclude)public_assets/uploads' \
     ':(exclude)storage/logs' \
     ':(exclude)storage/cache' \
+    ':(exclude)app/config/database.php' \
+    ':(exclude).env.example' \
+    ':(exclude).gitignore' \
+    ':(exclude)composer.json' \
+    ':(exclude)composer.lock' \
+    ':(exclude)docs' \
+    ':(exclude)phpunit.xml.dist' \
+    ':(exclude)scripts' \
+    ':(exclude)tests' \
     ':(top,exclude)*.sql' \
     | tee /tmp/italiancosplay-deploy-files.txt
 

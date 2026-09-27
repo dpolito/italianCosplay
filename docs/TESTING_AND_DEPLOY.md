@@ -55,6 +55,12 @@ Per provare senza modificare produzione:
 IC_DEPLOY_DRY_RUN=1 ./scripts/deploy.sh "Descrizione modifica"
 ```
 
+Al primo deploy, se non esiste ancora un tag `deploy-*`, imposta esplicitamente la base da confrontare:
+
+```bash
+IC_DEPLOY_BASE_REF=HEAD~1 IC_DEPLOY_DRY_RUN=1 ./scripts/deploy.sh "Preview deploy"
+```
+
 ## Deploy
 
 ```bash
