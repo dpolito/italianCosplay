@@ -15,6 +15,8 @@ $router->get('/legacy-invitation/agenda', ['uses' => ['LegacyInvitationEmailCont
 $router->get('/cosplan', ['uses' => ['AuthController', 'cosplanLanding']]);
 $router->get('/register', ['uses' => ['AuthController', 'showRegisterForm']]);
 $router->post('/register', ['uses' => ['AuthController', 'register']]);
+$router->get('/inviti/accetta', ['uses' => ['InvitationController', 'accept']]);
+$router->get('/inviti/blocca', ['uses' => ['InvitationController', 'block']]);
 
 $router->post('/logout', [
 	'uses' => ['AuthController', 'logout'],
@@ -255,6 +257,20 @@ $router->get('/admin/users/edit/{id}',
 	]);
 $router->post('/admin/users/update/{id}', [
 	'uses' => ['AdminController', 'updateUser'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'manage_users'] // esempio
+	]
+]);
+$router->post('/admin/users/deactivate/{id}', [
+	'uses' => ['AdminController', 'deactivateUser'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'manage_users'] // esempio
+	]
+]);
+$router->get('/admin/users/deactivate/{id}', [
+	'uses' => ['AdminController', 'deactivateUserFallback'],
 	'middlewares' => [
 		AuthMiddleware::class,
 		[PermissionMiddleware::class, 'manage_users'] // esempio
@@ -579,6 +595,9 @@ $router->get('/dashboard/organizations', ['uses' => ['DashboardController', 'org
 	AuthMiddleware::class,
 	[PermissionMiddleware::class, 'access_dashboard']
 ]]);
+$router->get('/dashboard/inviti', ['uses' => ['DashboardController', 'invitations'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->post('/dashboard/inviti', ['uses' => ['DashboardController', 'sendInvitation'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
+$router->get('/dashboard/inviti/accetta', ['uses' => ['DashboardController', 'acceptUserInvitation'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
 $router->get('/dashboard/organization-invitations', ['uses' => ['DashboardController', 'organizationInvitations'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
 $router->get('/dashboard/organization-invitations/accept', ['uses' => ['DashboardController', 'organizationInvitationPreview'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);
 $router->post('/dashboard/organization-invitations/accept', ['uses' => ['DashboardController', 'acceptOrganizationInvitation'], 'middlewares' => [AuthMiddleware::class, [PermissionMiddleware::class, 'access_dashboard']]]);

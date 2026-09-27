@@ -146,6 +146,11 @@ if (!function_exists('notification_italian_date')) {
 											Vai all'evento
 										</a>
 									<?php endif; ?>
+									<?php if (!empty($payload['accept_url'])): ?>
+										<a href="<?php echo htmlspecialchars((string) $payload['accept_url'], ENT_QUOTES, 'UTF-8'); ?>" class="inline-flex rounded-lg bg-green-800 px-4 py-2 text-sm font-bold text-white hover:bg-green-900">
+											Accetta invito
+										</a>
+									<?php endif; ?>
 									<?php if (!$isRead): ?>
 										<form method="post" action="/dashboard/notifications/read" class="inline js-notification-action">
 											<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">

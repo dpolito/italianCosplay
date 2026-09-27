@@ -17,6 +17,7 @@ class Mailer
 	public const TAG_EVENT_REPORT = 'event_report';
 	public const TAG_ORGANIZATION_EMAIL = 'organization_email';
 	public const TAG_LEGACY_INVITATION = 'legacy_invitation';
+	public const TAG_USER_INVITATION = 'user_invitation';
 	public const TAG_ADVERTISING = 'advertising';
 
 	public function __construct()

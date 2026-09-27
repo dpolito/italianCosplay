@@ -7,6 +7,7 @@ use App\Core\Session;
 use App\Models\User;
 use App\Services\AuditLogService;
 use App\Support\AuditLogActionType;
+use PDO;
 
 
 class PasswordController extends Controller
@@ -25,17 +26,22 @@ class PasswordController extends Controller
 	// Mostra form "Password dimenticata" + gestisce POST
 	public function forgot()
 	{
+		if (!isset($_SESSION['csrf_token'])) {
+			$_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+		}
+
 		if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			$email = trim($_POST['email'] ?? '');
 			$csrf = $_POST['csrf_token'] ?? '';
+			$user = null;
 
 			// CSRF check
 			if (empty($csrf) || !hash_equals($_SESSION['csrf_token'] ?? '', $csrf)) {
 				$this->auditLogService->logAudit([
-					'user_id' => $user['id'] ?? null,
+					'user_id' => null,
 					'action_type' => AuditLogActionType::PASSWORD_RESET_REQUESTED,
 					'entity_type' => 'user',
-					'entity_id' => $user['id'] ?? null,
+					'entity_id' => null,
 					'success' => 0,
 					'payload' => [
 						'email' => $email,
@@ -68,6 +74,27 @@ class PasswordController extends Controller
 				return;
 			}
 
+			if ($this->isPasswordResetRateLimited($email)) {
+				$this->auditLogService->logAudit([
+					'user_id' => null,
+					'action_type' => AuditLogActionType::PASSWORD_RESET_REQUESTED,
+					'entity_type' => 'user',
+					'entity_id' => null,
+					'success' => 0,
+					'payload' => [
+						'email' => $email,
+						'reason' => 'rate_limited',
+					],
+					'error_message' => 'rate_limited',
+				]);
+
+				$this->view('home/auth/password_forgot', [
+					'success' => 'Se l\'email esiste, riceverai un link per il reset.',
+					'csrf_token' => $_SESSION['csrf_token']
+				]);
+				return;
+			}
+
 			$user = $this->userModel->findByEmail($email);
 
 			if (!$user) {
@@ -85,7 +112,29 @@ class PasswordController extends Controller
 				]);
 				// Non riveliamo se l'email esiste o no
 				$this->view('home/auth/password_forgot', [
-					'success' => '1111Se l\'email esiste, riceverai un link per il reset.',
+					'success' => 'Se l\'email esiste, riceverai un link per il reset.',
+					'csrf_token' => $_SESSION['csrf_token']
+				]);
+				return;
+			}
+
+			if ((int) ($user['verified'] ?? 0) !== 1 || !empty($user['deactivated_at'])) {
+				$reason = !empty($user['deactivated_at']) ? 'account_deactivated' : 'email_not_verified';
+				$this->auditLogService->logAudit([
+					'user_id' => (int) ($user['id'] ?? 0),
+					'action_type' => AuditLogActionType::PASSWORD_RESET_REQUESTED,
+					'entity_type' => 'user',
+					'entity_id' => (int) ($user['id'] ?? 0),
+					'success' => 0,
+					'payload' => [
+						'email' => $email,
+						'reason' => $reason,
+					],
+					'error_message' => $reason,
+				]);
+
+				$this->view('home/auth/password_forgot', [
+					'success' => 'Se l\'email esiste, riceverai un link per il reset.',
 					'csrf_token' => $_SESSION['csrf_token']
 				]);
 				return;
@@ -151,9 +200,26 @@ class PasswordController extends Controller
 	// Mostra form reset + gestisce POST
 	public function reset($token)
 	{
+		if (!isset($_SESSION['csrf_token'])) {
+			$_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+		}
 
-		$stmt = $this->db->prepare("SELECT * FROM password_resets WHERE token = :token AND expires_at >= NOW()");
-		$stmt->execute([':token' => $token[1]]);
+		$resetToken = is_array($token) ? trim((string) ($token[0] ?? '')) : trim((string) $token);
+		if ($resetToken === '') {
+			die("Link non valido o scaduto.");
+		}
+
+		$stmt = $this->db->prepare(
+			"SELECT password_resets.*
+			FROM password_resets
+			INNER JOIN users ON users.id = password_resets.user_id
+			WHERE password_resets.token = :token
+			  AND password_resets.expires_at >= NOW()
+			  AND users.verified = 1
+			  AND users.deactivated_at IS NULL
+			  AND users.anonymized_at IS NULL"
+		);
+		$stmt->execute([':token' => $resetToken]);
 		$reset = $stmt->fetch(PDO::FETCH_ASSOC);
 
 		if (!$reset) {
@@ -173,13 +239,13 @@ class PasswordController extends Controller
 					'entity_id' => $reset['user_id'] ?? null,
 					'success' => 0,
 					'payload' => [
-						'token' => $token[1],
+						'token' => $resetToken,
 						'reason' => 'csrf_invalid',
 					],
 					'error_message' => 'csrf_invalid',
 				]);
 				Session::setFlash('error', 'Richiesta non valida (CSRF).');
-				header("Location: /password/reset/$token[1]");
+				header('Location: /password/reset/' . rawurlencode($resetToken));
 				exit();
 			}
 
@@ -191,7 +257,7 @@ class PasswordController extends Controller
 					'entity_id' => $reset['user_id'] ?? null,
 					'success' => 0,
 					'payload' => [
-						'token' => $token[1],
+						'token' => $resetToken,
 						'reason' => 'password_mismatch',
 					],
 					'error_message' => 'password_mismatch',
@@ -199,7 +265,7 @@ class PasswordController extends Controller
 				$this->view('home/auth/password_reset', [
 					'error' => 'Le password non coincidono o sono vuote.',
 					'csrf_token' => $_SESSION['csrf_token'],
-					'token' => $token[1]
+					'token' => $resetToken
 				]);
 				return;
 			}
@@ -222,7 +288,7 @@ class PasswordController extends Controller
 				'entity_id' => $reset['user_id'],
 				'success' => 1,
 				'payload' => [
-					'token' => $token[1],
+					'token' => $resetToken,
 				],
 			]);
 
@@ -235,7 +301,44 @@ class PasswordController extends Controller
 
 		$this->view('home/auth/password_reset', [
 			'csrf_token' => $_SESSION['csrf_token'],
-			'token' => $token[1]
+			'token' => $resetToken
 		]);
+	}
+
+	private function isPasswordResetRateLimited(string $email): bool
+	{
+		$ipAddress = $_SERVER['REMOTE_ADDR'] ?? '';
+
+		$stmt = $this->db->prepare(
+			"SELECT COUNT(*)
+			FROM audit_logs
+			WHERE action_type = :action_type
+			  AND request_uri = '/password/forgot'
+			  AND ip_address = :ip_address
+			  AND created_at >= DATE_SUB(NOW(), INTERVAL 15 MINUTE)"
+		);
+		$stmt->execute([
+			':action_type' => AuditLogActionType::PASSWORD_RESET_REQUESTED,
+			':ip_address' => $ipAddress,
+		]);
+
+		if ((int) $stmt->fetchColumn() >= 5) {
+			return true;
+		}
+
+		$stmt = $this->db->prepare(
+			"SELECT COUNT(*)
+			FROM audit_logs
+			WHERE action_type = :action_type
+			  AND request_uri = '/password/forgot'
+			  AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.email')) = :email
+			  AND created_at >= DATE_SUB(NOW(), INTERVAL 15 MINUTE)"
+		);
+		$stmt->execute([
+			':action_type' => AuditLogActionType::PASSWORD_RESET_REQUESTED,
+			':email' => $email,
+		]);
+
+		return (int) $stmt->fetchColumn() >= 3;
 	}
 }

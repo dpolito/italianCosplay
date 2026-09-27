@@ -18,12 +18,14 @@ $adminList = [
 		['key' => 'email', 'label' => 'Email', 'sortable' => true, 'width' => '280px'],
 		['key' => 'role_name', 'label' => 'Ruolo', 'sortable' => true, 'width' => '140px'],
 		['key' => 'verified', 'label' => 'Verificato', 'sortable' => true, 'width' => '120px', 'formatter' => 'userVerified'],
+		['key' => 'deactivated_at', 'label' => 'Stato', 'sortable' => true, 'width' => '130px', 'formatter' => 'userStatus'],
 		['key' => 'privacy_accepted_at', 'label' => 'Privacy', 'sortable' => true, 'width' => '130px', 'formatter' => 'userPrivacyConsent'],
 		['key' => 'age_declared_adult', 'label' => '18+', 'sortable' => true, 'width' => '90px', 'formatter' => 'userAgeDeclaration'],
 		['key' => 'marketing_opt_in', 'label' => 'Newsletter', 'sortable' => true, 'width' => '130px', 'formatter' => 'userMarketingConsent'],
 	],
 	'actions' => [
 		['key' => 'edit', 'label' => 'Modifica'],
+		['key' => 'deactivate', 'label' => 'Sospendi', 'confirm' => 'Vuoi sospendere questo utente? Potrai riattivarlo manualmente dal database.'],
 		['key' => 'delete', 'label' => 'Elimina', 'confirm' => 'Sei sicuro di voler eliminare questo utente?'],
 	],
 	'emptyState' => [

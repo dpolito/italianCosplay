@@ -55,6 +55,7 @@ class EventAgendaAnalyticsService
 				':request_path' => $this->limitString($_SERVER['REQUEST_URI'] ?? null, 255),
 				':referrer' => $this->limitString($_SERVER['HTTP_REFERER'] ?? null, 500),
 			]);
+			$this->touchUserActivity($userId);
 		} catch (Throwable $exception) {
 			error_log('Event agenda analytics tracking failed: ' . $exception->getMessage());
 		}
@@ -118,5 +119,11 @@ class EventAgendaAnalyticsService
 		}
 
 		return mb_substr($value, 0, $limit);
+	}
+
+	private function touchUserActivity(int $userId): void
+	{
+		$stmt = $this->db->prepare("UPDATE users SET last_activity_at = NOW() WHERE id = :user_id");
+		$stmt->execute([':user_id' => $userId]);
 	}
 }

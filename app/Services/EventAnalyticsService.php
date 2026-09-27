@@ -1,8 +1,12 @@
 <?php
+
+declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Core\Database;
 use PDO;
+use Throwable;
 
 class EventAnalyticsService
 {
@@ -27,17 +31,36 @@ class EventAnalyticsService
 		setcookie($cookieKey, '1', time() + 86400, '/');
 
 		$today = date('Y-m-d');
+		$isLoggedIn = !empty($_SESSION['user_id']);
 
-		$stmt = $this->db->prepare("
-        INSERT INTO event_views (event_id, view_date, views)
-        VALUES (:event_id, :view_date, 1)
-        ON DUPLICATE KEY UPDATE views = views + 1
-    ");
+		try {
+			$stmt = $this->db->prepare("
+	        INSERT INTO event_views (event_id, view_date, views, guest_views, logged_views)
+	        VALUES (:event_id, :view_date, 1, :guest_views, :logged_views)
+	        ON DUPLICATE KEY UPDATE
+	            views = views + 1,
+	            guest_views = guest_views + VALUES(guest_views),
+	            logged_views = logged_views + VALUES(logged_views)
+	    ");
 
-		$stmt->execute([
-			'event_id' => $eventId,
-			'view_date' => $today
-		]);
+			$stmt->execute([
+				'event_id' => $eventId,
+				'view_date' => $today,
+				'guest_views' => $isLoggedIn ? 0 : 1,
+				'logged_views' => $isLoggedIn ? 1 : 0,
+			]);
+		} catch (Throwable $exception) {
+			$stmt = $this->db->prepare("
+	        INSERT INTO event_views (event_id, view_date, views)
+	        VALUES (:event_id, :view_date, 1)
+	        ON DUPLICATE KEY UPDATE views = views + 1
+	    ");
+
+			$stmt->execute([
+				'event_id' => $eventId,
+				'view_date' => $today,
+			]);
+		}
 	}
 	public function getTotalViews(int $eventId): int
 	{

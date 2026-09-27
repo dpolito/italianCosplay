@@ -3,6 +3,7 @@ namespace App\Models;
 // Non è più necessario 'global $pdo;' qui, useremo la classe Database
 use App\Core\Database;
 use PDO;
+use Throwable;
 
 class User{
 	private $db; // Questa sarà la tua istanza PDO
@@ -327,6 +328,26 @@ class User{
 		return $stmt->execute([':id' => $id]);
 	}
 
+	public function recordSuccessfulLogin(int $id): bool
+	{
+		try {
+			$stmt = $this->db->prepare(
+				"UPDATE users
+				SET last_login_at = NOW(),
+					last_activity_at = NOW(),
+					login_count = COALESCE(login_count, 0) + 1,
+					updated_at = NOW()
+				WHERE id = :id
+				  AND anonymized_at IS NULL"
+			);
+
+			return $stmt->execute([':id' => $id]);
+		} catch (Throwable $exception) {
+			error_log('User login analytics update failed: ' . $exception->getMessage());
+			return false;
+		}
+	}
+
 
 	/**
 	 * Aggiorna un utente esistente
@@ -364,9 +385,11 @@ class User{
 	}
 	public function update_dashboard(int $id, array $data): bool
 	{
+		$comuneId = ($data['comune_id'] ?? null) === '' ? null : $data['comune_id'];
+
 		$sql = "UPDATE users SET
-                first_name = :first_name,
-                last_name = :last_name,
+	                first_name = :first_name,
+	                last_name = :last_name,
                 website = :website,
                 bio = :bio,
                 social = :social,
@@ -376,15 +399,20 @@ class User{
 
 		$stmt = $this->db->prepare($sql);
 
-		return $stmt->execute([
-			'first_name' => $data['first_name'],
-			'last_name'  => $data['last_name'],
-			'website'    => $data['website'],
-			'bio'        => $data['bio'],
-			'social'     => $data['social'],
-			'comune_id'  => $data['comune_id'],
-			'id'         => $id,
-		]);
+		$stmt->bindValue(':first_name', $data['first_name'], PDO::PARAM_STR);
+		$stmt->bindValue(':last_name', $data['last_name'], PDO::PARAM_STR);
+		$stmt->bindValue(':website', $data['website'], PDO::PARAM_STR);
+		$stmt->bindValue(':bio', $data['bio'], PDO::PARAM_STR);
+		$stmt->bindValue(':social', $data['social'], PDO::PARAM_STR);
+		$stmt->bindValue(':id', $id, PDO::PARAM_INT);
+
+		if ($comuneId === null) {
+			$stmt->bindValue(':comune_id', null, PDO::PARAM_NULL);
+		} else {
+			$stmt->bindValue(':comune_id', (int) $comuneId, PDO::PARAM_INT);
+		}
+
+		return $stmt->execute();
 	}
 	public function update_dashboard_password(int $id, array $data): bool
 	{
@@ -556,6 +584,28 @@ class User{
 			'deactivation_reason' => $reason,
 			'anonymized_by' => $anonymizedBy,
 			'account_deletion_reason' => $reason,
+			'id' => $id,
+		]);
+	}
+
+	public function deactivateAccount(int $id, ?int $deactivatedBy = null, ?string $reason = null): bool
+	{
+		$sql = "UPDATE users SET
+				verified = 0,
+				verification_token = NULL,
+				deactivated_at = COALESCE(deactivated_at, NOW()),
+				deactivated_by = :deactivated_by,
+				deactivation_reason = :deactivation_reason,
+				updated_at = NOW()
+			WHERE id = :id
+			  AND anonymized_at IS NULL
+			  AND deactivated_at IS NULL";
+
+		$stmt = $this->db->prepare($sql);
+
+		return $stmt->execute([
+			'deactivated_by' => $deactivatedBy,
+			'deactivation_reason' => $reason,
 			'id' => $id,
 		]);
 	}

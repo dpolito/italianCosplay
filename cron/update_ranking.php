@@ -8,10 +8,15 @@ if (php_sapi_name() !== 'cli') {
 }
 
 if(!defined('APP_ROOT')){
-	define('APP_ROOT', '/var/www/html/');
+	define('APP_ROOT', dirname(__DIR__));
 }
 
+if (file_exists(APP_ROOT . '/vendor/autoload.php')) {
+	require_once APP_ROOT . '/vendor/autoload.php';
+}
 
+require_once APP_ROOT . '/app/bootstrap/env.php';
+require_once APP_ROOT . '/app/config/app.php';
 
 $db_config = require_once APP_ROOT . '/app/config/database.php';
 Database::getInstance($db_config); // Passa la configurazione al singleton

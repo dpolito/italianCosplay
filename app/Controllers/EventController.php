@@ -855,15 +855,15 @@ class EventController extends Controller{
 			['label' => 'Home', 'url' => URL_ROOT_SITE . '/'],
 			['label' => 'Eventi Cosplay', 'url' => $this->eventsBasePath],
 		];
-		$regione = '';
-		$provincia = '';
+		$regione = null;
+		$provincia = null;
 		if(isset($event['regione_id']) && $event['regione_id']){
 			$regione = $this->regioneModel->find($event['regione_id']);
 			if($regione){
 				$breadcrumbs[] = ['label' => $regione['nome'], 'url' => $this->eventsBasePath . '/' . $regione['slug']];
 			}
 		}
-		if(isset($event['provincia_id']) && $event['provincia_id']){
+		if(isset($event['provincia_id']) && $event['provincia_id'] && $regione){
 			$provincia = $this->provinciaModel->find($event['provincia_id']);
 			if($provincia){
 				if(isset($event['comune_id']) && $event['comune_id']){
@@ -1327,11 +1327,9 @@ class EventController extends Controller{
 			if($data['social_youtube'] === false && !empty(trim($_POST['social_youtube'] ?? ''))){
 				$errors[] = 'URL Social YouTube non valido.';
 			}
-			if (empty($data['event_master_id']) || $data['event_master_id'] <= 0) {
-				$eventMasterId = $this->ensureEventMasterForEvent($data['titolo']);
-				if ($eventMasterId > 0) {
-					$data['event_master_id'] = $eventMasterId;
-				}
+			$eventMasterError = $this->normalizeEventMasterId($data);
+			if ($eventMasterError !== null) {
+				$errors[] = $eventMasterError;
 			}
 			if(!empty($errors)){
 				Session::setFlash('error', implode('<br>', $errors));
@@ -1596,11 +1594,9 @@ class EventController extends Controller{
 			if($data['social_youtube'] === false && !empty(trim($_POST['social_youtube'] ?? ''))){
 				$errors[] = 'URL Social YouTube non valido.';
 			}
-			if (empty($data['event_master_id']) || $data['event_master_id'] <= 0) {
-				$eventMasterId = $this->ensureEventMasterForEvent($data['titolo']);
-				if ($eventMasterId > 0) {
-					$data['event_master_id'] = $eventMasterId;
-				}
+			$eventMasterError = $this->normalizeEventMasterId($data);
+			if ($eventMasterError !== null) {
+				$errors[] = $eventMasterError;
 			}
 			if(!empty($errors)){
 				Session::setFlash('error', implode('<br>', $errors));
@@ -1709,6 +1705,24 @@ class EventController extends Controller{
 		]);
 
 		return $eventMasterId > 0 ? $eventMasterId : 0;
+	}
+
+	private function normalizeEventMasterId(array &$data): ?string
+	{
+		$eventMasterId = (int) ($data['event_master_id'] ?? 0);
+		if ($eventMasterId > 0 && $this->eventMasterModel->find($eventMasterId) !== null) {
+			$data['event_master_id'] = $eventMasterId;
+			return null;
+		}
+
+		if ($eventMasterId > 0) {
+			return 'Evento Master selezionato non valido.';
+		}
+
+		$createdEventMasterId = $this->ensureEventMasterForEvent((string) ($data['titolo'] ?? ''));
+		$data['event_master_id'] = $createdEventMasterId > 0 ? $createdEventMasterId : null;
+
+		return null;
 	}
 
 	/**

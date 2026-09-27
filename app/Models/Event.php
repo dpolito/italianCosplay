@@ -471,7 +471,11 @@ class Event extends BaseModel
 		$stmt->bindValue(':event_size', $data['event_size'] , \PDO::PARAM_INT);
 		$stmt->bindValue(':is_paid', $data['is_paid'], \PDO::PARAM_INT);
 		$stmt->bindValue(':has_cosplay_contest', $data['has_cosplay_contest'], \PDO::PARAM_INT);
-		$stmt->bindValue(':event_master_id', $data['event_master_id'] ?? null, \PDO::PARAM_INT);
+		if (empty($data['event_master_id'])) {
+			$stmt->bindValue(':event_master_id', null, \PDO::PARAM_NULL);
+		} else {
+			$stmt->bindValue(':event_master_id', (int) $data['event_master_id'], \PDO::PARAM_INT);
+		}
 
 		$stmt->execute();
 
@@ -557,7 +561,11 @@ class Event extends BaseModel
 		$stmt->bindValue(':event_size',$data['event_size']); // Associa lo slug (nuovo o esistente)
 		$stmt->bindValue(':is_paid',$data['is_paid']); // Associa lo slug (nuovo o esistente)
 		$stmt->bindValue(':has_cosplay_contest',$data['has_cosplay_contest']); // Associa lo slug (nuovo o esistente)
-		$stmt->bindValue(':event_master_id', $data['event_master_id'] ?? null, PDO::PARAM_INT);
+		if (empty($data['event_master_id'])) {
+			$stmt->bindValue(':event_master_id', null, PDO::PARAM_NULL);
+		} else {
+			$stmt->bindValue(':event_master_id', (int) $data['event_master_id'], PDO::PARAM_INT);
+		}
 		$stmt->bindValue(':id', $id, PDO::PARAM_INT);
 
 
@@ -940,8 +948,16 @@ class Event extends BaseModel
 
 		return $stmt->fetchAll(PDO::FETCH_ASSOC);
 	}
-	public function getSimilarEvents(int $eventId, int $regioneId, int $tipoEventoId, int $limit = 6): array
+	public function getSimilarEvents(int $eventId, ?int $regioneId, ?int $tipoEventoId, int $limit = 6): array
 	{
+		$similarConditions = [];
+		if ($regioneId !== null) {
+			$similarConditions[] = 'e.regione_id = :regione_id';
+		}
+		if ($tipoEventoId !== null) {
+			$similarConditions[] = 'e.tipo_evento_id = :tipo_evento_id';
+		}
+
 		$query = "
         SELECT 
             e.*,
@@ -960,12 +976,13 @@ class Event extends BaseModel
             AND e.deleted_at IS NULL
             AND e.id != :event_id
             AND e.data_fine >= CURDATE()
+    ";
 
-            AND (
-                e.regione_id = :regione_id
-                OR e.tipo_evento_id = :tipo_evento_id
-            )
+		if (!empty($similarConditions)) {
+			$query .= ' AND (' . implode(' OR ', $similarConditions) . ')';
+		}
 
+		$query .= "
         GROUP BY e.id
 
         ORDER BY score DESC, e.data_inizio ASC
@@ -975,8 +992,12 @@ class Event extends BaseModel
 
 		$stmt = $this->db->prepare($query);
 		$stmt->bindValue(':event_id', $eventId, PDO::PARAM_INT);
-		$stmt->bindValue(':regione_id', $regioneId, PDO::PARAM_INT);
-		$stmt->bindValue(':tipo_evento_id', $tipoEventoId, PDO::PARAM_INT);
+		if ($regioneId !== null) {
+			$stmt->bindValue(':regione_id', $regioneId, PDO::PARAM_INT);
+		}
+		if ($tipoEventoId !== null) {
+			$stmt->bindValue(':tipo_evento_id', $tipoEventoId, PDO::PARAM_INT);
+		}
 		$stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
 
 		$stmt->execute();

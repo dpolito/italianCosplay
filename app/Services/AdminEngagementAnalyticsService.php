@@ -26,12 +26,14 @@ class AdminEngagementAnalyticsService
 					e.titolo,
 					e.slug,
 					COALESCE(v.views, 0) AS views,
+					COALESCE(v.guest_views, 0) AS guest_views,
+					COALESCE(v.logged_views, 0) AS logged_views,
 					COALESCE(f.favorites, 0) AS favorites,
 					COALESCE(a.agenda_actions, 0) AS agenda_actions,
 					(COALESCE(f.favorites, 0) + COALESCE(a.agenda_actions, 0)) AS engagement_actions
 				FROM events e
 				LEFT JOIN (
-					SELECT event_id, SUM(views) AS views
+					SELECT event_id, SUM(views) AS views, SUM(guest_views) AS guest_views, SUM(logged_views) AS logged_views
 					FROM event_views
 					WHERE view_date >= DATE_SUB(CURDATE(), INTERVAL :view_days DAY)
 					GROUP BY event_id
@@ -75,12 +77,14 @@ class AdminEngagementAnalyticsService
 					e.titolo,
 					e.slug,
 					COALESCE(v.views, 0) AS views,
+					COALESCE(v.guest_views, 0) AS guest_views,
+					COALESCE(v.logged_views, 0) AS logged_views,
 					COALESCE(f.favorites, 0) AS favorites,
 					COALESCE(a.agenda_actions, 0) AS agenda_actions,
 					(COALESCE(f.favorites, 0) + COALESCE(a.agenda_actions, 0)) AS engagement_actions
 				FROM events e
 				INNER JOIN (
-					SELECT event_id, SUM(views) AS views
+					SELECT event_id, SUM(views) AS views, SUM(guest_views) AS guest_views, SUM(logged_views) AS logged_views
 					FROM event_views
 					WHERE view_date >= DATE_SUB(CURDATE(), INTERVAL :view_days DAY)
 					GROUP BY event_id
@@ -172,8 +176,10 @@ class AdminEngagementAnalyticsService
 	{
 		foreach ($rows as &$row) {
 			$views = (int) ($row['views'] ?? 0);
+			$loggedViews = (int) ($row['logged_views'] ?? 0);
 			$actions = (int) ($row['engagement_actions'] ?? 0);
 			$row['conversion_rate'] = $views > 0 ? round(($actions / $views) * 100, 2) : 0.0;
+			$row['logged_conversion_rate'] = $loggedViews > 0 ? round(($actions / $loggedViews) * 100, 2) : 0.0;
 		}
 
 		return $rows;

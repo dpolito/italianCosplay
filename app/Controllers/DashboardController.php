@@ -45,6 +45,7 @@ class DashboardController extends Controller
 	private \App\Services\OrganizationService $organizationService;
 	private \App\Services\EventMasterClaimService $eventMasterClaimService;
 	private \App\Services\OrganizationInvitationService $organizationInvitationService;
+	private \App\Services\UserInvitationService $userInvitationService;
 
 	public function __construct()
 	{
@@ -69,6 +70,7 @@ class DashboardController extends Controller
 		$this->organizationService = new \App\Services\OrganizationService();
 		$this->eventMasterClaimService = new \App\Services\EventMasterClaimService();
 		$this->organizationInvitationService = new \App\Services\OrganizationInvitationService();
+		$this->userInvitationService = new \App\Services\UserInvitationService();
 		if (!isset($_SESSION['csrf_token'])) {
 			$_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 		}
@@ -118,6 +120,57 @@ class DashboardController extends Controller
 			'organizations' => $this->organizationService->getForUser($userId),
 			'claims' => $this->eventMasterClaimService->getClaimsForUser($userId),
 		], 'dashboard');
+	}
+
+	public function invitations(): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$this->view('dashboard/invitations', [
+			'user' => $this->userModel->find($userId),
+			'invitations' => $this->userInvitationService->getRecentForUser($userId),
+			'dailyUsage' => $this->userInvitationService->getDailyUsage($userId),
+		], 'dashboard');
+	}
+
+	public function sendInvitation(): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		if (empty($_POST['csrf_token']) || !hash_equals((string) ($_SESSION['csrf_token'] ?? ''), (string) $_POST['csrf_token'])) {
+			Session::setFlash('error', 'Token CSRF non valido.');
+			header('Location: /dashboard/inviti'); exit();
+		}
+
+		try {
+			$result = $this->userInvitationService->invite($userId, (string) ($_POST['email'] ?? ''));
+			Session::setFlash('success', 'Invito inviato a ' . $result['email'] . '.');
+		} catch (\Throwable $exception) {
+			$this->auditLogService->logAudit([
+				'user_id' => $userId,
+				'action_type' => AuditLogActionType::USER_INVITATION_CREATED,
+				'entity_type' => 'user_invitation',
+				'entity_id' => null,
+				'success' => 0,
+				'error_message' => mb_substr($exception->getMessage(), 0, 250),
+				'payload' => ['source' => 'dashboard'],
+			]);
+			Session::setFlash('error', $exception->getMessage());
+		}
+
+		header('Location: /dashboard/inviti'); exit();
+	}
+
+	public function acceptUserInvitation(): void
+	{
+		$userId = (int) ($_SESSION['user_id'] ?? 0);
+		$token = trim((string) ($_GET['token'] ?? ''));
+		try {
+			$this->userInvitationService->acceptByToken($token, $userId);
+			Session::setFlash('success', 'Invito accettato. Il collegamento è stato salvato nel tuo account.');
+		} catch (\Throwable $exception) {
+			Session::setFlash('error', $exception->getMessage());
+		}
+
+		header('Location: /dashboard/inviti'); exit();
 	}
 
 	public function organizationInvitations(): void
@@ -1154,9 +1207,11 @@ class DashboardController extends Controller
 		$userId = $_SESSION['user_id'] ?? null;
 		if (!$userId) {
 			header('Location: /login');
+			return;
 		}
 
 		$errors = [];
+		$user = $this->userModel->find($userId);
 
 		$firstName  = trim($_POST['first_name'] ?? '');
 		$lastName   = trim($_POST['last_name'] ?? '');
@@ -1164,7 +1219,8 @@ class DashboardController extends Controller
 		$bio        = trim($_POST['bio'] ?? '');
 		$social = $_POST['social'] ?? [];
 		$socialJson = json_encode($social, JSON_UNESCAPED_UNICODE);
-		$comune_id = trim($_POST['comune_id'] ?? '');
+		$comuneIdInput = trim((string) ($_POST['comune_id'] ?? ''));
+		$comuneId = null;
 
 		// VALIDAZIONI
 
@@ -1172,10 +1228,20 @@ class DashboardController extends Controller
 			$errors[] = 'URL sito non valido.';
 		}
 
+		if ($comuneIdInput !== '') {
+			if (!ctype_digit($comuneIdInput)) {
+				$errors[] = 'Comune non valido.';
+			} else {
+				$comuneId = (int) $comuneIdInput;
+			}
+		}
+
 		if (!empty($errors)) {
 			$this->view('dashboard/profile', [
 				'error' => implode(' ', $errors),
+				'user' => $user,
 			], 'dashboard');
+			return;
 		}
 
 		// UPDATE
@@ -1187,7 +1253,7 @@ class DashboardController extends Controller
 			'website'    => $website,
 			'bio'        => $bio,
 			'social'     => $socialJson,
-			'comune_id'  => $comune_id
+			'comune_id'  => $comuneId
 		]);
 		$this->auditLogService->logAudit([
 			'user_id' => $userId,
@@ -1199,7 +1265,7 @@ class DashboardController extends Controller
 				'first_name' => $firstName,
 				'last_name' => $lastName,
 				'website' => $website,
-				'comune_id' => $comune_id,
+				'comune_id' => $comuneId,
 			],
 		]);
 		$user = $this->userModel->find($userId);

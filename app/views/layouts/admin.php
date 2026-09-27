@@ -419,17 +419,23 @@ $brevoQuotaClass = $brevoQuotaClasses[$brevoEmailQuota['status'] ?? 'ok'] ?? 'bg
 		});
 	});
 </script>
-<script src="/public_assets/js/admin/admin-list.js"></script>
-<script src="/public_assets/js/admin/detail-panel/renderers/event.js"></script>
-<script src="/public_assets/js/admin/detail-panel/renderers/event-master.js"></script>
-<script src="/public_assets/js/admin/detail-panel/renderers/blog.js"></script>
-<script src="/public_assets/js/admin/detail-panel/renderers/blog-category.js"></script>
-<script src="/public_assets/js/admin/detail-panel/renderers/guest.js"></script>
-<script src="/public_assets/js/admin/detail-panel/renderers/region.js"></script>
-<script src="/public_assets/js/admin/detail-panel/renderers/user.js"></script>
-<script src="/public_assets/js/admin/detail-panel/renderers/ad-campaign.js"></script>
-<script src="/public_assets/js/admin/detail-panel/renderers/ad-position.js"></script>
-<script src="/public_assets/js/admin/detail-panel/renderers/email-delivery-event.js"></script>
-<script src="/public_assets/js/admin/detail-panel/panel.js"></script>
+<?php
+$adminAssetVersion = static function (string $path): string {
+	$fullPath = APP_ROOT . $path;
+	return file_exists($fullPath) ? (string) filemtime($fullPath) : (string) time();
+};
+?>
+<script src="/public_assets/js/admin/admin-list.js?v=<?= htmlspecialchars($adminAssetVersion('/public_assets/js/admin/admin-list.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="/public_assets/js/admin/detail-panel/renderers/event.js?v=<?= htmlspecialchars($adminAssetVersion('/public_assets/js/admin/detail-panel/renderers/event.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="/public_assets/js/admin/detail-panel/renderers/event-master.js?v=<?= htmlspecialchars($adminAssetVersion('/public_assets/js/admin/detail-panel/renderers/event-master.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="/public_assets/js/admin/detail-panel/renderers/blog.js?v=<?= htmlspecialchars($adminAssetVersion('/public_assets/js/admin/detail-panel/renderers/blog.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="/public_assets/js/admin/detail-panel/renderers/blog-category.js?v=<?= htmlspecialchars($adminAssetVersion('/public_assets/js/admin/detail-panel/renderers/blog-category.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="/public_assets/js/admin/detail-panel/renderers/guest.js?v=<?= htmlspecialchars($adminAssetVersion('/public_assets/js/admin/detail-panel/renderers/guest.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="/public_assets/js/admin/detail-panel/renderers/region.js?v=<?= htmlspecialchars($adminAssetVersion('/public_assets/js/admin/detail-panel/renderers/region.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="/public_assets/js/admin/detail-panel/renderers/user.js?v=<?= htmlspecialchars($adminAssetVersion('/public_assets/js/admin/detail-panel/renderers/user.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="/public_assets/js/admin/detail-panel/renderers/ad-campaign.js?v=<?= htmlspecialchars($adminAssetVersion('/public_assets/js/admin/detail-panel/renderers/ad-campaign.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="/public_assets/js/admin/detail-panel/renderers/ad-position.js?v=<?= htmlspecialchars($adminAssetVersion('/public_assets/js/admin/detail-panel/renderers/ad-position.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="/public_assets/js/admin/detail-panel/renderers/email-delivery-event.js?v=<?= htmlspecialchars($adminAssetVersion('/public_assets/js/admin/detail-panel/renderers/email-delivery-event.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="/public_assets/js/admin/detail-panel/panel.js?v=<?= htmlspecialchars($adminAssetVersion('/public_assets/js/admin/detail-panel/panel.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 </body>
 </html>

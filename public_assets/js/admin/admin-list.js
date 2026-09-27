@@ -193,6 +193,23 @@ class AdminList {
 
 			};
 
+		this.formatters.userStatus =
+			value => {
+
+
+				return value
+					? {
+						label: 'Sospeso',
+						className: 'bg-red-100 text-red-800'
+					}
+					: {
+						label: 'Attivo',
+						className: 'bg-green-100 text-green-800'
+					};
+
+
+			};
+
 
 		this.formatters.userPrivacyConsent =
 			value => {
@@ -1216,7 +1233,7 @@ class AdminList {
 				return;
 			}
 
-			if(action.key === 'delete'){
+			if(action.key === 'delete' || action.key === 'deactivate'){
 
 				const form =
 					document.createElement('form');
@@ -1224,8 +1241,10 @@ class AdminList {
 
 				form.method='POST';
 
-				form.action=
-					row._links?.delete ?? '#';
+				form.action =
+					action.key === 'deactivate'
+						? (row._links?.deactivate ?? '#')
+						: (row._links?.delete ?? '#');
 
 				form.addEventListener(
 					'click',
@@ -1245,7 +1264,7 @@ class AdminList {
 							const confirmed =
 								window.confirm(
 									action.confirm ||
-									'Sei sicuro di voler eliminare questo elemento?'
+									'Confermi questa azione?'
 								);
 
 
@@ -1274,13 +1293,13 @@ class AdminList {
 							if(!json.success){
 								throw new Error(
 									json.message ||
-									'Errore durante eliminazione'
+									'Errore durante l’operazione'
 								);
 							}
 
 							this.showToast(
 								json.message ||
-								'Elemento eliminato con successo.',
+								'Operazione completata.',
 								'success'
 							);
 
@@ -1292,7 +1311,7 @@ class AdminList {
 
 							alert(
 								error.message ||
-								'Errore durante eliminazione'
+								'Errore durante l’operazione'
 							);
 
 						}
@@ -1321,7 +1340,9 @@ class AdminList {
 					action.label;
 
 				button.className =
-					'block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50';
+					action.key === 'deactivate'
+						? 'block w-full px-4 py-2 text-left text-sm text-amber-700 hover:bg-amber-50'
+						: 'block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50';
 
 				button.addEventListener(
 					'click',

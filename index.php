@@ -3,6 +3,7 @@ use App\Core\Database;
 use App\Core\ErrorHandler;
 use App\Core\Router;
 use App\Core\Session;
+use App\Middleware\SuspiciousCrawlerMonitorMiddleware;
 
 
 ini_set('display_errors', '0');
@@ -13,6 +14,14 @@ error_reporting(E_ALL);
 // Definizione di costanti per la root del progetto e il nome dell'applicazione
 define('APP_NAME', 'Italian Cosplay');
 define('APP_ROOT', __DIR__);
+
+// Carica il file dell'autoloader di Composer, se presente.
+// Questo è il metodo preferito per gestire le dipendenze.
+if (file_exists(APP_ROOT . '/vendor/autoload.php')) {
+	require_once APP_ROOT . '/vendor/autoload.php';
+}
+
+require_once APP_ROOT . '/app/bootstrap/env.php';
 
 $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'];
@@ -30,13 +39,8 @@ define('URL_ROOT_SITE', rtrim($protocol . '://' . $host , '/'));
 
 // Carica la configurazione applicativa condivisa.
 require_once APP_ROOT . '/app/config/app.php';
-// Carica il file dell'autoloader di Composer, se presente.
-// Questo è il metodo preferito per gestire le dipendenze.
 
-
-if (file_exists(APP_ROOT . '/vendor/autoload.php')) {
-	require_once APP_ROOT . '/vendor/autoload.php';
-} else {
+if (!file_exists(APP_ROOT . '/vendor/autoload.php')) {
 	// Se Composer non è usato o le dipendenze non sono installate,
 	// carica manualmente le classi principali nell'ordine corretto.
 	// L'ordine è importante per le dipendenze tra classi (es. Controller prima dei Controller specifici).
@@ -45,6 +49,7 @@ if (file_exists(APP_ROOT . '/vendor/autoload.php')) {
 	require_once APP_ROOT . '/app/Core/Session.php';
 	require_once APP_ROOT . '/app/Core/Router.php';
 	require_once APP_ROOT . '/app/Core/Controller.php'; // I controller estendono questa classe
+	require_once APP_ROOT . '/app/Middleware/SuspiciousCrawlerMonitorMiddleware.php';
 	require_once APP_ROOT . '/app/Services/TelegramNotificationService.php';
 	require_once APP_ROOT . '/app/Models/BaseModel.php'; // I modelli estendono questa classe
 	require_once APP_ROOT . '/app/Models/User.php'; // Per AuthController e AdminController
@@ -68,6 +73,9 @@ ErrorHandler::register();
 // Si assume che Session::start() gestisca internamente session_start()
 // e controlli se la sessione è già stata avviata.
 Session::start();
+
+// Temporary observation-only monitor for suspicious crawler User-Agents.
+(new SuspiciousCrawlerMonitorMiddleware())->handle();
 
 // Carica le configurazioni del database e inizializza la connessione.
 $db_config = require_once APP_ROOT . '/app/config/database.php';

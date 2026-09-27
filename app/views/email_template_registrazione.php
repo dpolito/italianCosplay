@@ -14,6 +14,7 @@
 		img { -ms-interpolation-mode: bicubic; }
 		a { text-decoration: none; }
 		.email-body a { color: #15803d !important; font-weight: 700; }
+		.email-body a.email-button { color: #ffffff !important; }
 		@media screen and (max-width: 500px) {
 			.email-section { padding: 28px 22px !important; }
 			.email-title { font-size: 24px !important; }
@@ -47,7 +48,7 @@
 						<p style="margin: 0 0 18px;">grazie per esserti registrato su <strong>ItalianCosplay.it</strong>.</p>
 						<p style="margin: 0 0 22px;">Per completare la registrazione e attivare il tuo account, conferma il tuo indirizzo email cliccando sul pulsante qui sotto.</p>
 						<p style="margin: 0 0 26px; text-align: center;">
-							<a href="{{link_conferma}}" style="display: inline-block; background: #15803d; color: #ffffff; text-decoration: none; font-weight: 800; border-radius: 8px; padding: 13px 22px; font-size: 15px;">Conferma la tua email</a>
+							<a href="{{link_conferma}}" class="email-button" style="display: inline-block; background: #15803d; color: #ffffff !important; text-decoration: none; font-weight: 800; border-radius: 8px; padding: 13px 22px; font-size: 15px;">Conferma la tua email</a>
 						</p>
 						<p style="margin: 0 0 18px;">Se non hai richiesto questa registrazione, puoi ignorare questa email.</p>
 						<p style="margin: 0; color: #4b5563;">A presto,<br><strong>ItalianCosplay.it</strong></p>

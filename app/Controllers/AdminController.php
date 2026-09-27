@@ -216,7 +216,7 @@ class AdminController extends Controller
 		$search = trim($_GET['search'] ?? '');
 		$sort = $_GET['sort'] ?? 'id';
 		$direction = strtolower($_GET['direction'] ?? 'desc');
-		$allowedSorts = ['id', 'username', 'email', 'role', 'role_id', 'verified'];
+		$allowedSorts = ['id', 'username', 'email', 'role', 'role_id', 'verified', 'deactivated_at'];
 		if (!in_array($sort, $allowedSorts, true)) {
 			$sort = 'id';
 		}
@@ -263,10 +263,12 @@ class AdminController extends Controller
 				'marketing_opt_in_at' => $user['marketing_opted_in_at'] ?? null,
 				'age_declared_adult' => (int) ($user['age_declared_adult'] ?? 0),
 				'age_declared_at' => $user['age_declared_at'] ?? null,
+				'deactivated_at' => $user['deactivated_at'] ?? null,
 				'created_at' => $user['created_at'] ?? null,
 				'updated_at' => $user['updated_at'] ?? null,
 				'_links' => [
 					'edit' => '/admin/users/edit/' . $user['id'],
+					'deactivate' => '/admin/users/deactivate/' . $user['id'],
 					'delete' => '/admin/users/delete/' . $user['id'],
 				],
 			];
@@ -328,8 +330,11 @@ class AdminController extends Controller
 				'social' => $user['social'] ?? '',
 				'created_at' => $user['created_at'] ?? null,
 				'updated_at' => $user['updated_at'] ?? null,
+				'deactivated_at' => $user['deactivated_at'] ?? null,
+				'deactivation_reason' => $user['deactivation_reason'] ?? null,
 				'_links' => [
 					'edit' => '/admin/users/edit/' . $user['id'],
+					'deactivate' => '/admin/users/deactivate/' . $user['id'],
 					'delete' => '/admin/users/delete/' . $user['id'],
 				],
 			],
@@ -795,6 +800,61 @@ class AdminController extends Controller
 
 		http_response_code(500);
 		echo json_encode(['success' => false, 'message' => 'Errore durante l\'eliminazione dell\'utente.']);
+		exit();
+	}
+
+	public function deactivateUser($params): void
+	{
+		header('Content-Type: application/json; charset=utf-8');
+
+		$id = $params[0] ?? null;
+
+		if (!$id || !is_numeric($id)) {
+			http_response_code(400);
+			echo json_encode(['success' => false, 'message' => 'ID utente non valido.']);
+			exit();
+		}
+
+		if (!$this->validateCsrfToken()) {
+			http_response_code(403);
+			echo json_encode(['success' => false, 'message' => 'Token CSRF non valido.']);
+			exit();
+		}
+
+		$actorId = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
+		$reason = trim((string) ($_POST['reason'] ?? 'Account sospetto: sospensione amministrativa'));
+		if ($reason === '') {
+			$reason = 'Account sospetto: sospensione amministrativa';
+		}
+
+		$deactivated = $this->userModel->deactivateAccount((int) $id, $actorId, $reason);
+		$this->auditLogService->logAudit([
+			'user_id' => $actorId,
+			'action_type' => AuditLogActionType::USER_DEACTIVATED,
+			'entity_type' => 'user',
+			'entity_id' => (int) $id,
+			'success' => $deactivated ? 1 : 0,
+			'payload' => [
+				'id' => (int) $id,
+				'reason' => $reason,
+			],
+			'error_message' => $deactivated ? null : 'user_not_found_or_already_deactivated',
+		]);
+
+		if ($deactivated) {
+			echo json_encode(['success' => true, 'message' => 'Utente sospeso con successo.']);
+			exit();
+		}
+
+		http_response_code(409);
+		echo json_encode(['success' => false, 'message' => 'Utente non trovato o già sospeso.']);
+		exit();
+	}
+
+	public function deactivateUserFallback($params): void
+	{
+		Session::setFlash('error', 'Azione non valida: usa il menu utenti e ricarica la pagina se il pulsante Sospendi apre un link.');
+		header('Location: /admin/users');
 		exit();
 	}
 }

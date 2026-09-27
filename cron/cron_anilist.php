@@ -16,6 +16,7 @@ function import(){
 	if (file_exists($autoloadPath)) {
 		require_once $autoloadPath;
 	}
+	require_once APP_ROOT . '/app/bootstrap/env.php';
 	require_once APP_ROOT . '/app/config/app.php';
 	require_once APP_ROOT . '/app/config/database.php';
 

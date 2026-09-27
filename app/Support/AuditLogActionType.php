@@ -45,6 +45,9 @@ final class AuditLogActionType
 	public const LEGACY_INVITATION_EMAILS_IMPORTED = 'legacy_invitation_emails_imported';
 	public const LEGACY_INVITATION_EMAILS_SENT = 'legacy_invitation_emails_sent';
 	public const LEGACY_INVITATION_EMAIL_TEST_SENT = 'legacy_invitation_email_test_sent';
+	public const USER_INVITATION_CREATED = 'user_invitation_created';
+	public const USER_INVITATION_ACCEPTED = 'user_invitation_accepted';
+	public const USER_INVITATION_BLOCKED = 'user_invitation_blocked';
 	public const BREVO_WEBHOOK_FAILED = 'brevo_webhook_failed';
 
 	public const BLOG_POST_CREATED = 'blog_post_created';
@@ -76,6 +79,7 @@ final class AuditLogActionType
 	public const USER_CREATED = 'user_created';
 	public const USER_UPDATED = 'user_updated';
 	public const USER_DELETED = 'user_deleted';
+	public const USER_DEACTIVATED = 'user_deactivated';
 
 	public const SITE_SETUP_UPDATED = 'site_setup_updated';
 	public const TELEGRAM_CHANNEL_MESSAGE_SENT = 'telegram_channel_message_sent';

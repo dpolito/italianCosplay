@@ -1,0 +1,7 @@
+interface:
+  display_name: "Audit Log Required"
+  short_description: "Add audit logs to every meaningful feature"
+  default_prompt: "Use $audit-log-required to make sure every new meaningful feature includes its technical audit log."
+
+policy:
+  allow_implicit_invocation: true

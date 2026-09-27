@@ -130,22 +130,33 @@ if (!function_exists('admin_dashboard_metric_rows')) {
 		echo '<thead><tr class="text-left text-xs font-bold uppercase tracking-wide text-gray-500">';
 		echo '<th class="py-2 pr-3">Contenuto</th>';
 		echo '<th class="px-3 py-2 text-right">View 30gg</th>';
+		if ($type === 'event') {
+			echo '<th class="px-3 py-2 text-right">Guest</th>';
+			echo '<th class="px-3 py-2 text-right">Logged</th>';
+		}
 		echo '<th class="px-3 py-2 text-right">Preferiti</th>';
 		if ($type === 'event') {
 			echo '<th class="px-3 py-2 text-right">Agenda</th>';
 		}
-		echo '<th class="py-2 pl-3 text-right">Conv.</th>';
+		echo '<th class="py-2 pl-3 text-right">' . ($type === 'event' ? 'Conv. logged' : 'Conv.') . '</th>';
 		echo '</tr></thead><tbody class="divide-y divide-gray-100">';
 
 		foreach ($rows as $row) {
 			$title = htmlspecialchars((string) ($row['titolo'] ?? 'Senza titolo'), ENT_QUOTES, 'UTF-8');
 			$views = number_format((int) ($row['views'] ?? 0), 0, ',', '.');
+			$guestViews = number_format((int) ($row['guest_views'] ?? 0), 0, ',', '.');
+			$loggedViews = number_format((int) ($row['logged_views'] ?? 0), 0, ',', '.');
 			$favorites = number_format((int) ($row['favorites'] ?? 0), 0, ',', '.');
 			$agenda = number_format((int) ($row['agenda_actions'] ?? 0), 0, ',', '.');
-			$conversion = number_format((float) ($row['conversion_rate'] ?? 0), 2, ',', '.');
+			$conversionValue = $type === 'event' ? (float) ($row['logged_conversion_rate'] ?? 0) : (float) ($row['conversion_rate'] ?? 0);
+			$conversion = number_format($conversionValue, 2, ',', '.');
 			echo '<tr>';
 			echo '<td class="max-w-xs py-3 pr-3 font-semibold text-gray-800">' . $title . '</td>';
 			echo '<td class="px-3 py-3 text-right text-gray-700">' . $views . '</td>';
+			if ($type === 'event') {
+				echo '<td class="px-3 py-3 text-right text-gray-700">' . $guestViews . '</td>';
+				echo '<td class="px-3 py-3 text-right text-gray-700">' . $loggedViews . '</td>';
+			}
 			echo '<td class="px-3 py-3 text-right text-gray-700">' . $favorites . '</td>';
 			if ($type === 'event') {
 				echo '<td class="px-3 py-3 text-right text-gray-700">' . $agenda . '</td>';
@@ -170,10 +181,19 @@ foreach ($dailyRows as $day) {
 $registrationTotal = (int) ($userRegistrationAnalytics['total'] ?? 0);
 $registrationActivated = (int) ($userRegistrationAnalytics['activated'] ?? 0);
 $registrationNotActivated = (int) ($userRegistrationAnalytics['not_activated'] ?? 0);
+$registrationReturnedUsers = (int) ($userRegistrationAnalytics['returned_users'] ?? 0);
+$registrationActiveUsers = (int) ($userRegistrationAnalytics['active_users'] ?? 0);
+$registrationProfileCompleted = (int) ($userRegistrationAnalytics['profile_completed'] ?? 0);
+$registrationProductActivated = (int) ($userRegistrationAnalytics['product_activated'] ?? 0);
 $registrationActivationRate = (float) ($userRegistrationAnalytics['activation_rate'] ?? 0);
+$registrationReturnRate = (float) ($userRegistrationAnalytics['return_rate'] ?? 0);
+$registrationProductActivationRate = (float) ($userRegistrationAnalytics['product_activation_rate'] ?? 0);
 $registrationDays = (int) ($userRegistrationAnalytics['days'] ?? 30);
 $registrationActivatedWidth = $registrationTotal > 0 ? round(($registrationActivated / $registrationTotal) * 100) : 0;
 $registrationNotActivatedWidth = $registrationTotal > 0 ? round(($registrationNotActivated / $registrationTotal) * 100) : 0;
+$registrationReturnedWidth = $registrationActivated > 0 ? round(($registrationReturnedUsers / $registrationActivated) * 100) : 0;
+$registrationProductActivatedWidth = $registrationActivated > 0 ? round(($registrationProductActivated / $registrationActivated) * 100) : 0;
+$registrationProfileCompletedWidth = $registrationActivated > 0 ? round(($registrationProfileCompleted / $registrationActivated) * 100) : 0;
 ?>
 
 <main class="flex-grow container mx-auto p-6">
@@ -395,7 +415,7 @@ $registrationNotActivatedWidth = $registrationTotal > 0 ? round(($registrationNo
 			<div class="rounded-lg border border-gray-200 bg-gray-50 p-5">
 				<div class="flex items-start justify-between gap-3">
 					<div>
-						<h4 class="font-bold text-gray-900">Registrazioni utenti</h4>
+						<h4 class="font-bold text-gray-900">Funnel utenti</h4>
 						<p class="mt-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Ultimi <?php echo (int) $registrationDays; ?> giorni</p>
 					</div>
 					<form method="get">
@@ -413,7 +433,9 @@ $registrationNotActivatedWidth = $registrationTotal > 0 ? round(($registrationNo
 				<div class="mt-5">
 					<p class="text-sm font-semibold text-gray-500">Nuovi iscritti</p>
 					<p class="mt-1 text-4xl font-extrabold text-gray-950"><?php echo number_format($registrationTotal, 0, ',', '.'); ?></p>
-					<p class="mt-2 text-sm font-semibold text-gray-700">Attivazione: <?php echo number_format($registrationActivationRate, 2, ',', '.'); ?>%</p>
+					<p class="mt-2 text-sm font-semibold text-gray-700">Email attivate: <?php echo number_format($registrationActivationRate, 2, ',', '.'); ?>%</p>
+					<p class="mt-1 text-sm font-semibold text-gray-700">Activation prodotto: <?php echo number_format($registrationProductActivationRate, 2, ',', '.'); ?>%</p>
+					<p class="mt-1 text-sm font-semibold text-gray-700">Ritorno: <?php echo number_format($registrationReturnRate, 2, ',', '.'); ?>%</p>
 				</div>
 
 				<div class="mt-5 space-y-4">
@@ -435,6 +457,34 @@ $registrationNotActivatedWidth = $registrationTotal > 0 ? round(($registrationNo
 							<div class="h-full rounded-full bg-amber-600" style="width: <?php echo (int) $registrationNotActivatedWidth; ?>%"></div>
 						</div>
 					</div>
+					<div>
+						<div class="mb-1 flex items-center justify-between gap-3 text-sm">
+							<span class="font-semibold text-gray-800">Secondo login</span>
+							<span class="text-gray-600"><?php echo number_format($registrationReturnedUsers, 0, ',', '.'); ?></span>
+						</div>
+						<div class="h-3 overflow-hidden rounded-full bg-white">
+							<div class="h-full rounded-full bg-indigo-700" style="width: <?php echo (int) $registrationReturnedWidth; ?>%"></div>
+						</div>
+					</div>
+					<div>
+						<div class="mb-1 flex items-center justify-between gap-3 text-sm">
+							<span class="font-semibold text-gray-800">Profilo completo</span>
+							<span class="text-gray-600"><?php echo number_format($registrationProfileCompleted, 0, ',', '.'); ?></span>
+						</div>
+						<div class="h-3 overflow-hidden rounded-full bg-white">
+							<div class="h-full rounded-full bg-cyan-700" style="width: <?php echo (int) $registrationProfileCompletedWidth; ?>%"></div>
+						</div>
+					</div>
+					<div>
+						<div class="mb-1 flex items-center justify-between gap-3 text-sm">
+							<span class="font-semibold text-gray-800">Azione utile</span>
+							<span class="text-gray-600"><?php echo number_format($registrationProductActivated, 0, ',', '.'); ?></span>
+						</div>
+						<div class="h-3 overflow-hidden rounded-full bg-white">
+							<div class="h-full rounded-full bg-blue-700" style="width: <?php echo (int) $registrationProductActivatedWidth; ?>%"></div>
+						</div>
+						<p class="mt-2 text-xs text-gray-500">Conta utenti verificati che hanno almeno un preferito o un evento in agenda.</p>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -453,7 +503,7 @@ $registrationNotActivatedWidth = $registrationTotal > 0 ? round(($registrationNo
 		<div class="mt-6 grid gap-6 xl:grid-cols-2">
 			<div class="rounded-lg border border-gray-200 bg-gray-50 p-5">
 				<h4 class="font-bold text-gray-900">Top eventi per interesse reale</h4>
-				<p class="mt-1 text-sm text-gray-600">Ordinati per preferiti + azioni agenda, con conversione sulle view.</p>
+				<p class="mt-1 text-sm text-gray-600">Ordinati per preferiti + azioni agenda, con conversione sulle view degli utenti autenticati.</p>
 				<div class="mt-4">
 					<?php admin_dashboard_metric_rows($topEvents, 'event'); ?>
 				</div>
@@ -461,7 +511,7 @@ $registrationNotActivatedWidth = $registrationTotal > 0 ? round(($registrationNo
 
 			<div class="rounded-lg border border-gray-200 bg-gray-50 p-5">
 				<h4 class="font-bold text-gray-900">Eventi da migliorare</h4>
-				<p class="mt-1 text-sm text-gray-600">Molte view, poche azioni: schede da rendere più convincenti o più complete.</p>
+				<p class="mt-1 text-sm text-gray-600">Molte view, poche azioni: schede dove rendere più evidente l'aggiunta all'agenda.</p>
 				<div class="mt-4">
 					<?php admin_dashboard_metric_rows($eventOpportunities, 'event'); ?>
 				</div>

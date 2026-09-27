@@ -49,4 +49,9 @@ class ConsentService
 	{
 		$this->consentRepository->upsertMarketingConsent($userId, $marketingOptIn);
 	}
+
+	public function recordAgeDeclaration(int $userId, bool $declaredAdult): void
+	{
+		$this->consentRepository->recordAgeDeclaration($userId, $declaredAdult);
+	}
 }

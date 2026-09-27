@@ -6,6 +6,7 @@ use App\Core\Session;
 use App\Models\User;
 use App\Services\ConsentService;
 use App\Services\AuditLogService;
+use App\Services\UserInvitationService;
 use App\Services\TelegramNotificationService;
 use App\Support\AuditLogActionType;
 
@@ -14,12 +15,14 @@ class AuthController extends Controller
 	private User $userModel;
 	private ConsentService $consentService;
 	private AuditLogService $auditLogService;
+	private UserInvitationService $userInvitationService;
 	private ?TelegramNotificationService $telegramNotificationService;
 
 	public function __construct() {
 		$this->userModel = new User();
 		$this->consentService = new ConsentService();
 		$this->auditLogService = new AuditLogService();
+		$this->userInvitationService = new UserInvitationService();
 		$this->telegramNotificationService = $this->createTelegramNotificationService();
 	}
 
@@ -169,6 +172,26 @@ class AuthController extends Controller
 			return;
 		}
 
+		if (!empty($user['deactivated_at'])) {
+			$this->auditLogService->logAuth([
+				'user_id' => (int) $user['id'],
+				'identifier' => $identifier,
+				'action_type' => AuditLogActionType::LOGIN_FAILED,
+				'success' => 0,
+				'failure_reason' => 'account_deactivated',
+				'payload' => [
+					'method' => 'password'
+				]
+			]);
+
+			$this->view('home/auth/login', [
+				'error' => 'Account non disponibile. Contatta il supporto se pensi sia un errore.',
+				'old_identifier' => $identifier,
+				'csrf_token' => $_SESSION['csrf_token']
+			]);
+			return;
+		}
+
 		// ❌ Controlla se l'utente ha verificato l'email
 		if ((int)$user['verified'] === 0) {
 			$this->auditLogService->logAuth([
@@ -193,6 +216,7 @@ class AuthController extends Controller
 		// ✅ Login OK — rigenera sessione (ANTI session fixation)
 		session_regenerate_id(true);
 		$_SESSION['user_id'] = (int)$user['id'];
+		$this->userModel->recordSuccessfulLogin((int) $user['id']);
 
 		$this->auditLogService->logAuth([
 			'user_id' => (int) $user['id'],
@@ -223,8 +247,13 @@ class AuthController extends Controller
 			$_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 		}
 
+		$pendingInvitation = $this->getPendingInvitationRegistrationData();
+		$old = $pendingInvitation ? ['email' => $pendingInvitation['email']] : [];
+
 		$this->view('home/auth/register', [
 			'csrf_token' => $_SESSION['csrf_token'],
+			'old' => $old,
+			'pendingInvitation' => $pendingInvitation,
 			'pageTitle' => 'Registrati su ItalianCosplay',
 			'metaDescription' => 'Crea il tuo account su ItalianCosplay per salvare eventi, seguire i cosplay preferiti e accedere alla tua area personale.',
 			'canonicalUrl' => URL_ROOT_SITE . '/register',
@@ -275,7 +304,7 @@ class AuthController extends Controller
 
 			$this->view('home/auth/register', [
 				'errors' => 'Errore di sicurezza: richiesta non valida (CSRF).',
-				'old' => $_POST,
+				'old' => $this->safeRegistrationOldInput($_POST),
 				'csrf_token' => $_SESSION['csrf_token'],
 				'pageTitle' => 'Registrati su ItalianCosplay',
 				'metaDescription' => 'Crea il tuo account su ItalianCosplay per salvare eventi, seguire i cosplay preferiti e accedere alla tua area personale.',
@@ -287,18 +316,57 @@ class AuthController extends Controller
 
 		$username = trim($_POST['username']);
 		$email = trim($_POST['email']);
+		$pendingInvitation = $this->getPendingInvitationRegistrationData();
+		if ($pendingInvitation) {
+			$email = (string) $pendingInvitation['email'];
+		}
 		$password = trim($_POST['password']);
 		$password_confirm = trim($_POST['password_confirm']);
+		$registrationWebsite = trim((string) ($_POST['registration_website'] ?? ''));
 		$ageDeclarationAccepted = !empty($_POST['age_declaration']);
 		$newsletterOptIn = !empty($_POST['newsletter_opt_in']);
 		$errors = [];
+
+		if ($registrationWebsite !== '') {
+			$this->auditLogService->logAudit([
+				'user_id' => null,
+				'action_type' => AuditLogActionType::USER_CREATED,
+				'entity_type' => 'user',
+				'entity_id' => null,
+				'success' => 0,
+				'payload' => [
+					'email' => $email,
+					'username' => $username,
+					'reason' => 'registration_honeypot_filled',
+				],
+				'error_message' => 'registration_honeypot_filled',
+			]);
+
+			$this->view('home/auth/login', [
+				'success' => 'Registrazione completata! Controlla la tua email per verificare il tuo account.',
+				'csrf_token' => $_SESSION['csrf_token']
+			]);
+			return;
+		}
 
 		// Validazioni
 		if ($username === '' || $email === '' || $password === '' || $password_confirm === '') {
 			$errors[] = 'Compila tutti i campi.';
 		}
+		if (!$this->isValidPublicUsername($username)) {
+			$errors[] = 'Scegli uno username leggibile: usa 3-30 caratteri tra lettere, numeri, punto, trattino o underscore.';
+		}
+		if ($this->looksLikeSensitiveUsername($username, $email, $password, $password_confirm)) {
+			$errors[] = 'Lo username non può coincidere con email o password. Scegli un nome pubblico diverso.';
+		}
 		if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
 			$errors[] = 'Email non valida.';
+		}
+		if ($pendingInvitation && strtolower(trim((string) ($_POST['email'] ?? ''))) !== strtolower((string) $pendingInvitation['email'])) {
+			$errors[] = 'L’email deve corrispondere all’invito ricevuto.';
+		}
+		if (strlen($password) < 8) {
+			$errors[] = 'La password deve essere di almeno 8 caratteri.';
 		}
 		if ($password !== $password_confirm) {
 			$errors[] = 'Le password non coincidono.';
@@ -318,7 +386,8 @@ class AuthController extends Controller
 		if (!empty($errors)) {
 			$this->view('home/auth/register', [
 				'errors' => $errors,
-				'old' => $_POST,
+				'old' => $this->safeRegistrationOldInput($_POST),
+				'pendingInvitation' => $pendingInvitation,
 				'age_declaration' => $ageDeclarationAccepted,
 				'newsletter_opt_in' => $newsletterOptIn,
 				'csrf_token' => $_SESSION['csrf_token'],
@@ -362,6 +431,8 @@ class AuthController extends Controller
 					$_SERVER['REMOTE_ADDR'] ?? null,
 					$_SERVER['HTTP_USER_AGENT'] ?? null
 				);
+				$this->userInvitationService->acceptPendingForRegisteredUser((int) $createdUser['id'], $email);
+				unset($_SESSION['pending_user_invitation']);
 			}
 		}
 
@@ -467,5 +538,84 @@ class AuthController extends Controller
 		}
 
 		return new TelegramNotificationService($botToken, $chatId);
+	}
+
+	private function safeRegistrationOldInput(array $input): array
+	{
+		$pendingInvitation = $this->getPendingInvitationRegistrationData();
+		return [
+			'username' => (string) ($input['username'] ?? ''),
+			'email' => (string) ($pendingInvitation['email'] ?? $input['email'] ?? ''),
+			'privacy_accept' => !empty($input['privacy_accept']) ? '1' : '',
+			'age_declaration' => !empty($input['age_declaration']) ? '1' : '',
+			'newsletter_opt_in' => !empty($input['newsletter_opt_in']) ? '1' : '',
+		];
+	}
+
+	private function getPendingInvitationRegistrationData(): ?array
+	{
+		$pendingInvitation = $_SESSION['pending_user_invitation'] ?? null;
+		if (!is_array($pendingInvitation) || empty($pendingInvitation['token']) || empty($pendingInvitation['email'])) {
+			return null;
+		}
+
+		$invitation = $this->userInvitationService->findPendingByToken((string) $pendingInvitation['token']);
+		if (!$invitation || strtolower((string) $invitation['email']) !== strtolower((string) $pendingInvitation['email'])) {
+			unset($_SESSION['pending_user_invitation']);
+			return null;
+		}
+
+		return [
+			'token' => (string) $pendingInvitation['token'],
+			'email' => (string) $pendingInvitation['email'],
+			'inviter_username' => (string) ($pendingInvitation['inviter_username'] ?? $invitation['inviter_username'] ?? ''),
+		];
+	}
+
+	private function isValidPublicUsername(string $username): bool
+	{
+		if (!preg_match('/^[A-Za-z0-9._-]{3,30}$/', $username)) {
+			return false;
+		}
+
+		if ($this->looksLikeGeneratedUsername($username)) {
+			return false;
+		}
+
+		return true;
+	}
+
+	private function looksLikeSensitiveUsername(string $username, string $email, string $password, string $passwordConfirm): bool
+	{
+		$normalizedUsername = mb_strtolower($username);
+		$emailLocalPart = mb_strtolower((string) strtok($email, '@'));
+
+		return hash_equals($username, $password)
+			|| hash_equals($username, $passwordConfirm)
+			|| $normalizedUsername === mb_strtolower($email)
+			|| ($emailLocalPart !== '' && $normalizedUsername === $emailLocalPart);
+	}
+
+	private function looksLikeGeneratedUsername(string $username): bool
+	{
+		if (!preg_match('/^[A-Za-z0-9]{16,}$/', $username)) {
+			return false;
+		}
+
+		preg_match_all('/[aeiou]/i', $username, $vowels);
+		preg_match_all('/[A-Z]/', $username, $uppercase);
+		preg_match_all('/[a-z]/', $username, $lowercase);
+		preg_match_all('/[0-9]/', $username, $digits);
+		preg_match_all('/[A-Z][a-z]|[a-z][A-Z]/', $username, $caseSwitches);
+
+		$length = strlen($username);
+		$vowelRatio = count($vowels[0]) / $length;
+		$hasMixedCase = count($uppercase[0]) > 0 && count($lowercase[0]) > 0;
+		$hasManyCaseSwitches = count($caseSwitches[0]) >= 4;
+
+		return $hasMixedCase
+			&& $hasManyCaseSwitches
+			&& $vowelRatio < 0.28
+			&& count($digits[0]) <= 2;
 	}
 }

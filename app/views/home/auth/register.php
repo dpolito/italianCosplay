@@ -1,11 +1,51 @@
 <?php
 $old = is_array($data['old'] ?? null) ? $data['old'] : [];
 $errors = $data['errors'] ?? [];
+$pendingInvitation = is_array($data['pendingInvitation'] ?? null) ? $data['pendingInvitation'] : null;
 
 if (is_string($errors)) {
 	$errors = [$errors];
 }
 ?>
+
+<style>
+	.ic-checkbox-box {
+		align-items: center;
+		background: #ffffff;
+		border: 2px solid #6b7280;
+		border-radius: 0.25rem;
+		color: #ffffff;
+		display: flex;
+		flex-shrink: 0;
+		height: 20px;
+		justify-content: center;
+		margin-top: 0.25rem;
+		width: 20px;
+	}
+	.ic-checkbox:focus + .ic-checkbox-box {
+		box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+	}
+	.ic-checkbox:checked + .ic-checkbox-box {
+		background: #065f46;
+		border-color: #065f46;
+	}
+	.ic-checkbox-blue:checked + .ic-checkbox-box {
+		background: #1e40af;
+		border-color: #1e40af;
+	}
+	.ic-checkbox-amber:checked + .ic-checkbox-box {
+		background: #b45309;
+		border-color: #b45309;
+	}
+	.ic-honeypot {
+		height: 1px;
+		left: -10000px;
+		overflow: hidden;
+		position: absolute;
+		top: auto;
+		width: 1px;
+	}
+</style>
 
 <section class="mx-auto max-w-6xl px-4 py-10 md:py-14">
 	<div class="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
@@ -55,8 +95,19 @@ if (is_string($errors)) {
 				</div>
 			<?php endif; ?>
 
+			<?php if ($pendingInvitation): ?>
+				<div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+					<p class="font-semibold">Stai completando la registrazione da un invito.</p>
+					<p class="mt-1">L’account verrà creato con l’email invitata e il collegamento sarà salvato automaticamente.</p>
+				</div>
+			<?php endif; ?>
+
 			<form action="/register" method="POST" class="space-y-5">
 				<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars((string) ($data['csrf_token'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
+				<div class="ic-honeypot" aria-hidden="true">
+					<label for="registration_website">Sito web</label>
+					<input type="text" name="registration_website" id="registration_website" value="" tabindex="-1" autocomplete="off">
+				</div>
 
 				<div>
 					<label for="username" class="block text-sm font-semibold text-gray-800">Username</label>
@@ -69,7 +120,11 @@ if (is_string($errors)) {
 					<label for="email" class="block text-sm font-semibold text-gray-800">Email</label>
 					<p class="mt-1 text-xs text-gray-500">Serve per attivare l'account e ricevere solo comunicazioni legate alla registrazione, salvo tuo consenso newsletter.</p>
 					<input type="email" name="email" id="email" value="<?php echo htmlspecialchars((string) ($old['email'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" required autocomplete="email" inputmode="email"
-					       class="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm shadow-sm focus:border-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-200">
+					       <?php echo $pendingInvitation ? 'readonly' : ''; ?>
+					       class="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm shadow-sm focus:border-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-200 <?php echo $pendingInvitation ? 'bg-gray-100 text-gray-700' : ''; ?>">
+					<?php if ($pendingInvitation): ?>
+						<p class="mt-2 text-xs font-semibold text-emerald-800">Email bloccata perché arriva dal link di invito.</p>
+					<?php endif; ?>
 				</div>
 
 				<div class="relative">
@@ -93,9 +148,14 @@ if (is_string($errors)) {
 				</div>
 
 				<div class="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-					<label class="flex cursor-pointer items-start gap-3 text-sm text-gray-700" for="privacy_accept">
-						<input type="checkbox" id="privacy_accept" name="privacy_accept" value="1" required
-						       class="mt-1 h-4 w-4 rounded border-gray-300 text-emerald-800 focus:ring-emerald-300">
+					<label class="flex cursor-pointer items-start gap-3 text-sm text-gray-700">
+						<input type="checkbox" id="privacy_accept" name="privacy_accept" value="1"
+						       class="ic-checkbox sr-only">
+						<span class="ic-checkbox-box">
+							<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+								<path fill-rule="evenodd" d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.31a1 1 0 0 1-1.42 0l-3.25-3.28a1 1 0 1 1 1.42-1.408l2.54 2.562 6.54-6.592a1 1 0 0 1 1.414-.006Z" clip-rule="evenodd" />
+							</svg>
+						</span>
 						<span>
 							Dichiaro di aver letto e accetto l'
 							<a href="/privacy" target="_blank" rel="noopener noreferrer" class="font-semibold text-emerald-800 hover:text-emerald-900 hover:underline">
@@ -110,10 +170,15 @@ if (is_string($errors)) {
 				</div>
 
 				<div class="rounded-2xl border border-blue-200 bg-blue-50 p-4">
-					<label class="flex cursor-pointer items-start gap-3 text-sm text-gray-700" for="age_declaration">
-						<input type="checkbox" id="age_declaration" name="age_declaration" value="1" required
+					<label class="flex cursor-pointer items-start gap-3 text-sm text-gray-700">
+						<input type="checkbox" id="age_declaration" name="age_declaration" value="1"
 						       <?php echo !empty($old['age_declaration']) ? 'checked' : ''; ?>
-						       class="mt-1 h-4 w-4 rounded border-gray-300 text-blue-800 focus:ring-blue-300">
+						       class="ic-checkbox ic-checkbox-blue sr-only">
+						<span class="ic-checkbox-box">
+							<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+								<path fill-rule="evenodd" d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.31a1 1 0 0 1-1.42 0l-3.25-3.28a1 1 0 1 1 1.42-1.408l2.54 2.562 6.54-6.592a1 1 0 0 1 1.414-.006Z" clip-rule="evenodd" />
+							</svg>
+						</span>
 						<span>
 							Dichiaro di avere almeno 18 anni e di poter creare un account su ItalianCosplay.
 						</span>
@@ -124,10 +189,15 @@ if (is_string($errors)) {
 				</div>
 
 				<div class="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-					<label class="flex cursor-pointer items-start gap-3 text-sm text-gray-700" for="newsletter_opt_in">
+					<label class="flex cursor-pointer items-start gap-3 text-sm text-gray-700">
 						<input type="checkbox" id="newsletter_opt_in" name="newsletter_opt_in" value="1"
 						       <?php echo !empty($old['newsletter_opt_in']) ? 'checked' : ''; ?>
-						       class="mt-1 h-4 w-4 rounded border-gray-300 text-amber-700 focus:ring-amber-300">
+						       class="ic-checkbox ic-checkbox-amber sr-only">
+						<span class="ic-checkbox-box">
+							<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+								<path fill-rule="evenodd" d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.31a1 1 0 0 1-1.42 0l-3.25-3.28a1 1 0 1 1 1.42-1.408l2.54 2.562 6.54-6.592a1 1 0 0 1 1.414-.006Z" clip-rule="evenodd" />
+							</svg>
+						</span>
 						<span>
 							Voglio ricevere in futuro email con nuovi eventi cosplay, contenuti utili e aggiornamenti editoriali da ItalianCosplay.
 						</span>

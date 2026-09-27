@@ -262,6 +262,7 @@ if (isset($_SESSION['user_id'])) {
 			<?php if (!empty($featureFlags['enable_notifications'])): ?>
 				<a href="/dashboard/notifications" class="block px-4 py-2 rounded hover:bg-green-800 transition">Notifiche</a>
 			<?php endif; ?>
+			<a href="/dashboard/inviti" class="block px-4 py-2 rounded hover:bg-green-800 transition">Invita amici</a>
 			<?php if (!empty($featureFlags['enable_advertising'])): ?>
 				<div class="mt-4 pt-4 border-t border-green-800">
 					<p class="px-4 text-xs font-bold uppercase tracking-wide text-green-200">Advertising</p>
