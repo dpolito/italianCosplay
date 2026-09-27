@@ -95,13 +95,33 @@ Questi file servono al repository, alla pipeline o allo sviluppo locale e non de
 - `phpunit.xml.dist`
 - `scripts/`
 - `tests/`
-- `vendor/`
 - `node_modules/`
 - `app/config/database.php`
 
 Le variabili `IC_DEPLOY_*` possono stare nel `.env` locale, ma lo script deve usarle senza stamparle e senza caricare il `.env` sul server.
 
 Se il filtro dei file deployabili restituisce una lista vuota, non bisogna aprire una connessione FTP/SFTP: non c'è nulla da pubblicare.
+
+## Vendor su Aruba
+
+Su Aruba non possiamo eseguire comandi Composer in produzione.
+
+Quindi `vendor/` segue una regola diversa:
+
+- non deve essere committata in Git;
+- deve essere generata in locale con Composer;
+- deve essere caricata sul server quando cambiano le dipendenze o durante il primo setup;
+- non deve includere dipendenze di sviluppo se si sta preparando il pacchetto di produzione.
+
+Comando consigliato per preparare una `vendor/` di produzione:
+
+```bash
+composer install --no-dev --optimize-autoloader
+```
+
+Poi `vendor/` va caricata via FTP/SFTP come bundle runtime separato, con conferma esplicita, perché può contenere molti file.
+
+La presenza di `vendor/autoload.php` sul server è necessaria per far funzionare dipendenze come `vlucas/phpdotenv` e le altre librerie Composer.
 
 ## Esclusioni
 
@@ -111,7 +131,6 @@ Sono esclusi dal deploy:
 - `.env.example`
 - `.git`
 - `.gitignore`
-- `vendor`
 - `node_modules`
 - `docs`
 - `phpunit.xml.dist`
