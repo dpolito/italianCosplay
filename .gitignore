@@ -1,1 +1,15 @@
+.env
+/.env.*
+!/.env.example
+/.DS_Store
+/**/.DS_Store
+/.idea/
+/.phpunit.cache/
+/node_modules/
+/vendor/
 /public_assets/uploads/
+/storage/cache/
+/storage/logs/
+/*.sql
+!/database/migrations/*.sql
+!/database/seeds/*.sql

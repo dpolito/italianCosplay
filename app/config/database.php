@@ -1,13 +1,17 @@
 <?php
 // app/config/database.php
 
-// Dati di connessione al database
-// Normalmente si usano variabili d'ambiente per credenziali sensibili
-// Per semplicità, qui sono dirette, ma in produzione si userebbero file .env e getenv()
+$appEnv = getenv('APP_ENV') ?: ($_ENV['APP_ENV'] ?? 'development');
+$databaseName = getenv('DB_NAME') ?: getenv('DB_DATABASE') ?: ($_ENV['DB_NAME'] ?? $_ENV['DB_DATABASE'] ?? 'italiancosplay_gemini');
+
+if ($appEnv === 'testing' && !preg_match('/(test|testing|_test)$/i', $databaseName)) {
+	throw new RuntimeException('Refusing to use a non-testing database while APP_ENV=testing.');
+}
+
 return [
-	'host'     => 'italiancosplay_gemini_db',
-	'dbname'   => 'italiancosplay_gemini',
-	'user'     => 'root',
-	'password' => 'rootpassword123', // Inserisci la tua password di MySQL
-	'charset'  => 'utf8mb4'
+	'host'     => getenv('DB_HOST') ?: ($_ENV['DB_HOST'] ?? 'italiancosplay_gemini_db'),
+	'dbname'   => $databaseName,
+	'user'     => getenv('DB_USER') ?: ($_ENV['DB_USER'] ?? 'root'),
+	'password' => getenv('DB_PASSWORD') ?: ($_ENV['DB_PASSWORD'] ?? 'rootpassword123'),
+	'charset'  => getenv('DB_CHARSET') ?: ($_ENV['DB_CHARSET'] ?? 'utf8mb4')
 ];
