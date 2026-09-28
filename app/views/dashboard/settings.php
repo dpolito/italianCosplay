@@ -2,7 +2,7 @@
 $user = $data['user'] ?? ($user ?? []);
 $settings = json_decode($user['profile_settings'] ?? '{}', true);
 $marketingOptIn = !empty($user['marketing_opted_in']);
-$avatar = $user['avatar'] ?? '/assets/img/default_avatar.png';
+$avatar = $user['avatar'] ?? '/public_assets/images/default_avatar.png';
 $displayName = $user['username'] ?? $user['first_name'] ?? 'Cosplayer';
 
 function checked($settings, $key)

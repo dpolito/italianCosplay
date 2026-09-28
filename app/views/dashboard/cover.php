@@ -1,7 +1,7 @@
 <?php
 $user = $data['user'] ?? ($user ?? []);
 $currentCover = $user['profile_cover'] ?? '/public_assets/images/default_cover.png';
-$avatar = $user['avatar'] ?? '/assets/img/default_avatar.png';
+$avatar = $user['avatar'] ?? '/public_assets/images/default_avatar.png';
 $displayName = $user['username'] ?? $user['first_name'] ?? 'Cosplayer';
 $posX = $user['cover_position_x'] ?? 50;
 $posY = $user['cover_position_y'] ?? 50;

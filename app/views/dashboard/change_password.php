@@ -3,7 +3,7 @@
 // app/views/dashboard/change_password.php
 
 $user = $data['user'] ?? ($user ?? []);
-$avatar = $user['avatar'] ?? '/assets/img/default_avatar.png';
+$avatar = $user['avatar'] ?? '/public_assets/images/default_avatar.png';
 $displayName = $user['username'] ?? 'Cosplayer';
 ?>
 

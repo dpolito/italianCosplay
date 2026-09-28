@@ -8,7 +8,7 @@ $organizations = $data['organizations'] ?? [];
 $eventMasterClaims = $data['eventMasterClaims'] ?? [];
 $organizationInvitations = $data['organizationInvitations'] ?? [];
 $claimStatuses = ['pending' => 'In attesa', 'approved' => 'Approvata', 'rejected' => 'Rifiutata', 'cancelled' => 'Annullata'];
-$avatar = $user['avatar'] ?? '/assets/img/default_avatar.png';
+$avatar = $user['avatar'] ?? '/public_assets/images/default_avatar.png';
 $displayName = $user['username'] ?? $user['first_name'] ?? 'Cosplayer';
 $publicProfileUrl = rtrim(URL_ROOT_SITE, '/') . '/u/' . rawurlencode((string) ($user['username'] ?? ''));
 $featureFlags = (new \App\Services\SiteFeatureFlagService())->getEnabledMap();

@@ -1,6 +1,6 @@
 <?php
 $user = $data['user'] ?? ($user ?? []);
-$currentAvatar = $user['avatar'] ?? '/assets/img/default_avatar.png';
+$currentAvatar = $user['avatar'] ?? '/public_assets/images/default_avatar.png';
 $displayName = $user['username'] ?? $user['first_name'] ?? 'Cosplayer';
 $hasAvatar = !empty($user['avatar']);
 $completionSteps = 1 + ($hasAvatar ? 1 : 0) + (!empty($user['bio']) ? 1 : 0) + (!empty($user['social']) ? 1 : 0);

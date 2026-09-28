@@ -5,7 +5,7 @@ $user = $data['user'] ?? ($user ?? []);
 $csrf = $_SESSION['csrf_token'] ?? '';
 $social = json_decode($user['social'] ?? '{}', true);
 
-$avatar = $user['avatar'] ?? '/assets/img/default_avatar.png';
+$avatar = $user['avatar'] ?? '/public_assets/images/default_avatar.png';
 $displayName = $user['username'] ?? 'Cosplayer';
 $publicProfileUrl = rtrim(URL_ROOT_SITE, '/') . '/u/' . rawurlencode((string) ($user['username'] ?? ''));
 
