@@ -2,6 +2,18 @@
 // app/config/app.php
 // Qui puoi definire costanti o configurazioni globali dell'applicazione
 // Esempio:
+if (!function_exists('app_env_value')) {
+	function app_env_value(string $key, string $default = ''): string {
+		$value = $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key);
+
+		if ($value === false || $value === null) {
+			return $default;
+		}
+
+		return trim((string) $value);
+	}
+}
+
 if (!defined('APP_NAME')) {
 	define('APP_NAME', 'Italian Cosplay Events');
 }
@@ -11,19 +23,19 @@ if (!defined('BASE_URL')) {
 }
 
 if (!defined('TELEGRAM_BOT_TOKEN')) {
-	define('TELEGRAM_BOT_TOKEN', '');
+	define('TELEGRAM_BOT_TOKEN', app_env_value('TELEGRAM_BOT_TOKEN'));
 }
 
 if (!defined('TELEGRAM_CHAT_ID')) {
-	define('TELEGRAM_CHAT_ID', '');
+	define('TELEGRAM_CHAT_ID', app_env_value('TELEGRAM_CHAT_ID'));
 }
 
 if (!defined('TELEGRAM_CHANNEL_CHAT_ID')) {
-	define('TELEGRAM_CHANNEL_CHAT_ID', '');
+	define('TELEGRAM_CHANNEL_CHAT_ID', app_env_value('TELEGRAM_CHANNEL_CHAT_ID'));
 }
 
 if (!defined('TELEGRAM_CHANNEL_URL')) {
-	define('TELEGRAM_CHANNEL_URL', '');
+	define('TELEGRAM_CHANNEL_URL', app_env_value('TELEGRAM_CHANNEL_URL'));
 }
 
 if (!function_exists('dd')) {
