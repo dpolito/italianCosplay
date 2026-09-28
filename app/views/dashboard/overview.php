@@ -3,7 +3,6 @@ $user = $data['user'] ?? ($user ?? []);
 $adStats = $data['adStats'] ?? [];
 $favoritesSummary = $data['favoritesSummary'] ?? [];
 $agendaCounts = $data['agendaCounts'] ?? [];
-$ciVadoEvents = $data['ciVadoEvents'] ?? [];
 $cosplayPortfolioCount = (int) ($data['cosplayPortfolioCount'] ?? 0);
 $organizations = $data['organizations'] ?? [];
 $eventMasterClaims = $data['eventMasterClaims'] ?? [];
@@ -192,6 +191,17 @@ $completionPercent = min(100, (int) round(($completionSteps / 5) * 100));
 				<p class="mt-4 text-sm font-semibold text-fuchsia-900"><?php echo $cosplayPortfolioCount; ?> cosplay salvati</p>
 			</a>
 		<?php endif; ?>
+
+		<?php if (!empty($featureFlags['enable_personal_agenda'])): ?>
+			<a href="/dashboard/events" class="rounded-2xl bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-green-700">
+				<span class="inline-flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-900">
+					<i class="fa-solid fa-calendar-check"></i>
+				</span>
+				<h2 class="mt-4 text-xl font-bold text-gray-950">Agenda Cosplay</h2>
+				<p class="mt-2 text-sm leading-relaxed text-gray-700">Organizza gli eventi salvati e tieni d'occhio quelli a cui vuoi partecipare.</p>
+				<p class="mt-4 text-sm font-semibold text-blue-900"><?php echo (int) array_sum($agendaCounts); ?> eventi in agenda</p>
+			</a>
+		<?php endif; ?>
 	</div>
 
 	<?php if (!empty($featureFlags['enable_advertising'])): ?>
@@ -279,56 +289,6 @@ $completionPercent = min(100, (int) round(($completionSteps / 5) * 100));
 	</section>
 	<?php endif; ?>
 
-	<?php if (!empty($featureFlags['enable_personal_agenda'])): ?>
-	<section class="rounded-2xl bg-white p-5 shadow-sm md:p-8" aria-labelledby="agenda-overview-title">
-		<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-			<div>
-				<p class="text-sm font-bold uppercase tracking-wide text-blue-800">Agenda personale</p>
-				<h2 id="agenda-overview-title" class="mt-2 text-2xl font-bold text-gray-950">Gli eventi dove hai detto "ci vado"</h2>
-				<p class="mt-2 text-gray-700">Qui trovi i prossimi appuntamenti che hai già segnato nella tua agenda personale.</p>
-			</div>
-			<div class="flex flex-wrap gap-3">
-				<a href="/dashboard/events" class="inline-flex rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800">Apri agenda</a>
-			</div>
-		</div>
-
-		<div class="mt-6 grid gap-4 md:grid-cols-3">
-			<div class="rounded-xl border border-blue-200 bg-blue-50 p-4">
-				<p class="text-sm font-semibold text-blue-900">Mi interessa</p>
-				<p class="mt-2 text-3xl font-bold text-blue-950"><?php echo (int)($agendaCounts['mi_interessa'] ?? 0); ?></p>
-			</div>
-			<div class="rounded-xl border border-blue-200 bg-blue-50 p-4">
-				<p class="text-sm font-semibold text-blue-900">Ci vado</p>
-				<p class="mt-2 text-3xl font-bold text-blue-950"><?php echo (int)($agendaCounts['ci_vado'] ?? 0); ?></p>
-			</div>
-			<div class="rounded-xl border border-blue-200 bg-blue-50 p-4">
-				<p class="text-sm font-semibold text-blue-900">Forse vado</p>
-				<p class="mt-2 text-3xl font-bold text-blue-950"><?php echo (int)($agendaCounts['forse_vado'] ?? 0); ?></p>
-			</div>
-		</div>
-
-		<div class="mt-6">
-			<h3 class="text-lg font-bold text-gray-950">Prossimi "ci vado"</h3>
-			<?php if (empty($ciVadoEvents)): ?>
-				<div class="mt-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-5 text-gray-600">
-					Nessun evento segnato come “ci vado” al momento.
-				</div>
-			<?php else: ?>
-				<div class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-					<?php foreach ($ciVadoEvents as $event): ?>
-						<a href="/eventi-cosplay/<?php echo htmlspecialchars($event['slug'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" class="rounded-xl border border-gray-200 bg-gray-50 p-4 transition hover:bg-blue-50">
-							<p class="text-sm font-semibold text-blue-900"><?php echo htmlspecialchars($event['data_inizio'] ?? '', ENT_QUOTES, 'UTF-8'); ?></p>
-							<h4 class="mt-2 text-lg font-bold text-gray-950"><?php echo htmlspecialchars($event['titolo'] ?? 'Evento', ENT_QUOTES, 'UTF-8'); ?></h4>
-							<p class="mt-1 text-sm text-gray-700">
-								<?php echo htmlspecialchars(trim(($event['comune_nome'] ?? '') . (!empty($event['provincia_nome']) ? ' · ' . $event['provincia_nome'] : '') . (!empty($event['regione_nome']) ? ' · ' . $event['regione_nome'] : '')), ENT_QUOTES, 'UTF-8'); ?>
-							</p>
-						</a>
-					<?php endforeach; ?>
-				</div>
-			<?php endif; ?>
-		</div>
-	</section>
-	<?php endif; ?>
 
 	<section class="rounded-2xl bg-white p-5 shadow-sm md:p-8" aria-labelledby="next-steps-title">
 		<h2 id="next-steps-title" class="text-xl font-bold text-gray-950">Prossimi passi consigliati</h2>

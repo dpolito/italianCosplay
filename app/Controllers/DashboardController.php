@@ -93,7 +93,6 @@ class DashboardController extends Controller
 			'comune' => $this->favoriteService->countUserFavoritesByType((int) $userId, 'comune'),
 		];
 		$agendaCounts = $this->eventAgendaService->getUserAgendaCount((int) $userId);
-		$ciVadoEvents = $this->eventAgendaService->getUpcomingByStatus((int) $userId, 'ci_vado', 3);
 		$cosplayPortfolio = $this->cosplayPortfolioService->getUserPortfolio((int) $userId);
 		$organizationData = $this->organizationService->getForUser((int) $userId);
 		$claimData = $this->eventMasterClaimService->getClaimsForUser((int) $userId);
@@ -104,7 +103,6 @@ class DashboardController extends Controller
 			'adStats' => $adStats,
 			'favoritesSummary' => $favoritesSummary,
 			'agendaCounts' => $agendaCounts,
-			'ciVadoEvents' => $ciVadoEvents,
 			'cosplayPortfolioCount' => count($cosplayPortfolio),
 			'organizations' => $organizationData,
 			'eventMasterClaims' => $claimData,
@@ -849,19 +847,25 @@ class DashboardController extends Controller
 		$this->requireFeature('enable_personal_agenda', 'Agenda personale temporaneamente disattivata.');
 		$userId = (int) ($_SESSION['user_id'] ?? 0);
 		$user = $this->userModel->find($userId);
-		$agenda = $this->eventAgendaService->getUserAgenda($userId);
-		$groupedAgenda = [
-			'ci_vado' => $this->eventAgendaService->getUpcomingByStatus($userId, 'ci_vado', 12),
-			'mi_interessa' => $this->eventAgendaService->getUpcomingByStatus($userId, 'mi_interessa', 12),
-			'forse_vado' => $this->eventAgendaService->getUpcomingByStatus($userId, 'forse_vado', 12),
-		];
-		$counts = $this->eventAgendaService->getUserAgendaCount($userId);
+		$currentYear = (int) date('Y');
+		$availableYears = $this->eventAgendaService->getUserAgendaYears($userId);
+		$requestedYear = filter_input(INPUT_GET, 'year', FILTER_VALIDATE_INT) ?: $currentYear;
+		$selectedYear = max(2000, min(2100, (int) $requestedYear));
+		$yearEvents = $this->eventAgendaService->getUserAgendaForYear($userId, $selectedYear);
+		$upcomingEvents = $this->eventAgendaService->getUpcomingAgendaEvents($userId);
+		$counts = $this->eventAgendaService->getUserAgendaCountForYear($userId, $selectedYear);
+		$totalAgendaCount = array_sum($this->eventAgendaService->getUserAgendaCount($userId));
+		$years = array_values(array_unique(array_merge($availableYears, [$currentYear, $selectedYear])));
+		rsort($years);
 
 		$this->view('dashboard/events', [
 			'user' => $user,
-			'agenda' => $agenda,
-			'groupedAgenda' => $groupedAgenda,
+			'yearEvents' => $yearEvents,
+			'upcomingEvents' => $upcomingEvents,
 			'counts' => $counts,
+			'selectedYear' => $selectedYear,
+			'availableYears' => $years,
+			'totalAgendaCount' => $totalAgendaCount,
 		], 'dashboard');
 	}
 

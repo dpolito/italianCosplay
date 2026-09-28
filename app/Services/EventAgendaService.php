@@ -11,6 +11,7 @@ class EventAgendaService
 	private PDO $db;
 	private AuditLogService $auditLogService;
 	private EventAgendaAnalyticsService $eventAgendaAnalyticsService;
+	private ?bool $eventsSoftDeleteAvailable = null;
 
 	public function __construct()
 	{
@@ -44,6 +45,91 @@ class EventAgendaService
 	{
 		$stmt = $this->db->prepare(
 			"SELECT id, user_id, event_id, status, created_at, updated_at FROM user_event_agenda WHERE user_id = :user_id ORDER BY updated_at DESC, created_at DESC"
+		);
+		$stmt->execute([':user_id' => $userId]);
+
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
+	public function getUserAgendaYears(int $userId): array
+	{
+		$deletedAtCondition = $this->eventDeletedAtCondition('e');
+		$stmt = $this->db->prepare(
+			"SELECT DISTINCT YEAR(e.data_inizio) AS year
+			FROM user_event_agenda a
+			INNER JOIN events e ON e.id = a.event_id
+			WHERE a.user_id = :user_id
+			  AND e.data_inizio IS NOT NULL
+			  {$deletedAtCondition}
+			ORDER BY year DESC"
+		);
+		$stmt->execute([':user_id' => $userId]);
+
+		return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+	}
+
+	public function getUserAgendaForYear(int $userId, int $year): array
+	{
+		$deletedAtCondition = $this->eventDeletedAtCondition('e');
+		$stmt = $this->db->prepare(
+			"SELECT
+				a.event_id,
+				a.status,
+				a.created_at AS agenda_created_at,
+				a.updated_at AS agenda_updated_at,
+				e.titolo,
+				e.slug,
+				e.data_inizio,
+				e.data_fine,
+				e.luogo,
+				e.immagine,
+				r.nome AS regione_nome,
+				p.nome AS provincia_nome,
+				c.nome AS comune_nome
+			FROM user_event_agenda a
+			INNER JOIN events e ON e.id = a.event_id
+			LEFT JOIN regioni r ON e.regione_id = r.id
+			LEFT JOIN province p ON e.provincia_id = p.id
+			LEFT JOIN comuni c ON e.comune_id = c.id
+			WHERE a.user_id = :user_id
+			  AND YEAR(e.data_inizio) = :year
+			  {$deletedAtCondition}
+			ORDER BY e.data_inizio ASC, e.data_fine ASC, e.titolo ASC"
+		);
+		$stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
+		$stmt->bindValue(':year', $year, PDO::PARAM_INT);
+		$stmt->execute();
+
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
+	public function getUpcomingAgendaEvents(int $userId): array
+	{
+		$deletedAtCondition = $this->eventDeletedAtCondition('e');
+		$stmt = $this->db->prepare(
+			"SELECT
+				a.event_id,
+				a.status,
+				a.created_at AS agenda_created_at,
+				a.updated_at AS agenda_updated_at,
+				e.titolo,
+				e.slug,
+				e.data_inizio,
+				e.data_fine,
+				e.luogo,
+				e.immagine,
+				r.nome AS regione_nome,
+				p.nome AS provincia_nome,
+				c.nome AS comune_nome
+			FROM user_event_agenda a
+			INNER JOIN events e ON e.id = a.event_id
+			LEFT JOIN regioni r ON e.regione_id = r.id
+			LEFT JOIN province p ON e.provincia_id = p.id
+			LEFT JOIN comuni c ON e.comune_id = c.id
+			WHERE a.user_id = :user_id
+			  AND COALESCE(e.data_fine, e.data_inizio) >= CURDATE()
+			  {$deletedAtCondition}
+			ORDER BY e.data_inizio ASC, e.data_fine ASC, e.titolo ASC"
 		);
 		$stmt->execute([':user_id' => $userId]);
 
@@ -127,6 +213,18 @@ class EventAgendaService
 		return $ok;
 	}
 
+	public function eventExists(int $eventId): bool
+	{
+		$deletedAtCondition = $this->eventDeletedAtCondition();
+		$stmt = $this->db->prepare(
+			"SELECT 1 FROM events WHERE id = :event_id {$deletedAtCondition} LIMIT 1"
+		);
+		$stmt->bindValue(':event_id', $eventId, PDO::PARAM_INT);
+		$stmt->execute();
+
+		return (bool) $stmt->fetchColumn();
+	}
+
 	public function removeStatus(int $userId, int $eventId): bool
 	{
 		$previousStatus = $this->getUserAgendaStates($userId, [$eventId])[$eventId] ?? null;
@@ -172,5 +270,64 @@ class EventAgendaService
 		}
 
 		return $counts;
+	}
+
+	public function getUserAgendaCountForYear(int $userId, int $year): array
+	{
+		$deletedAtCondition = $this->eventDeletedAtCondition('e');
+		$stmt = $this->db->prepare(
+			"SELECT a.status, COUNT(*) AS total
+			FROM user_event_agenda a
+			INNER JOIN events e ON e.id = a.event_id
+			WHERE a.user_id = :user_id
+			  AND YEAR(e.data_inizio) = :year
+			  {$deletedAtCondition}
+			GROUP BY a.status"
+		);
+		$stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
+		$stmt->bindValue(':year', $year, PDO::PARAM_INT);
+		$stmt->execute();
+
+		$counts = [
+			'mi_interessa' => 0,
+			'ci_vado' => 0,
+			'forse_vado' => 0,
+		];
+
+		foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+			$counts[(string) $row['status']] = (int) $row['total'];
+		}
+
+		return $counts;
+	}
+
+	private function eventDeletedAtCondition(string $alias = ''): string
+	{
+		if (!$this->hasEventsSoftDeleteColumn()) {
+			return '';
+		}
+
+		$prefix = $alias !== '' ? $alias . '.' : '';
+
+		return 'AND ' . $prefix . 'deleted_at IS NULL';
+	}
+
+	private function hasEventsSoftDeleteColumn(): bool
+	{
+		if ($this->eventsSoftDeleteAvailable !== null) {
+			return $this->eventsSoftDeleteAvailable;
+		}
+
+		$stmt = $this->db->prepare(
+			"SELECT COUNT(*)
+			FROM information_schema.COLUMNS
+			WHERE TABLE_SCHEMA = DATABASE()
+			  AND TABLE_NAME = 'events'
+			  AND COLUMN_NAME = 'deleted_at'"
+		);
+		$stmt->execute();
+		$this->eventsSoftDeleteAvailable = (int) $stmt->fetchColumn() > 0;
+
+		return $this->eventsSoftDeleteAvailable;
 	}
 }

@@ -257,7 +257,7 @@ if (isset($_SESSION['user_id'])) {
 				<a href="/dashboard/cosplay" class="block px-4 py-2 rounded hover:bg-green-800 transition">Portfolio cosplay</a>
 			<?php endif; ?>
 			<?php if (!empty($featureFlags['enable_personal_agenda'])): ?>
-				<a href="/dashboard/events" class="block px-4 py-2 rounded hover:bg-green-800 transition">I miei eventi</a>
+				<a href="/dashboard/events" class="block px-4 py-2 rounded hover:bg-green-800 transition">Agenda Cosplay</a>
 			<?php endif; ?>
 			<?php if (!empty($featureFlags['enable_notifications'])): ?>
 				<a href="/dashboard/notifications" class="block px-4 py-2 rounded hover:bg-green-800 transition">Notifiche</a>

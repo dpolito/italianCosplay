@@ -394,9 +394,23 @@ class EventController extends Controller{
 			$this->respondAgendaUpdate($isAjax, false, null, $redirectTo, 'Dati non validi.');
 		}
 
-		$ok = $status === 'remove'
-			? $this->eventAgendaService->removeStatus($userId, $eventId)
-			: $this->eventAgendaService->setStatus($userId, $eventId, $status);
+		if (!$this->eventAgendaService->eventExists($eventId)) {
+			$this->respondAgendaUpdate($isAjax, false, null, $redirectTo, 'Evento non trovato.');
+		}
+
+		try {
+			$ok = $status === 'remove'
+				? $this->eventAgendaService->removeStatus($userId, $eventId)
+				: $this->eventAgendaService->setStatus($userId, $eventId, $status);
+		} catch (\Throwable $exception) {
+			$this->respondAgendaUpdate(
+				$isAjax,
+				false,
+				null,
+				$redirectTo,
+				'Impossibile aggiornare l\'agenda.'
+			);
+		}
 
 		$this->respondAgendaUpdate(
 			$isAjax,
