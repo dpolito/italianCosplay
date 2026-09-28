@@ -87,7 +87,7 @@ class ProfileController extends Controller{
 		}
 
 		$user['social_links'] = $social;
-		$user['avatar'] = !empty($user['avatar']) ? $user['avatar'] : '/assets/img/default-avatar.png';
+		$user['avatar'] = !empty($user['avatar']) ? $user['avatar'] : '/public_assets/images/default_avatar.png';
 		$user['profile_cover'] = !empty($user['profile_cover']) ? $user['profile_cover'] : null;
 
 		$publicCosplayItems = array_values(array_filter(

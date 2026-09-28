@@ -13,7 +13,7 @@ $fullName = trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''))
 $displayName = (!empty($settings['show_nome']))
 	? ($fullName !== '' ? $fullName : $user['username'])
 	: $user['username'];
-$avatarUrl = !empty($user['avatar']) ? (str_starts_with($user['avatar'], 'http') ? $user['avatar'] : $siteBaseUrl . $user['avatar']) : $siteBaseUrl . '/assets/img/default-avatar.png';
+$avatarUrl = !empty($user['avatar']) ? (str_starts_with($user['avatar'], 'http') ? $user['avatar'] : $siteBaseUrl . $user['avatar']) : $siteBaseUrl . '/public_assets/images/default_avatar.png';
 $coverUrl = !empty($user['profile_cover']) ? (str_starts_with($user['profile_cover'], 'http') ? $user['profile_cover'] : $siteBaseUrl . $user['profile_cover']) : '';
 $bio = (string) ($user['bio'] ?? '');
 $website = trim((string) ($user['website'] ?? ''));

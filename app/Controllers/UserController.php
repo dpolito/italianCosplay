@@ -55,7 +55,7 @@ class UserController extends Controller
 
 		// fallback avatar
 		if (empty($user['avatar'])) {
-			$user['avatar'] = '/assets/img/default-avatar.png';
+			$user['avatar'] = '/public_assets/images/default_avatar.png';
 		}
 		$breadcrumbs = [
 			['label' => 'Home', 'url' => URL_ROOT_SITE . '/'],

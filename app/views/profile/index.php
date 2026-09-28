@@ -94,7 +94,7 @@ $buildUrl = static function (array $override = []) use ($filters): string {
 			<div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
 				<?php foreach ($profiles as $profile): ?>
 					<?php
-					$profileAvatar = !empty($profile['avatar']) ? (str_starts_with($profile['avatar'], 'http') ? $profile['avatar'] : (rtrim(URL_ROOT_SITE, '/') . $profile['avatar'])) : '/assets/img/default-avatar.png';
+					$profileAvatar = !empty($profile['avatar']) ? (str_starts_with($profile['avatar'], 'http') ? $profile['avatar'] : (rtrim(URL_ROOT_SITE, '/') . $profile['avatar'])) : '/public_assets/images/default_avatar.png';
 					$profileName = trim(($profile['first_name'] ?? '') . ' ' . ($profile['last_name'] ?? ''));
 					$profileLabel = $profileName !== '' ? $profileName : $profile['username'];
 					$bioPreview = trim((string) ($profile['bio'] ?? ''));

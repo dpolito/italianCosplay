@@ -532,7 +532,7 @@ class Router
 
 				$profileImage = $profileUser['profile_cover'] ?? ($profileUser['avatar'] ?? '');
 				if ($profileImage === '') {
-					$profileImage = 'https://www.italiancosplay.it/assets/img/default-avatar.png';
+					$profileImage = 'https://www.italiancosplay.it/public_assets/images/default_avatar.png';
 				} elseif (!str_starts_with($profileImage, 'http')) {
 					$profileImage = 'https://www.italiancosplay.it' . $profileImage;
 				}

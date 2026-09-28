@@ -22,7 +22,7 @@ $breadcrumbs = $data['breadcrumbs'] ?? [];
 		<!-- AVATAR -->
 		<div class="flex justify-center">
 			<img
-					src="<?php echo htmlspecialchars($user['avatar'] ?: '/assets/img/default-avatar.png') ?>"
+					src="<?php echo htmlspecialchars($user['avatar'] ?: '/public_assets/images/default_avatar.png') ?>"
 					alt="avatar"
 					class="w-36 h-36 rounded-full object-cover border-4 border-white/20 shadow-xl"
 			>
