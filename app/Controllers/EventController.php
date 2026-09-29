@@ -28,6 +28,7 @@ use App\Services\ImageService;
 use App\Services\EventAgendaService;
 use App\Services\EventReportAnalyticsService;
 use App\Services\CosplayPortfolioService;
+use App\Services\PendingUserActionService;
 use App\Services\EventReportConsentService;
 use App\Services\ProvinceCorrelateService;
 use App\Services\AuditLogService;
@@ -77,6 +78,7 @@ class EventController extends Controller{
 	private OrganizationRepository $organizationRepository;
 	private AuditLogService $auditLogService;
 	private NotificationService $notificationService;
+	private PendingUserActionService $pendingUserActionService;
 
 	public function __construct(){
 		$this->eventModel = new Event();
@@ -99,6 +101,7 @@ class EventController extends Controller{
 		$this->organizationRepository = new OrganizationRepository();
 		$this->auditLogService = new AuditLogService();
 		$this->notificationService = new NotificationService();
+		$this->pendingUserActionService = new PendingUserActionService();
 		$this->imageService = new ImageService($this->eventModel->getDbConnection());
 		// Definisci il percorso base per gli eventi qui per evitare duplicazioni
 		// CORREZIONE QUI: Rimuovi lo slash finale da URL_ROOT prima di concatenare
@@ -131,6 +134,9 @@ class EventController extends Controller{
 	 */
 	public function index(array $params = []){
 		$this->requireFeature('enable_events', 'Gli eventi pubblici sono temporaneamente disattivati.');
+		if (!isset($_SESSION['csrf_token'])) {
+			$_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+		}
 		$searchQuery = trim((string) ($_GET['q'] ?? ''));
 		$regioneSlug = null;
 		$provinciaSlug = null;
@@ -373,14 +379,23 @@ class EventController extends Controller{
 			exit();
 		}
 
-		if (!isset($_SESSION['user_id'])) {
-			header('Location: /login');
-			exit();
-		}
-
 		if (!$this->isValidCsrfToken()) {
 			Session::setFlash('error', 'Richiesta non valida.');
 			header('Location: ' . ($_POST['redirect_to'] ?? '/eventi-cosplay'));
+			exit();
+		}
+
+		if (!isset($_SESSION['user_id'])) {
+			$eventId = (int) ($_POST['event_id'] ?? 0);
+			$status = trim((string) ($_POST['status'] ?? ''));
+			$redirectTo = (string) ($_POST['redirect_to'] ?? '/eventi-cosplay');
+			if ($this->pendingUserActionService->storeAgenda($eventId, $status, $redirectTo)) {
+				header('Location: /login');
+				exit();
+			}
+
+			Session::setFlash('error', 'Dati non validi.');
+			header('Location: /eventi-cosplay');
 			exit();
 		}
 
@@ -428,14 +443,24 @@ class EventController extends Controller{
 			exit();
 		}
 
-		if (!isset($_SESSION['user_id'])) {
-			header('Location: /login');
-			exit();
-		}
-
 		$isAjax = strtolower($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'xmlhttprequest';
 		if (!$this->isValidCsrfToken()) {
 			$this->respondCosplaySelection($isAjax, false, 'Richiesta non valida.', (string) ($_POST['redirect_to'] ?? '/eventi-cosplay'));
+		}
+
+		if (!isset($_SESSION['user_id'])) {
+			$eventId = (int) ($_POST['event_id'] ?? 0);
+			$portfolioId = (int) ($_POST['portfolio_id'] ?? 0);
+			$status = (string) ($_POST['status'] ?? 'porterò');
+			$redirectTo = (string) ($_POST['redirect_to'] ?? '/eventi-cosplay');
+			if ($this->pendingUserActionService->storeCosplaySelection($eventId, $portfolioId, $status, $redirectTo)) {
+				header('Location: /login');
+				exit();
+			}
+
+			Session::setFlash('error', 'Dati non validi.');
+			header('Location: /eventi-cosplay');
+			exit();
 		}
 
 		$userId = (int) $_SESSION['user_id'];
@@ -822,6 +847,9 @@ class EventController extends Controller{
 	 */
 	public function show($params){
 		$this->requireFeature('enable_events', 'Gli eventi pubblici sono temporaneamente disattivati.');
+		if (!isset($_SESSION['csrf_token'])) {
+			$_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+		}
 		$slug = $params[0] ?? null;
 		if(!$slug){
 			Session::setFlash('error', 'Slug evento non valido.');

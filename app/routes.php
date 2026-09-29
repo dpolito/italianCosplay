@@ -28,12 +28,10 @@ $router->get('/dashboard/favorites', [
 	'middlewares' => [AuthMiddleware::class]
 ]);
 $router->post('/dashboard/favorites/toggle', [
-	'uses' => ['DashboardController', 'toggleFavorite'],
-	'middlewares' => [AuthMiddleware::class]
+	'uses' => ['DashboardController', 'toggleFavorite']
 ]);
 $router->post('/eventi-cosplay/agenda/update', [
-	'uses' => ['EventController', 'updateAgendaStatus'],
-	'middlewares' => [AuthMiddleware::class]
+	'uses' => ['EventController', 'updateAgendaStatus']
 ]);
 $router->get('/privacy', ['uses' => ['HomeController', 'privacy']]);
 $router->get('/cookies', ['uses' => ['HomeController', 'cookies']]);

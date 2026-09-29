@@ -125,6 +125,9 @@ if (!function_exists('event_show_region_url')) {
 	$calendarUrl = $calendarStart && $calendarEnd
 		? 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' . $calendarText . '&dates=' . $calendarStart . '/' . $calendarEnd . '&details=' . $calendarDetails . '&location=' . $calendarLocation
 		: '#';
+	$successMessage = \App\Core\Session::getFlash('success');
+	$errorMessage = \App\Core\Session::getFlash('error');
+	$pendingActionType = \App\Core\Session::getFlash('pending_action_type');
 	$shareText = trim($eventTitle . ($cityName ? ' a ' . $cityName : '') . ($eventYear ? ' ' . $eventYear : ''));
 	$shareUrlEncoded = rawurlencode($eventUrl);
 		$shareTextEncoded = rawurlencode($shareText);
@@ -237,6 +240,19 @@ if (!function_exists('event_show_region_url')) {
 				word-break: break-word;
 			}
 		</style>
+	<?php endif; ?>
+
+	<?php if ($successMessage || $errorMessage): ?>
+		<div class="mx-auto mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">
+			<div class="rounded-xl border <?php echo $successMessage ? 'border-green-200 bg-green-50 text-green-900' : 'border-red-200 bg-red-50 text-red-800'; ?> px-4 py-3 text-sm font-semibold">
+				<?php echo htmlspecialchars((string) ($successMessage ?: $errorMessage), ENT_QUOTES, 'UTF-8'); ?>
+				<?php if ($successMessage && $pendingActionType === 'agenda'): ?>
+					<a href="/dashboard/events" class="ml-2 inline-flex font-bold underline">Apri la mia Agenda</a>
+				<?php elseif ($successMessage && $pendingActionType === 'favorite'): ?>
+					<a href="/dashboard/favorites" class="ml-2 inline-flex font-bold underline">Apri preferiti</a>
+				<?php endif; ?>
+			</div>
+		</div>
 	<?php endif; ?>
 
 	<main class="bg-gray-100">
@@ -711,22 +727,16 @@ if (!function_exists('event_show_region_url')) {
 							<p class="mb-4 text-sm leading-relaxed text-gray-700">
 								Salva questo evento per ritrovarlo più velocemente nella tua dashboard.
 							</p>
-							<?php if (!empty($_SESSION['user_id'])): ?>
-								<form method="post" action="/dashboard/favorites/toggle" class="js-favorite-toggle space-y-3">
-									<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
-									<input type="hidden" name="entity_type" value="<?php echo htmlspecialchars($favoriteEntityType ?? 'event', ENT_QUOTES, 'UTF-8'); ?>">
-									<input type="hidden" name="entity_id" value="<?php echo (int)($event['id'] ?? 0); ?>">
-									<input type="hidden" name="redirect_to" value="<?php echo htmlspecialchars($eventUrl, ENT_QUOTES, 'UTF-8'); ?>">
-									<button type="submit" class="js-favorite-button inline-flex w-full items-center justify-center gap-2 rounded-lg <?php echo !empty($isFavorited) ? 'bg-amber-800 text-white hover:bg-amber-900' : 'bg-white text-amber-900 hover:bg-amber-100'; ?> px-4 py-3 font-bold border border-amber-300 transition" data-label-add="Salva tra i preferiti" data-label-remove="Rimuovi dai preferiti" data-icon-add="fa-bookmark" data-icon-remove="fa-bookmark-slash" data-active="<?php echo !empty($isFavorited) ? '1' : '0'; ?>">
-										<i class="fa-solid <?php echo !empty($isFavorited) ? 'fa-bookmark-slash' : 'fa-bookmark'; ?>" aria-hidden="true"></i>
-										<span><?php echo !empty($isFavorited) ? 'Rimuovi dai preferiti' : 'Salva tra i preferiti'; ?></span>
-									</button>
-								</form>
-							<?php else: ?>
-								<a href="/login" class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-800 px-4 py-3 font-bold text-white hover:bg-amber-900">
-									Accedi per salvare
-								</a>
-							<?php endif; ?>
+							<form method="post" action="/dashboard/favorites/toggle" class="js-favorite-toggle space-y-3">
+								<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+								<input type="hidden" name="entity_type" value="<?php echo htmlspecialchars($favoriteEntityType ?? 'event', ENT_QUOTES, 'UTF-8'); ?>">
+								<input type="hidden" name="entity_id" value="<?php echo (int)($event['id'] ?? 0); ?>">
+								<input type="hidden" name="redirect_to" value="<?php echo htmlspecialchars($eventUrl, ENT_QUOTES, 'UTF-8'); ?>">
+								<button type="submit" class="js-favorite-button inline-flex w-full items-center justify-center gap-2 rounded-lg <?php echo !empty($isFavorited) ? 'bg-amber-800 text-white hover:bg-amber-900' : 'bg-white text-amber-900 hover:bg-amber-100'; ?> px-4 py-3 font-bold border border-amber-300 transition" data-label-add="Salva tra i preferiti" data-label-remove="Rimuovi dai preferiti" data-icon-add="fa-bookmark" data-icon-remove="fa-bookmark-slash" data-active="<?php echo !empty($isFavorited) ? '1' : '0'; ?>">
+									<i class="fa-solid <?php echo !empty($isFavorited) ? 'fa-bookmark-slash' : 'fa-bookmark'; ?>" aria-hidden="true"></i>
+									<span><?php echo !empty($isFavorited) ? 'Rimuovi dai preferiti' : 'Salva tra i preferiti'; ?></span>
+								</button>
+							</form>
 						</section>
 						<?php endif; ?>
 
@@ -738,36 +748,30 @@ if (!function_exists('event_show_region_url')) {
 							<p class="mb-4 text-sm leading-relaxed text-gray-700">
 								Segna questo evento come intento personale. Il badge comparirà anche nella lista eventi e nella tua dashboard.
 							</p>
-							<?php if (!empty($_SESSION['user_id'])): ?>
-								<div class="grid gap-2">
-									<?php
-									$agendaOptions = [
-										'mi_interessa' => ['label' => 'Mi interessa', 'class' => 'border-blue-300 bg-white text-blue-900 hover:bg-blue-100'],
-										'ci_vado' => ['label' => 'Ci vado', 'class' => 'border-emerald-300 bg-white text-emerald-900 hover:bg-emerald-100'],
-										'forse_vado' => ['label' => 'Forse vado', 'class' => 'border-amber-300 bg-white text-amber-900 hover:bg-amber-100'],
-									];
-									?>
-									<?php foreach ($agendaOptions as $agendaValue => $agendaMeta): ?>
-										<form method="post" action="/eventi-cosplay/agenda/update" class="js-agenda-toggle">
-											<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
-											<input type="hidden" name="event_id" value="<?php echo (int)($event['id'] ?? 0); ?>">
-											<input type="hidden" name="status" value="<?php echo htmlspecialchars($agendaValue, ENT_QUOTES, 'UTF-8'); ?>">
-											<input type="hidden" name="redirect_to" value="<?php echo htmlspecialchars($eventUrl, ENT_QUOTES, 'UTF-8'); ?>">
-											<button type="submit" class="js-agenda-button inline-flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-bold transition <?php echo !empty($agendaStatus) && $agendaStatus === $agendaValue ? 'border-green-700 bg-green-700 text-white' : $agendaMeta['class']; ?>" data-agenda-status="<?php echo htmlspecialchars($agendaValue, ENT_QUOTES, 'UTF-8'); ?>" data-active="<?php echo (!empty($agendaStatus) && $agendaStatus === $agendaValue) ? '1' : '0'; ?>">
-												<?php echo htmlspecialchars($agendaMeta['label'], ENT_QUOTES, 'UTF-8'); ?>
-											</button>
-										</form>
-									<?php endforeach; ?>
-								</div>
-								<?php if (!empty($agendaStatus)): ?>
-									<p class="mt-4 text-xs font-semibold uppercase tracking-wide text-blue-900" data-agenda-current>
-										Stato attuale: <?php echo htmlspecialchars(str_replace('_', ' ', $agendaStatus), ENT_QUOTES, 'UTF-8'); ?>
-									</p>
-								<?php endif; ?>
-							<?php else: ?>
-								<a href="/login" class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-800 px-4 py-3 font-bold text-white hover:bg-blue-900">
-									Accedi per aggiungerlo all’agenda
-								</a>
+							<div class="grid gap-2">
+								<?php
+								$agendaOptions = [
+									'mi_interessa' => ['label' => 'Mi interessa', 'class' => 'border-blue-300 bg-white text-blue-900 hover:bg-blue-100'],
+									'ci_vado' => ['label' => 'Ci vado', 'class' => 'border-emerald-300 bg-white text-emerald-900 hover:bg-emerald-100'],
+									'forse_vado' => ['label' => 'Forse vado', 'class' => 'border-amber-300 bg-white text-amber-900 hover:bg-amber-100'],
+								];
+								?>
+								<?php foreach ($agendaOptions as $agendaValue => $agendaMeta): ?>
+									<form method="post" action="/eventi-cosplay/agenda/update" class="js-agenda-toggle">
+										<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+										<input type="hidden" name="event_id" value="<?php echo (int)($event['id'] ?? 0); ?>">
+										<input type="hidden" name="status" value="<?php echo htmlspecialchars($agendaValue, ENT_QUOTES, 'UTF-8'); ?>">
+										<input type="hidden" name="redirect_to" value="<?php echo htmlspecialchars($eventUrl, ENT_QUOTES, 'UTF-8'); ?>">
+										<button type="submit" class="js-agenda-button inline-flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-bold transition <?php echo !empty($agendaStatus) && $agendaStatus === $agendaValue ? 'border-green-700 bg-green-700 text-white' : $agendaMeta['class']; ?>" data-agenda-status="<?php echo htmlspecialchars($agendaValue, ENT_QUOTES, 'UTF-8'); ?>" data-active="<?php echo (!empty($agendaStatus) && $agendaStatus === $agendaValue) ? '1' : '0'; ?>">
+											<?php echo htmlspecialchars($agendaMeta['label'], ENT_QUOTES, 'UTF-8'); ?>
+										</button>
+									</form>
+								<?php endforeach; ?>
+							</div>
+							<?php if (!empty($agendaStatus)): ?>
+								<p class="mt-4 text-xs font-semibold uppercase tracking-wide text-blue-900" data-agenda-current>
+									Stato attuale: <?php echo htmlspecialchars(str_replace('_', ' ', $agendaStatus), ENT_QUOTES, 'UTF-8'); ?>
+								</p>
 							<?php endif; ?>
 						</section>
 						<?php endif; ?>
@@ -856,7 +860,7 @@ if (!function_exists('event_show_region_url')) {
 								<?php endif; ?>
 							<?php else: ?>
 								<a href="/login" class="inline-flex w-full items-center justify-center rounded-lg bg-fuchsia-800 px-4 py-3 font-bold text-white hover:bg-fuchsia-900">
-									Accedi per collegare un cosplay
+									Collega un cosplay
 								</a>
 							<?php endif; ?>
 						</section>

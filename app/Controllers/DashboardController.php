@@ -15,6 +15,7 @@ use App\Services\AuditLogService;
 use App\Services\ConsentService;
 use App\Services\FavoriteService;
 use App\Services\ImageService;
+use App\Services\PendingUserActionService;
 use App\Support\AuditLogActionType;
 use App\Services\AdStatsService;
 use App\Services\CosplayPortfolioService;
@@ -29,6 +30,7 @@ class DashboardController extends Controller
 	private AuditLogService $auditLogService;
 	private ConsentService $consentService;
 	private FavoriteService $favoriteService;
+	private PendingUserActionService $pendingUserActionService;
 	private \App\Services\EventAgendaService $eventAgendaService;
 	private NotificationService $notificationService;
 	private CosplayPortfolioService $cosplayPortfolioService;
@@ -54,6 +56,7 @@ class DashboardController extends Controller
 		$this->auditLogService = new AuditLogService();
 		$this->consentService = new ConsentService();
 		$this->favoriteService = new FavoriteService();
+		$this->pendingUserActionService = new PendingUserActionService();
 		$this->eventAgendaService = new \App\Services\EventAgendaService();
 		$this->notificationService = new NotificationService();
 		$this->cosplayPortfolioService = new CosplayPortfolioService();
@@ -1403,6 +1406,11 @@ class DashboardController extends Controller
 		$entityId = (int) ($_POST['entity_id'] ?? 0);
 		$redirectTo = $_POST['redirect_to'] ?? '/dashboard/favorites';
 		$isAjax = $this->isAjaxRequest();
+
+		if ($userId <= 0 && $entityType === 'event' && $this->pendingUserActionService->storeFavorite($entityId, (string) $redirectTo)) {
+			header('Location: /login');
+			exit();
+		}
 
 		if ($userId <= 0 || $entityType === '' || $entityId <= 0) {
 			$this->respondFavoriteToggle($isAjax, false, false, $entityType, $entityId, $redirectTo, 'Dati non validi.');

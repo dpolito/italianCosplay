@@ -623,6 +623,11 @@ if (isset($_SESSION['user_id'])) {
 					body: new FormData(form),
 				});
 
+				if (response.redirected) {
+					window.location.href = response.url;
+					return;
+				}
+
 				const result = await response.json();
 				if (!response.ok || !result.success) {
 					throw new Error(result.message || 'Impossibile aggiornare il preferito.');
@@ -685,6 +690,11 @@ if (isset($_SESSION['user_id'])) {
 					},
 					body: new FormData(form),
 				});
+
+				if (response.redirected) {
+					window.location.href = response.url;
+					return;
+				}
 
 				const result = await response.json();
 				if (!response.ok || !result.success) {

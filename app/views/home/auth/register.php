@@ -2,6 +2,7 @@
 $old = is_array($data['old'] ?? null) ? $data['old'] : [];
 $errors = $data['errors'] ?? [];
 $pendingInvitation = is_array($data['pendingInvitation'] ?? null) ? $data['pendingInvitation'] : null;
+$pendingActionContext = is_array($data['pendingActionContext'] ?? null) ? $data['pendingActionContext'] : null;
 
 if (is_string($errors)) {
 	$errors = [$errors];
@@ -81,6 +82,13 @@ if (is_string($errors)) {
 			<?php if (!empty($data['success'])): ?>
 				<div class="mb-5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
 					<?php echo htmlspecialchars($data['success'], ENT_QUOTES, 'UTF-8'); ?>
+				</div>
+			<?php endif; ?>
+
+			<?php if ($pendingActionContext): ?>
+				<div class="mb-5 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+					<p class="font-bold"><?php echo htmlspecialchars($pendingActionContext['title'] ?? 'Completa la tua azione', ENT_QUOTES, 'UTF-8'); ?></p>
+					<p class="mt-1"><?php echo htmlspecialchars($pendingActionContext['description'] ?? 'Accedi o crea un account per salvare la tua scelta.', ENT_QUOTES, 'UTF-8'); ?></p>
 				</div>
 			<?php endif; ?>
 

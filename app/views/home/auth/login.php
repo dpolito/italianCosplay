@@ -7,6 +7,12 @@
 		<p class="text-center text-gray-500 text-sm mb-6">
 			Bentornato su ItalianCosplay
 		</p>
+		<?php if (!empty($data['pendingActionContext'])): ?>
+			<div class="mb-5 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+				<p class="font-bold"><?php echo htmlspecialchars($data['pendingActionContext']['title'] ?? 'Completa la tua azione', ENT_QUOTES, 'UTF-8'); ?></p>
+				<p class="mt-1"><?php echo htmlspecialchars($data['pendingActionContext']['description'] ?? 'Accedi o crea un account per salvare la tua scelta.', ENT_QUOTES, 'UTF-8'); ?></p>
+			</div>
+		<?php endif; ?>
 		<?php if (!empty($data['success'])): ?>
 			<div class="mb-5 rounded-lg border border-green-200 bg-green-50 text-green-700 px-4 py-3 text-sm">
 				<?php echo htmlspecialchars($data['success']); ?>

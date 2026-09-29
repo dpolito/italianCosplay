@@ -11,12 +11,14 @@ class FavoriteService
 	private PDO $db;
 	private AuditLogService $auditLogService;
 	private FavoriteAnalyticsService $favoriteAnalyticsService;
+	private NotificationService $notificationService;
 
 	public function __construct()
 	{
 		$this->db = Database::getInstance()->getConnection();
 		$this->auditLogService = new AuditLogService();
 		$this->favoriteAnalyticsService = new FavoriteAnalyticsService();
+		$this->notificationService = new NotificationService();
 	}
 
 	public function isFavorited(int $userId, string $entityType, int $entityId): bool
@@ -62,6 +64,7 @@ class FavoriteService
 
 		if ($ok) {
 			$this->favoriteAnalyticsService->track($userId, $entityType, $entityId, 'add');
+			$this->notifyFirstFavorite($userId, $entityType, $entityId);
 		}
 
 		return $ok;
@@ -142,5 +145,40 @@ class FavoriteService
 		]);
 
 		return (int) $stmt->fetchColumn();
+	}
+
+	private function notifyFirstFavorite(int $userId, string $entityType, int $entityId): void
+	{
+		if ($entityType !== 'event') {
+			return;
+		}
+
+		$event = $this->findEventNotificationData($entityId);
+		if ($event === null) {
+			return;
+		}
+
+		$title = (string) ($event['titolo'] ?? 'Evento');
+		$slug = (string) ($event['slug'] ?? '');
+		$this->notificationService->createNotification([
+			'user_id' => $userId,
+			'notification_type' => 'favorite_created',
+			'title' => 'Evento salvato nei preferiti',
+			'message' => $title . ' è ora nei tuoi preferiti.',
+			'source_entity_type' => 'event',
+			'source_entity_id' => $entityId,
+			'payload' => [
+				'return_url' => $slug !== '' ? '/eventi-cosplay/' . $slug : null,
+			],
+		]);
+	}
+
+	private function findEventNotificationData(int $eventId): ?array
+	{
+		$stmt = $this->db->prepare("SELECT titolo, slug FROM events WHERE id = :id LIMIT 1");
+		$stmt->execute([':id' => $eventId]);
+		$event = $stmt->fetch(PDO::FETCH_ASSOC);
+
+		return is_array($event) ? $event : null;
 	}
 }

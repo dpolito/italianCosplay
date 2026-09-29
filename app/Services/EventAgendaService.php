@@ -11,6 +11,7 @@ class EventAgendaService
 	private PDO $db;
 	private AuditLogService $auditLogService;
 	private EventAgendaAnalyticsService $eventAgendaAnalyticsService;
+	private NotificationService $notificationService;
 	private ?bool $eventsSoftDeleteAvailable = null;
 
 	public function __construct()
@@ -18,6 +19,7 @@ class EventAgendaService
 		$this->db = Database::getInstance()->getConnection();
 		$this->auditLogService = new AuditLogService();
 		$this->eventAgendaAnalyticsService = new EventAgendaAnalyticsService();
+		$this->notificationService = new NotificationService();
 	}
 
 	public function getUserAgendaStates(int $userId, array $eventIds): array
@@ -208,6 +210,9 @@ class EventAgendaService
 
 		if ($ok) {
 			$this->eventAgendaAnalyticsService->track($userId, $eventId, 'set', $status, $previousStatus);
+			if ($previousStatus === null) {
+				$this->notifyFirstAgendaSave($userId, $eventId, $status);
+			}
 		}
 
 		return $ok;
@@ -310,6 +315,44 @@ class EventAgendaService
 		$prefix = $alias !== '' ? $alias . '.' : '';
 
 		return 'AND ' . $prefix . 'deleted_at IS NULL';
+	}
+
+	private function notifyFirstAgendaSave(int $userId, int $eventId, string $status): void
+	{
+		$event = $this->findEventNotificationData($eventId);
+		if ($event === null) {
+			return;
+		}
+
+		$title = (string) ($event['titolo'] ?? 'Evento');
+		$slug = (string) ($event['slug'] ?? '');
+		$statusLabels = [
+			'mi_interessa' => 'Mi interessa',
+			'ci_vado' => 'Ci vado',
+			'forse_vado' => 'Forse vado',
+		];
+
+		$this->notificationService->createNotification([
+			'user_id' => $userId,
+			'notification_type' => 'agenda_created',
+			'title' => 'Evento salvato in Agenda',
+			'message' => $title . ' è stato aggiunto alla tua Agenda come "' . ($statusLabels[$status] ?? $status) . '".',
+			'source_entity_type' => 'event',
+			'source_entity_id' => $eventId,
+			'payload' => [
+				'agenda_status' => $status,
+				'return_url' => $slug !== '' ? '/eventi-cosplay/' . $slug : null,
+			],
+		]);
+	}
+
+	private function findEventNotificationData(int $eventId): ?array
+	{
+		$stmt = $this->db->prepare("SELECT titolo, slug FROM events WHERE id = :id LIMIT 1");
+		$stmt->execute([':id' => $eventId]);
+		$event = $stmt->fetch(PDO::FETCH_ASSOC);
+
+		return is_array($event) ? $event : null;
 	}
 
 	private function hasEventsSoftDeleteColumn(): bool

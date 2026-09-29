@@ -6,6 +6,7 @@ use App\Core\Session;
 use App\Models\User;
 use App\Services\ConsentService;
 use App\Services\AuditLogService;
+use App\Services\PendingUserActionService;
 use App\Services\UserInvitationService;
 use App\Services\TelegramNotificationService;
 use App\Support\AuditLogActionType;
@@ -15,6 +16,7 @@ class AuthController extends Controller
 	private User $userModel;
 	private ConsentService $consentService;
 	private AuditLogService $auditLogService;
+	private PendingUserActionService $pendingUserActionService;
 	private UserInvitationService $userInvitationService;
 	private ?TelegramNotificationService $telegramNotificationService;
 
@@ -22,6 +24,7 @@ class AuthController extends Controller
 		$this->userModel = new User();
 		$this->consentService = new ConsentService();
 		$this->auditLogService = new AuditLogService();
+		$this->pendingUserActionService = new PendingUserActionService();
 		$this->userInvitationService = new UserInvitationService();
 		$this->telegramNotificationService = $this->createTelegramNotificationService();
 	}
@@ -32,7 +35,10 @@ class AuthController extends Controller
 		if (!isset($_SESSION['csrf_token'])) {
 			$_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 		}
-		$this->view('home/auth/login', ['csrf_token' => $_SESSION['csrf_token']]); // Passa il token alla vista
+		$this->view('home/auth/login', [
+			'csrf_token' => $_SESSION['csrf_token'],
+			'pendingActionContext' => $this->pendingUserActionService->getLoginContext(),
+		]); // Passa il token alla vista
 	}
 
 	/*public function login()
@@ -218,6 +224,16 @@ class AuthController extends Controller
 		$_SESSION['user_id'] = (int)$user['id'];
 		$this->userModel->recordSuccessfulLogin((int) $user['id']);
 
+		$pendingResult = $this->pendingUserActionService->consumeForUser((int) $user['id']);
+		$defaultRedirect = $this->userModel->hasPermission($user['id'], 'view_admin_dashboard') ? '/admin/dashboard' : '/dashboard';
+		$redirect = $pendingResult['return_url'] ?? $defaultRedirect;
+		if ($pendingResult !== null) {
+			Session::setFlash($pendingResult['success'] ? 'success' : 'error', (string) $pendingResult['message']);
+			if ($pendingResult['success']) {
+				Session::setFlash('pending_action_type', (string) $pendingResult['type']);
+			}
+		}
+
 		$this->auditLogService->logAuth([
 			'user_id' => (int) $user['id'],
 			'identifier' => $identifier,
@@ -225,16 +241,12 @@ class AuthController extends Controller
 			'success' => 1,
 			'payload' => [
 				'method' => 'password',
-				'redirect' => $this->userModel->hasPermission($user['id'], 'view_admin_dashboard') ? '/admin/dashboard' : '/dashboard'
+				'redirect' => $redirect,
+				'pending_action' => $pendingResult['type'] ?? null,
 			]
 		]);
 
-		// ✅ Redirect intelligente basato sui permessi
-		if ($this->userModel->hasPermission($user['id'], 'view_admin_dashboard')) {
-			header('Location: /admin/dashboard');
-		} else {
-			header('Location: /dashboard');
-		}
+		header('Location: ' . $redirect);
 
 		exit();
 	}
@@ -254,6 +266,7 @@ class AuthController extends Controller
 			'csrf_token' => $_SESSION['csrf_token'],
 			'old' => $old,
 			'pendingInvitation' => $pendingInvitation,
+			'pendingActionContext' => $this->pendingUserActionService->getLoginContext(),
 			'pageTitle' => 'Registrati su ItalianCosplay',
 			'metaDescription' => 'Crea il tuo account su ItalianCosplay per salvare eventi, seguire i cosplay preferiti e accedere alla tua area personale.',
 			'canonicalUrl' => URL_ROOT_SITE . '/register',
@@ -291,6 +304,7 @@ class AuthController extends Controller
 			$_SESSION['csrf_token'] = $csrf_token;
 			$this->view('home/auth/register', [
 				'csrf_token' => $csrf_token,
+				'pendingActionContext' => $this->pendingUserActionService->getLoginContext(),
 				'pageTitle' => 'Registrati su ItalianCosplay',
 				'metaDescription' => 'Crea il tuo account su ItalianCosplay per salvare eventi, seguire i cosplay preferiti e accedere alla tua area personale.',
 				'canonicalUrl' => URL_ROOT_SITE . '/register',
@@ -306,6 +320,7 @@ class AuthController extends Controller
 				'errors' => 'Errore di sicurezza: richiesta non valida (CSRF).',
 				'old' => $this->safeRegistrationOldInput($_POST),
 				'csrf_token' => $_SESSION['csrf_token'],
+				'pendingActionContext' => $this->pendingUserActionService->getLoginContext(),
 				'pageTitle' => 'Registrati su ItalianCosplay',
 				'metaDescription' => 'Crea il tuo account su ItalianCosplay per salvare eventi, seguire i cosplay preferiti e accedere alla tua area personale.',
 				'canonicalUrl' => URL_ROOT_SITE . '/register',
@@ -391,6 +406,7 @@ class AuthController extends Controller
 				'age_declaration' => $ageDeclarationAccepted,
 				'newsletter_opt_in' => $newsletterOptIn,
 				'csrf_token' => $_SESSION['csrf_token'],
+				'pendingActionContext' => $this->pendingUserActionService->getLoginContext(),
 				'pageTitle' => 'Registrati su ItalianCosplay',
 				'metaDescription' => 'Crea il tuo account su ItalianCosplay per salvare eventi, seguire i cosplay preferiti e accedere alla tua area personale.',
 				'canonicalUrl' => URL_ROOT_SITE . '/register',
