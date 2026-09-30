@@ -249,6 +249,7 @@ class Router
 					'OrganizationController_index' => 'organizzazioni-lista',
 					'HomeController_organizersLanding' => 'organizzatori-eventi-cosplay',
 					'FaqController_index' => 'faq',
+					'PhotoController_show' => 'foto-dettaglio',
 				];
 				if (isset($this->controllerInstance) && method_exists($this->controllerInstance, 'getPageNameOverride')) {
 					$override = $this->controllerInstance->getPageNameOverride();
@@ -278,6 +279,24 @@ class Router
 					. '<meta property="og:title" content="' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '">' . "\n"
 					. '<meta property="og:description" content="' . htmlspecialchars($description, ENT_QUOTES, 'UTF-8') . '">' . "\n"
 					. '<meta property="og:url" content="' . htmlspecialchars($data['canonicalUrl'] ?? '', ENT_QUOTES, 'UTF-8') . '">';
+				break;
+			case 'foto-dettaglio':
+				$photo = $data['photo'] ?? [];
+				$eventTitle = (string) ($photo['event_title'] ?? 'evento cosplay');
+				$uploader = (string) ($photo['uploader_username'] ?? 'utente');
+				$title = 'Foto cosplay di ' . $eventTitle . ' | ItalianCosplay';
+				$description = 'Guarda una foto cosplay di ' . $eventTitle . ' caricata da @' . $uploader . ' nella gallery fotografica di ItalianCosplay.';
+				$imageUrl = !empty($photo['url']) ? rtrim(URL_ROOT_SITE, '/') . (string) $photo['url'] : '';
+				$meta_fb = '<meta property="og:type" content="article">' . "\n"
+					. '<meta property="og:site_name" content="ItalianCosplay">' . "\n"
+					. '<meta property="og:title" content="' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '">' . "\n"
+					. '<meta property="og:description" content="' . htmlspecialchars($description, ENT_QUOTES, 'UTF-8') . '">' . "\n"
+					. '<meta property="og:url" content="' . htmlspecialchars($data['canonicalUrl'] ?? '', ENT_QUOTES, 'UTF-8') . '">' . "\n"
+					. ($imageUrl !== '' ? '<meta property="og:image" content="' . htmlspecialchars($imageUrl, ENT_QUOTES, 'UTF-8') . '">' . "\n" : '')
+					. '<meta name="twitter:card" content="summary_large_image">' . "\n"
+					. '<meta name="twitter:title" content="' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '">' . "\n"
+					. '<meta name="twitter:description" content="' . htmlspecialchars($description, ENT_QUOTES, 'UTF-8') . '">' . "\n"
+					. ($imageUrl !== '' ? '<meta name="twitter:image" content="' . htmlspecialchars($imageUrl, ENT_QUOTES, 'UTF-8') . '">' : '');
 				break;
 			case 'lista-eventi':
 				if (!empty($data['comune_nome'])) {

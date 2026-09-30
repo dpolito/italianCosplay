@@ -259,6 +259,7 @@ if (isset($_SESSION['user_id'])) {
 			<?php if (!empty($featureFlags['enable_personal_agenda'])): ?>
 				<a href="/dashboard/events" class="block px-4 py-2 rounded hover:bg-green-800 transition">Agenda Cosplay</a>
 			<?php endif; ?>
+			<a href="/dashboard/photos" class="block px-4 py-2 rounded hover:bg-green-800 transition">Le mie foto</a>
 			<?php if (!empty($featureFlags['enable_notifications'])): ?>
 				<a href="/dashboard/notifications" class="block px-4 py-2 rounded hover:bg-green-800 transition">Notifiche</a>
 			<?php endif; ?>

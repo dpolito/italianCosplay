@@ -98,8 +98,9 @@ $requestMethod = $_SERVER['REQUEST_METHOD'];
 // In un ambiente di produzione, è preferibile configurare il server web (Apache/Nginx)
 // per servire direttamente questi file, migliorando le prestazioni.
 // Controlla se l'URL richiesto corrisponde a un file statico
-if (preg_match('/^\/(public_assets)\//', $requestUri)) {
-	$filePath = APP_ROOT . $requestUri;
+if (preg_match('/^\/(public_assets)\//', parse_url($requestUri, PHP_URL_PATH) ?? '')) {
+	$assetPath = parse_url($requestUri, PHP_URL_PATH) ?? '';
+	$filePath = APP_ROOT . $assetPath;
 	if (file_exists($filePath)) {
 		$mimeType = mime_content_type($filePath);
 

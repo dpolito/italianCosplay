@@ -62,6 +62,54 @@ $router->get('/eventi-cosplay-{year}', ['uses' => ['EventController', 'year']]);
 $router->get('/eventi-cosplay/create', ['uses' => ['EventController', 'create']]);
 $router->post('/eventi-cosplay/report/track', ['uses' => ['EventController', 'trackReportForm']]);
 $router->post('/eventi-cosplay/store', ['uses' => ['EventController', 'store']]);
+$router->get('/eventi-cosplay/{slug}/foto/{id}', ['uses' => ['PhotoController', 'show']]);
+$router->post('/eventi-cosplay/{slug}/foto/{id}/sono-io', ['uses' => ['PhotoController', 'claimSelf']]);
+$router->post('/eventi-cosplay/{slug}/foto/{id}/segnala', ['uses' => ['PhotoController', 'report']]);
+$router->get('/eventi-cosplay/{slug}/foto', ['uses' => ['PhotoController', 'eventGallery']]);
+$router->get('/foto/{id}', ['uses' => ['PhotoController', 'show']]);
+$router->get('/api/photos/events/search', [
+	'uses' => ['PhotoController', 'searchEvents'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->get('/api/photos/users/search', [
+	'uses' => ['PhotoController', 'searchUsers'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->get('/api/photos/users/{id}/cosplays', [
+	'uses' => ['PhotoController', 'userCosplays'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->post('/foto/{id}/sono-io', ['uses' => ['PhotoController', 'claimSelf']]);
+$router->post('/foto/{id}/segnala', ['uses' => ['PhotoController', 'report']]);
+
+$router->get('/dashboard/photos', [
+	'uses' => ['PhotoController', 'dashboardIndex'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->get('/dashboard/photos/upload', [
+	'uses' => ['PhotoController', 'uploadForm'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->get('/dashboard/photos/event/{id}', [
+	'uses' => ['PhotoController', 'manageEvent'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->post('/dashboard/photos/upload', [
+	'uses' => ['PhotoController', 'upload'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->post('/dashboard/photos/delete', [
+	'uses' => ['PhotoController', 'delete'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->post('/dashboard/photos/associate', [
+	'uses' => ['PhotoController', 'associate'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->post('/dashboard/photos/associations/remove', [
+	'uses' => ['PhotoController', 'removeAssociation'],
+	'middlewares' => [AuthMiddleware::class]
+]);
 
 // Slug breve: disambigua tra dettaglio evento e filtro regione.
 $router->get('/eventi-cosplay/{slug}', ['uses' => ['EventController', 'shortUrl']]);
@@ -123,6 +171,34 @@ $router->get('/admin/setup', [
 ]);
 $router->post('/admin/setup', [
 	'uses' => ['AdminController', 'updateSetup'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'view_admin_dashboard']
+	]
+]);
+$router->get('/admin/photos/reports', [
+	'uses' => ['AdminPhotoReportController', 'index'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'view_admin_dashboard']
+	]
+]);
+$router->post('/admin/photos/reports/{id}/resolve', [
+	'uses' => ['AdminPhotoReportController', 'resolve'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'view_admin_dashboard']
+	]
+]);
+$router->post('/admin/photos/reports/{id}/dismiss', [
+	'uses' => ['AdminPhotoReportController', 'dismiss'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'view_admin_dashboard']
+	]
+]);
+$router->post('/admin/photos/reports/{id}/hide-photo', [
+	'uses' => ['AdminPhotoReportController', 'hidePhoto'],
 	'middlewares' => [
 		AuthMiddleware::class,
 		[PermissionMiddleware::class, 'view_admin_dashboard']

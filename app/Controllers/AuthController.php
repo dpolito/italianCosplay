@@ -226,7 +226,8 @@ class AuthController extends Controller
 
 		$pendingResult = $this->pendingUserActionService->consumeForUser((int) $user['id']);
 		$defaultRedirect = $this->userModel->hasPermission($user['id'], 'view_admin_dashboard') ? '/admin/dashboard' : '/dashboard';
-		$redirect = $pendingResult['return_url'] ?? $defaultRedirect;
+		$redirect = $pendingResult['return_url'] ?? ($_SESSION['photo_return_url'] ?? $defaultRedirect);
+		unset($_SESSION['photo_return_url']);
 		if ($pendingResult !== null) {
 			Session::setFlash($pendingResult['success'] ? 'success' : 'error', (string) $pendingResult['message']);
 			if ($pendingResult['success']) {

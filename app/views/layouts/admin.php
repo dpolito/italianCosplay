@@ -170,6 +170,12 @@ $brevoQuotaClass = $brevoQuotaClasses[$brevoEmailQuota['status'] ?? 'ok'] ?? 'bg
 		.admin-toast.info {
 			background: #2563eb;
 		}
+
+		.admin-content > .container,
+		.admin-content > [class*="max-w-"] {
+			width: 100%;
+			max-width: none;
+		}
 	</style>
 	<script src="/public_assets/js/wysiwyg-editor.js"></script>
 </head>
@@ -247,6 +253,19 @@ $brevoQuotaClass = $brevoQuotaClasses[$brevoEmailQuota['status'] ?? 'ok'] ?? 'bg
 					</a>
 				</li>
 				</ul>
+			<ul class="nav-group">
+				<li class="group-title toggle" data-target="moderation-admin">
+					Moderazione
+					<span>▾</span>
+				</li>
+				<ul id="moderation-admin" class="group-items <?= strpos($_SERVER['REQUEST_URI'], '/admin/photos/reports') !== false ? '' : 'closed' ?>">
+					<li>
+						<a href="/admin/photos/reports" class="<?= (strpos($_SERVER['REQUEST_URI'], '/admin/photos/reports') !== false) ? 'active' : '' ?>">
+							Segnalazioni foto
+						</a>
+					</li>
+				</ul>
+			</ul>
 			<ul class="nav-group">
 				<li class="group-title toggle" data-target="telegram-admin">
 					Telegram
@@ -398,7 +417,7 @@ $brevoQuotaClass = $brevoQuotaClasses[$brevoEmailQuota['status'] ?? 'ok'] ?? 'bg
 	</aside>
 
 	<!-- CONTENT -->
-	<main class="flex-grow p-6">
+	<main class="admin-content flex-grow p-6">
 		<?= $content_for_layout ?? '' ?>
 	</main>
 

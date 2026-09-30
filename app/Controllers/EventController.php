@@ -963,6 +963,7 @@ class EventController extends Controller{
 				$similarEvent['immagine_height'] = '';
 			}
 		}
+		$photoCount = (new \App\Repositories\PhotoRepository())->countPublishedByEvent((int) $event['id']);
 		$data = [
 			'event'             => $event,
 			'breadcrumbs'       => $breadcrumbs,
@@ -980,6 +981,7 @@ class EventController extends Controller{
 			'cosplayPortfolio'   => $cosplayPortfolio,
 			'cosplaySelections'   => $cosplaySelections,
 			'publicCosplaySelections' => $publicCosplaySelections,
+			'photoCount' => $photoCount,
 		];
 		$this->view('events/show', $data);
 	}

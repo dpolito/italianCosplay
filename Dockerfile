@@ -26,6 +26,7 @@ RUN docker-php-ext-install gd
 
 # Copia configurazione personalizzata di Apache
 COPY apache.conf /etc/apache2/sites-available/000-default.conf
+COPY docker/php-uploads.ini /usr/local/etc/php/conf.d/zz-italian-cosplay-uploads.ini
 
 # Imposta il proprietario della directory di lavoro per Apache (facoltativo ma buona pratica)
 RUN chown -R www-data:www-data /var/www/html && \

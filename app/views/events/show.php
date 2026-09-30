@@ -17,6 +17,7 @@ $masterClaimUrl = !empty($eventMaster['slug'])
 $eventsBaseUrl = rtrim(URL_ROOT_SITE, '/') . '/eventi-cosplay';
 $siteBaseUrl = rtrim(URL_ROOT_SITE, '/');
 $featureFlags = (new \App\Services\SiteFeatureFlagService())->getEnabledMap();
+$photoCount = (int) ($data['photoCount'] ?? 0);
 
 if (!function_exists('event_show_absolute_url')) {
 	function event_show_absolute_url(?string $url, string $siteBaseUrl): string
@@ -358,6 +359,9 @@ if (!function_exists('event_show_region_url')) {
 						</div>
 
 						<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+							<a href="<?php echo htmlspecialchars($eventUrl . '/foto', ENT_QUOTES, 'UTF-8'); ?>" class="inline-flex items-center justify-center rounded-lg border border-green-800 px-4 py-3 text-center font-bold text-green-900 transition hover:bg-green-50">
+								📸 Foto<?php echo $photoCount > 0 ? ' (' . $photoCount . ')' : ''; ?>
+							</a>
 							<a href="/segnala-evento-cosplay" class="inline-flex items-center justify-center rounded-lg bg-green-800 px-4 py-3 text-center font-bold text-white shadow-md transition hover:bg-green-900">
 								Segnala evento
 							</a>

@@ -78,6 +78,7 @@ if (isset($_SESSION['user_id'])) {
 			'organization_meta_title' => $data['organization_meta_title'] ?? null,
 			'organization_meta_description' => $data['organization_meta_description'] ?? null,
 			'organization_image' => $data['organization_image'] ?? null,
+			'photo' => $data['photoSeo'] ?? null,
 			'canonicalUrl' => $canonicalUrl ?? '',
 	]); ?>
 

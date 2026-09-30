@@ -76,6 +76,13 @@ final class AuditLogActionType
 	public const COSPLAY_EVENT_SELECTION_UPDATED = 'cosplay_event_selection_updated';
 	public const COSPLAY_EVENT_SELECTION_REMOVED = 'cosplay_event_selection_removed';
 
+	public const PHOTO_UPLOADED = 'photo_uploaded';
+	public const PHOTO_DELETED = 'photo_deleted';
+	public const PHOTO_COSPLAYER_ASSOCIATED = 'photo_cosplayer_associated';
+	public const PHOTO_COSPLAYER_REMOVED = 'photo_cosplayer_removed';
+	public const PHOTO_REPORTED = 'photo_reported';
+	public const PHOTO_REPORT_RESOLVED = 'photo_report_resolved';
+
 	public const USER_CREATED = 'user_created';
 	public const USER_UPDATED = 'user_updated';
 	public const USER_DELETED = 'user_deleted';

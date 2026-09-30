@@ -17,6 +17,7 @@ class PendingUserActionService
 	private EventAgendaService $eventAgendaService;
 	private FavoriteService $favoriteService;
 	private CosplayPortfolioService $cosplayPortfolioService;
+	private PhotoService $photoService;
 
 	public function __construct()
 	{
@@ -24,6 +25,7 @@ class PendingUserActionService
 		$this->eventAgendaService = new EventAgendaService();
 		$this->favoriteService = new FavoriteService();
 		$this->cosplayPortfolioService = new CosplayPortfolioService();
+		$this->photoService = new PhotoService();
 	}
 
 	public function storeFavorite(int $eventId, string $returnUrl): bool
@@ -85,6 +87,24 @@ class PendingUserActionService
 		]);
 	}
 
+	public function storePhotoSelfAssociation(int $eventId, int $photoId, ?int $cosplayId, string $returnUrl): bool
+	{
+		$event = $this->findApprovedEvent($eventId);
+		if (!$event || $photoId <= 0) {
+			return false;
+		}
+
+		return $this->store([
+			'type' => 'photo_self',
+			'event_id' => (int) $event['id'],
+			'event_title' => (string) ($event['titolo'] ?? 'Evento'),
+			'photo_id' => $photoId,
+			'cosplay_id' => $cosplayId,
+			'return_url' => $this->safeInternalReturnUrl($returnUrl, $event),
+			'created_at' => time(),
+		]);
+	}
+
 	public function consumeForUser(int $userId): ?array
 	{
 		$action = Session::get(self::SESSION_KEY);
@@ -123,6 +143,20 @@ class PendingUserActionService
 			$message = $success
 				? 'Cosplay collegato a ' . $title . '.'
 				: 'Impossibile collegare il cosplay all’evento.';
+		} elseif ($action['type'] === 'photo_self') {
+			$count = $this->photoService->addAssociation(
+				[(int) $action['photo_id']],
+				$userId,
+				$userId,
+				!empty($action['cosplay_id']) ? (int) $action['cosplay_id'] : null,
+				null,
+				null,
+				false
+			);
+			$success = true;
+			$message = $count > 0
+				? 'Ti sei associato alla foto.'
+				: 'Sei già associato a questa foto.';
 		}
 
 		return [
@@ -175,6 +209,10 @@ class PendingUserActionService
 			return isset($action['portfolio_id'], $action['cosplay_status'])
 				&& (int) $action['portfolio_id'] > 0
 				&& in_array((string) $action['cosplay_status'], self::ALLOWED_COSPLAY_STATUSES, true);
+		}
+
+		if ($action['type'] === 'photo_self') {
+			return isset($action['photo_id']) && (int) $action['photo_id'] > 0;
 		}
 
 		return false;
@@ -233,6 +271,9 @@ class PendingUserActionService
 		}
 		if ($action['type'] === 'cosplay_selection') {
 			return 'Collega un cosplay a ' . $title;
+		}
+		if ($action['type'] === 'photo_self') {
+			return 'Associati a una foto di ' . $title;
 		}
 
 		return 'Completa la tua azione su ItalianCosplay';
