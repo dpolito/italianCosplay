@@ -217,8 +217,11 @@ class User{
 		$params = [];
 
 		if (!empty($filters['q'])) {
-			$sql .= " AND (u.username LIKE :q OR u.first_name LIKE :q OR u.last_name LIKE :q OR u.bio LIKE :q)";
-			$params[':q'] = '%' . $filters['q'] . '%';
+			$sql .= " AND (u.username LIKE :q_username OR u.first_name LIKE :q_first_name OR u.last_name LIKE :q_last_name OR u.bio LIKE :q_bio)";
+			$params[':q_username'] = '%' . $filters['q'] . '%';
+			$params[':q_first_name'] = '%' . $filters['q'] . '%';
+			$params[':q_last_name'] = '%' . $filters['q'] . '%';
+			$params[':q_bio'] = '%' . $filters['q'] . '%';
 		}
 
 		if (!empty($filters['location'])) {
@@ -270,8 +273,11 @@ class User{
 		$params = [];
 
 		if (!empty($filters['q'])) {
-			$sql .= " AND (u.username LIKE :q OR u.first_name LIKE :q OR u.last_name LIKE :q OR u.bio LIKE :q)";
-			$params[':q'] = '%' . $filters['q'] . '%';
+			$sql .= " AND (u.username LIKE :q_username OR u.first_name LIKE :q_first_name OR u.last_name LIKE :q_last_name OR u.bio LIKE :q_bio)";
+			$params[':q_username'] = '%' . $filters['q'] . '%';
+			$params[':q_first_name'] = '%' . $filters['q'] . '%';
+			$params[':q_last_name'] = '%' . $filters['q'] . '%';
+			$params[':q_bio'] = '%' . $filters['q'] . '%';
 		}
 
 		if (!empty($filters['location'])) {

@@ -13,8 +13,15 @@ class Faq extends BaseModel
 		$parameters = [];
 		$searchSql = '';
 		if ($search !== '') {
-			$searchSql = ' AND (i.question LIKE :search OR i.answer LIKE :search OR c.name LIKE :search)';
-			$parameters['search'] = '%' . $this->escapeLike($search) . '%';
+			// Use distinct placeholders for each occurrence: with native prepared
+			// statements (ATTR_EMULATE_PREPARES = false) a named parameter can be
+			// bound only once per query, otherwise PDO throws HY093.
+			$searchSql = ' AND (i.question LIKE :search_question OR i.answer LIKE :search_answer OR c.name LIKE :search_category_name)';
+			$parameters = [
+				'search_question' => '%' . $this->escapeLike($search) . '%',
+				'search_answer' => '%' . $this->escapeLike($search) . '%',
+				'search_category_name' => '%' . $this->escapeLike($search) . '%',
+			];
 		}
 
 		$stmt = $this->db->prepare(

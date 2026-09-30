@@ -47,12 +47,15 @@ class EventRepository
 
 			$where[] = "
             (
-                e.titolo LIKE :search
-                OR e.luogo LIKE :search
+                e.titolo LIKE :search_title
+                OR e.luogo LIKE :search_place
             )
         ";
 
-			$params['search'] =
+			$params['search_title'] =
+				'%' . $search . '%';
+
+			$params['search_place'] =
 				'%' . $search . '%';
 
 		}
