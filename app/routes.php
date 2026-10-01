@@ -4,6 +4,7 @@
 
 // Rotte pubbliche
 use App\Controllers\GuestController;
+use App\Middleware\ApiAccessMiddleware;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\PermissionMiddleware;
 
@@ -129,6 +130,24 @@ $router->get('/api/province/{id}', ['uses' => ['ApiController', 'getProvinceByRe
 $router->get('/api/comuni/{id}', ['uses' => ['ApiController', 'getComuniByProvincia']]);
 $router->get('/api/search/{q}', ['uses' => ['ApiController', 'searchComuni']]);
 
+// API versionate per integrazioni esterne.
+$router->get('/api/v1/events/search', [
+	'uses' => ['ApiV1Controller', 'searchEvents'],
+	'middlewares' => [[ApiAccessMiddleware::class, 'events:search']]
+]);
+$router->get('/api/v1/events/{slug}/photos', [
+	'uses' => ['ApiV1Controller', 'eventPhotos'],
+	'middlewares' => [[ApiAccessMiddleware::class, 'events:photos']]
+]);
+$router->get('/api/v1/events/{slug}', [
+	'uses' => ['ApiV1Controller', 'showEvent'],
+	'middlewares' => [[ApiAccessMiddleware::class, 'events:read']]
+]);
+$router->get('/api/v1/locations/{slug}', [
+	'uses' => ['ApiV1Controller', 'locations'],
+	'middlewares' => [[ApiAccessMiddleware::class, 'locations:read']]
+]);
+
 // Webhook Brevo per eventi email transazionali.
 $router->post('/webhooks/brevo/email-events', ['uses' => ['BrevoWebhookController', 'receive']]);
 
@@ -153,6 +172,19 @@ $router->get('/admin/email-delivery-events/detail/{id}', [
 		[PermissionMiddleware::class, 'view_admin_dashboard']
 	]
 ]);
+
+$apiAdminMiddleware = [AuthMiddleware::class, [PermissionMiddleware::class, 'view_admin_dashboard']];
+$router->get('/admin/api-clients', ['uses' => ['AdminApiClientController', 'index'], 'middlewares' => $apiAdminMiddleware]);
+$router->get('/admin/api-clients/create', ['uses' => ['AdminApiClientController', 'create'], 'middlewares' => $apiAdminMiddleware]);
+$router->post('/admin/api-clients/store', ['uses' => ['AdminApiClientController', 'store'], 'middlewares' => $apiAdminMiddleware]);
+$router->get('/admin/api-clients/logs', ['uses' => ['AdminApiClientController', 'logs'], 'middlewares' => $apiAdminMiddleware]);
+$router->get('/admin/api-clients/simulator', ['uses' => ['AdminApiClientController', 'simulator'], 'middlewares' => $apiAdminMiddleware]);
+$router->post('/admin/api-clients/simulator', ['uses' => ['AdminApiClientController', 'simulator'], 'middlewares' => $apiAdminMiddleware]);
+$router->get('/admin/api-clients/{id}', ['uses' => ['AdminApiClientController', 'show'], 'middlewares' => $apiAdminMiddleware]);
+$router->get('/admin/api-clients/{id}/edit', ['uses' => ['AdminApiClientController', 'edit'], 'middlewares' => $apiAdminMiddleware]);
+$router->post('/admin/api-clients/{id}/update', ['uses' => ['AdminApiClientController', 'update'], 'middlewares' => $apiAdminMiddleware]);
+$router->post('/admin/api-clients/{id}/rotate', ['uses' => ['AdminApiClientController', 'rotate'], 'middlewares' => $apiAdminMiddleware]);
+$router->post('/admin/api-clients/{id}/status', ['uses' => ['AdminApiClientController', 'status'], 'middlewares' => $apiAdminMiddleware]);
 
 // Area admin (middleware Auth + permesso)
 $router->get('/admin/dashboard', [

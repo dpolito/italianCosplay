@@ -252,6 +252,11 @@ $brevoQuotaClass = $brevoQuotaClasses[$brevoEmailQuota['status'] ?? 'ok'] ?? 'bg
 						Email Brevo
 					</a>
 				</li>
+				<li>
+					<a href="/admin/api-clients" class="<?= (strpos($_SERVER['REQUEST_URI'], '/admin/api-clients') !== false) ? 'active' : '' ?>">
+						API Management
+					</a>
+				</li>
 				</ul>
 			<ul class="nav-group">
 				<li class="group-title toggle" data-target="moderation-admin">

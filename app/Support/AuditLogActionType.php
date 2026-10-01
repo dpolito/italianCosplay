@@ -99,4 +99,9 @@ final class AuditLogActionType
 	public const FAQ_ITEM_CREATED = 'faq_item_created';
 	public const FAQ_ITEM_UPDATED = 'faq_item_updated';
 	public const FAQ_ITEM_DELETED = 'faq_item_deleted';
+
+	public const API_CLIENT_CREATED = 'api_client_created';
+	public const API_CLIENT_UPDATED = 'api_client_updated';
+	public const API_CLIENT_KEY_ROTATED = 'api_client_key_rotated';
+	public const API_CLIENT_STATUS_UPDATED = 'api_client_status_updated';
 }
