@@ -39,14 +39,25 @@ final class PhotoService
 
 	public function upload(array $file, int $eventId, int $userId): array
 	{
+		$this->validateUpload($file, true);
+		return $this->createFromLocalFile(
+			(string) $file['tmp_name'],
+			$eventId,
+			$userId,
+			$this->sanitizeOriginalName((string) ($file['name'] ?? 'foto')),
+			'dashboard_upload'
+		);
+	}
+
+	public function createFromLocalFile(string $sourcePath, int $eventId, int $userId, string $originalFilename, string $analyticsSource = 'server_import'): array
+	{
 		$tempLarge = null;
 		$tempThumb = null;
 		$storedLargeKey = null;
 		$storedThumbKey = null;
 		try {
 			$this->assertEventExists($eventId);
-			$this->validateUpload($file);
-			[$sourceWidth, $sourceHeight, $mime] = $this->readImageInfo($file['tmp_name']);
+			[$sourceWidth, $sourceHeight, $mime] = $this->readImageInfo($sourcePath);
 			if ($sourceWidth * $sourceHeight > $this->config->maxPixels) {
 				throw new InvalidArgumentException('Immagine troppo grande in pixel.');
 			}
@@ -58,10 +69,10 @@ final class PhotoService
 			}
 
 			if ($this->isHeicMime($mime)) {
-				[$largeWidth, $largeHeight, $thumbWidth, $thumbHeight] = $this->processWithImagick((string) $file['tmp_name'], $tempLarge, $tempThumb);
+				[$largeWidth, $largeHeight, $thumbWidth, $thumbHeight] = $this->processWithImagick($sourcePath, $tempLarge, $tempThumb);
 			} else {
-				$image = $this->createImageResource((string) $file['tmp_name'], $mime);
-				$image = $this->applyJpegOrientation($image, (string) $file['tmp_name'], $mime);
+				$image = $this->createImageResource($sourcePath, $mime);
+				$image = $this->applyJpegOrientation($image, $sourcePath, $mime);
 				[$large, $largeWidth, $largeHeight] = $this->resizeResource($image, $sourceWidth, $sourceHeight, $this->config->largeMaxSide);
 				[$thumb, $thumbWidth, $thumbHeight] = $this->resizeResource($image, $sourceWidth, $sourceHeight, $this->config->thumbMaxSide);
 				if (!imagewebp($large, $tempLarge, $this->config->largeQuality) || !imagewebp($thumb, $tempThumb, $this->config->thumbQuality)) {
@@ -87,7 +98,7 @@ final class PhotoService
 				'uploaded_by_user_id' => $userId,
 				'storage_key' => $largeKey,
 				'thumbnail_storage_key' => $thumbKey,
-				'original_filename' => $this->sanitizeOriginalName((string) ($file['name'] ?? 'foto')),
+				'original_filename' => $this->sanitizeOriginalName($originalFilename),
 				'width' => $largeWidth,
 				'height' => $largeHeight,
 				'thumbnail_width' => $thumbWidth,
@@ -109,7 +120,7 @@ final class PhotoService
 				'photo_id' => $photoId,
 				'event_id' => $eventId,
 				'uploaded_by_user_id' => $userId,
-				'source' => 'dashboard_upload',
+				'source' => $analyticsSource,
 			], false);
 
 			return [
@@ -260,13 +271,13 @@ final class PhotoService
 		}
 	}
 
-	private function validateUpload(array $file): void
+	private function validateUpload(array $file, bool $requireUploadedFile = true): void
 	{
 		$error = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
 		if ($error !== UPLOAD_ERR_OK) {
 			throw new InvalidArgumentException($this->uploadErrorMessage($error));
 		}
-		if (empty($file['tmp_name']) || !is_uploaded_file((string) $file['tmp_name'])) {
+		if (empty($file['tmp_name']) || !is_file((string) $file['tmp_name']) || ($requireUploadedFile && !is_uploaded_file((string) $file['tmp_name']))) {
 			throw new InvalidArgumentException('File temporaneo non disponibile. Riprova selezionando nuovamente la foto.');
 		}
 		if (($file['size'] ?? 0) <= 0 || (int) $file['size'] > $this->config->maxUploadBytes) {

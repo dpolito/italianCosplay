@@ -232,6 +232,55 @@ $router->get('/admin/photos/analytics', [
 		[PermissionMiddleware::class, 'view_admin_dashboard']
 	]
 ]);
+$router->get('/admin/photos/import-legacy', [
+	'uses' => ['AdminLegacyPhotoImportController', 'index'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'view_admin_dashboard']
+	]
+]);
+$router->post('/admin/photos/import-legacy/analyze', [
+	'uses' => ['AdminLegacyPhotoImportController', 'analyze'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'view_admin_dashboard']
+	]
+]);
+$router->post('/admin/photos/import-legacy/{id}/mapping', [
+	'uses' => ['AdminLegacyPhotoImportController', 'mapping'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'view_admin_dashboard']
+	]
+]);
+$router->post('/admin/photos/import-legacy/{id}/process', [
+	'uses' => ['AdminLegacyPhotoImportController', 'process'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'view_admin_dashboard']
+	]
+]);
+$router->get('/admin/photos/import-legacy/events/search', [
+	'uses' => ['AdminLegacyPhotoImportController', 'searchEvents'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'view_admin_dashboard']
+	]
+]);
+$router->get('/admin/photos/import-legacy/{id}/status', [
+	'uses' => ['AdminLegacyPhotoImportController', 'status'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'view_admin_dashboard']
+	]
+]);
+$router->get('/admin/photos/import-legacy/{id}/report', [
+	'uses' => ['AdminLegacyPhotoImportController', 'report'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'view_admin_dashboard']
+	]
+]);
 $router->post('/admin/photos/reports/{id}/resolve', [
 	'uses' => ['AdminPhotoReportController', 'resolve'],
 	'middlewares' => [

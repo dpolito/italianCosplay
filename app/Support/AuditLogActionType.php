@@ -82,6 +82,8 @@ final class AuditLogActionType
 	public const PHOTO_COSPLAYER_REMOVED = 'photo_cosplayer_removed';
 	public const PHOTO_REPORTED = 'photo_reported';
 	public const PHOTO_REPORT_RESOLVED = 'photo_report_resolved';
+	public const LEGACY_PHOTO_IMPORT_ANALYZED = 'legacy_photo_import_analyzed';
+	public const LEGACY_PHOTO_IMPORT_MAPPING_UPDATED = 'legacy_photo_import_mapping_updated';
 
 	public const USER_CREATED = 'user_created';
 	public const USER_UPDATED = 'user_updated';

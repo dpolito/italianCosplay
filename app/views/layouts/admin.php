@@ -274,6 +274,11 @@ $brevoQuotaClass = $brevoQuotaClasses[$brevoEmailQuota['status'] ?? 'ok'] ?? 'bg
 							Statistiche foto
 						</a>
 					</li>
+					<li>
+						<a href="/admin/photos/import-legacy" class="<?= (strpos($_SERVER['REQUEST_URI'], '/admin/photos/import-legacy') !== false) ? 'active' : '' ?>">
+							Import foto legacy
+						</a>
+					</li>
 				</ul>
 			</ul>
 			<ul class="nav-group">
