@@ -5,8 +5,10 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Models\Event;
 use App\Models\User;
+use App\Repositories\PhotoRepository;
 use App\Services\CosplayPortfolioService;
 use App\Services\FavoriteService;
+use App\Services\PhotoService;
 use function var_dump;
 
 class ProfileController extends Controller{
@@ -14,12 +16,16 @@ class ProfileController extends Controller{
 	private CosplayPortfolioService $cosplayPortfolioService;
 	private FavoriteService $favoriteService;
 	private Event $eventModel;
+	private PhotoRepository $photoRepository;
+	private PhotoService $photoService;
 
 	public function __construct(){
 		$this->userModel = new User();
 		$this->cosplayPortfolioService = new CosplayPortfolioService();
 		$this->favoriteService = new FavoriteService();
 		$this->eventModel = new Event();
+		$this->photoRepository = new PhotoRepository();
+		$this->photoService = new PhotoService($this->photoRepository);
 	}
 
 	public function getPageNameOverride(): ?string
@@ -102,12 +108,26 @@ class ProfileController extends Controller{
 			)
 		);
 		$favoriteEvents = $this->eventModel->getEventsByIds($favoriteEventIds, 4);
+		$publishedPhotos = array_map(
+			fn (array $photo): array => $this->photoService->decorate($photo),
+			$this->photoRepository->listPublishedByUploader((int) $user['id'], 12)
+		);
+		$taggedPhotos = array_map(
+			fn (array $photo): array => $this->photoService->decorate($photo),
+			$this->photoRepository->listConfirmedForUser((int) $user['id'], 12)
+		);
+		$photoEvents = $this->photoRepository->listPublishedEventsByUploader((int) $user['id'], 8);
 
 		$this->view('profile/public', [
 			'user'     => $user,
 			'settings' => $settings,
 			'publicCosplayItems' => $publicCosplayItems,
 			'favoriteEvents' => $favoriteEvents,
+			'publishedPhotos' => $publishedPhotos,
+			'publishedPhotoCount' => $this->photoRepository->countPublishedByUploader((int) $user['id']),
+			'photoEvents' => $photoEvents,
+			'taggedPhotos' => $taggedPhotos,
+			'taggedPhotoCount' => $this->photoRepository->countConfirmedForUser((int) $user['id']),
 			'canonicalUrl' => URL_ROOT_SITE . '/u/' . rawurlencode($user['username']),
 			'seo' => [
 				'title' => '@' . $user['username'] . ' su ItalianCosplay',

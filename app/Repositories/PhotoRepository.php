@@ -83,6 +83,203 @@ final class PhotoRepository
 		return (int) $stmt->fetchColumn();
 	}
 
+	public function listPublished(array $filters, int $limit, int $offset): array
+	{
+		[$where, $params] = $this->publishedFilterSql($filters);
+		$stmt = $this->db->prepare($this->selectSql() . "
+			{$where}
+			ORDER BY p.created_at DESC, p.id DESC
+			LIMIT :limit OFFSET :offset"
+		);
+		$this->bindPublishedFilterParams($stmt, $params);
+		$stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+		$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+		$stmt->execute();
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
+	public function countPublished(array $filters): int
+	{
+		[$where, $params] = $this->publishedFilterSql($filters);
+		$stmt = $this->db->prepare("
+			SELECT COUNT(*)
+			FROM photos p
+			INNER JOIN events e ON e.id = p.event_id
+			{$where}"
+		);
+		$this->bindPublishedFilterParams($stmt, $params);
+		$stmt->execute();
+		return (int) $stmt->fetchColumn();
+	}
+
+	public function listPhotographedEvents(int $limit = 12): array
+	{
+		$stmt = $this->db->prepare(
+			"SELECT e.id, e.titolo, e.slug, e.data_inizio, e.data_fine, e.year, e.luogo,
+					c.nome AS comune_nome, p.nome AS provincia_nome,
+					COUNT(ph.id) AS photo_count,
+					COUNT(DISTINCT ph.uploaded_by_user_id) AS uploader_count,
+					MAX(ph.created_at) AS last_photo_at,
+					img.path AS image_path,
+					img.width AS image_width,
+					img.height AS image_height
+			 FROM photos ph
+			 INNER JOIN events e ON e.id = ph.event_id
+			 LEFT JOIN comuni c ON c.id = e.comune_id
+			 LEFT JOIN province p ON p.id = e.provincia_id
+			 LEFT JOIN entity_images img
+				ON img.entity_type = 'event'
+			   AND img.entity_id = e.id
+			   AND img.preset = 'medium'
+			   AND img.deleted_at IS NULL
+			   AND img.id = (
+				   SELECT img2.id
+				   FROM entity_images img2
+				   WHERE img2.entity_type = 'event'
+				     AND img2.entity_id = e.id
+				     AND img2.preset = 'medium'
+				     AND img2.deleted_at IS NULL
+				   ORDER BY img2.is_primary DESC, img2.id ASC
+				   LIMIT 1
+			   )
+			 WHERE ph.status = 'published'
+			   AND ph.deleted_at IS NULL
+			   AND e.deleted_at IS NULL
+			 GROUP BY e.id, e.titolo, e.slug, e.data_inizio, e.data_fine, e.year, e.luogo, c.nome, p.nome, img.path, img.width, img.height
+			 ORDER BY MAX(COALESCE(e.data_inizio, ph.created_at)) DESC, MAX(ph.created_at) DESC
+			 LIMIT :limit"
+		);
+		$stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+		$stmt->execute();
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
+	public function listFilterEvents(): array
+	{
+		$stmt = $this->db->query(
+			"SELECT e.id, e.titolo, e.slug, e.data_inizio, e.data_fine, e.year, COUNT(ph.id) AS photo_count
+			 FROM photos ph
+			 INNER JOIN events e ON e.id = ph.event_id
+			 WHERE ph.status = 'published'
+			   AND ph.deleted_at IS NULL
+			   AND e.deleted_at IS NULL
+			 GROUP BY e.id, e.titolo, e.slug, e.data_inizio, e.data_fine, e.year
+			 ORDER BY COALESCE(e.data_inizio, MAX(ph.created_at)) DESC, e.titolo ASC"
+		);
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
+	public function listFilterYears(): array
+	{
+		$stmt = $this->db->query(
+			"SELECT DISTINCT COALESCE(e.year, YEAR(e.data_inizio)) AS year
+			 FROM photos ph
+			 INNER JOIN events e ON e.id = ph.event_id
+			 WHERE ph.status = 'published'
+			   AND ph.deleted_at IS NULL
+			   AND e.deleted_at IS NULL
+			   AND COALESCE(e.year, YEAR(e.data_inizio)) IS NOT NULL
+			 ORDER BY year DESC"
+		);
+		return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+	}
+
+	public function listFilterUploaders(): array
+	{
+		$stmt = $this->db->query(
+			"SELECT u.id, u.username, u.first_name, u.last_name, COUNT(ph.id) AS photo_count
+			 FROM photos ph
+			 INNER JOIN users u ON u.id = ph.uploaded_by_user_id
+			 WHERE ph.status = 'published'
+			   AND ph.deleted_at IS NULL
+			   AND u.anonymized_at IS NULL
+			 GROUP BY u.id, u.username, u.first_name, u.last_name
+			 ORDER BY u.username ASC"
+		);
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
+	public function listPublishedByUploader(int $userId, int $limit): array
+	{
+		$stmt = $this->db->prepare($this->selectSql() . "
+			WHERE p.uploaded_by_user_id = :user_id
+			  AND p.status = 'published'
+			  AND p.deleted_at IS NULL
+			ORDER BY p.created_at DESC, p.id DESC
+			LIMIT :limit"
+		);
+		$stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
+		$stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+		$stmt->execute();
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
+	public function countPublishedByUploader(int $userId): int
+	{
+		$stmt = $this->db->prepare("SELECT COUNT(*) FROM photos WHERE uploaded_by_user_id = :user_id AND status = 'published' AND deleted_at IS NULL");
+		$stmt->execute([':user_id' => $userId]);
+		return (int) $stmt->fetchColumn();
+	}
+
+	public function listPublishedEventsByUploader(int $userId, int $limit): array
+	{
+		$stmt = $this->db->prepare(
+			"SELECT e.id AS event_id, e.titolo, e.slug, e.data_inizio, e.data_fine, e.year, e.luogo,
+					c.nome AS comune_nome,
+					COUNT(p.id) AS photo_count,
+					MAX(p.created_at) AS last_upload_at
+			 FROM photos p
+			 INNER JOIN events e ON e.id = p.event_id
+			 LEFT JOIN comuni c ON c.id = e.comune_id
+			 WHERE p.uploaded_by_user_id = :user_id
+			   AND p.status = 'published'
+			   AND p.deleted_at IS NULL
+			   AND e.deleted_at IS NULL
+			 GROUP BY e.id, e.titolo, e.slug, e.data_inizio, e.data_fine, e.year, e.luogo, c.nome
+			 ORDER BY last_upload_at DESC
+			 LIMIT :limit"
+		);
+		$stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
+		$stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+		$stmt->execute();
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
+	public function listConfirmedForUser(int $userId, int $limit): array
+	{
+		$stmt = $this->db->prepare($this->selectSql() . "
+			WHERE p.id IN (
+				SELECT pc.photo_id
+				FROM photo_cosplayers pc
+				WHERE pc.user_id = :user_id
+				  AND pc.status = 'confirmed'
+			)
+			  AND p.status = 'published'
+			  AND p.deleted_at IS NULL
+			ORDER BY p.created_at DESC, p.id DESC
+			LIMIT :limit"
+		);
+		$stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
+		$stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+		$stmt->execute();
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
+	public function countConfirmedForUser(int $userId): int
+	{
+		$stmt = $this->db->prepare(
+			"SELECT COUNT(DISTINCT p.id)
+			 FROM photo_cosplayers pc
+			 INNER JOIN photos p ON p.id = pc.photo_id
+			 WHERE pc.user_id = :user_id
+			   AND pc.status = 'confirmed'
+			   AND p.status = 'published'
+			   AND p.deleted_at IS NULL"
+		);
+		$stmt->execute([':user_id' => $userId]);
+		return (int) $stmt->fetchColumn();
+	}
+
 	public function groupedByUploader(int $userId): array
 	{
 		$stmt = $this->db->prepare(
@@ -345,5 +542,32 @@ final class PhotoRepository
 			FROM photos p
 			INNER JOIN events e ON e.id = p.event_id
 			INNER JOIN users u ON u.id = p.uploaded_by_user_id";
+	}
+
+	private function publishedFilterSql(array $filters): array
+	{
+		$where = ["p.status = 'published'", 'p.deleted_at IS NULL', 'e.deleted_at IS NULL'];
+		$params = [];
+		if (!empty($filters['event_id'])) {
+			$where[] = 'p.event_id = :event_id';
+			$params[':event_id'] = (int) $filters['event_id'];
+		}
+		if (!empty($filters['year'])) {
+			$where[] = 'COALESCE(e.year, YEAR(e.data_inizio)) = :year';
+			$params[':year'] = (int) $filters['year'];
+		}
+		if (!empty($filters['uploader_id'])) {
+			$where[] = 'p.uploaded_by_user_id = :uploader_id';
+			$params[':uploader_id'] = (int) $filters['uploader_id'];
+		}
+
+		return ['WHERE ' . implode(' AND ', $where), $params];
+	}
+
+	private function bindPublishedFilterParams(\PDOStatement $stmt, array $params): void
+	{
+		foreach ($params as $key => $value) {
+			$stmt->bindValue($key, $value, PDO::PARAM_INT);
+		}
 	}
 }

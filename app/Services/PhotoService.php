@@ -39,6 +39,8 @@ final class PhotoService
 	{
 		$tempLarge = null;
 		$tempThumb = null;
+		$storedLargeKey = null;
+		$storedThumbKey = null;
 		try {
 			$this->assertEventExists($eventId);
 			$this->validateUpload($file);
@@ -72,7 +74,9 @@ final class PhotoService
 			$largeKey = $baseKey . '.webp';
 			$thumbKey = $baseKey . '.thumb.webp';
 			$this->storage->store($tempLarge, $largeKey);
+			$storedLargeKey = $largeKey;
 			$this->storage->store($tempThumb, $thumbKey);
+			$storedThumbKey = $thumbKey;
 			$tempLarge = null;
 			$tempThumb = null;
 
@@ -89,6 +93,8 @@ final class PhotoService
 				'filesize' => filesize($this->storage->getAbsolutePath($largeKey)) ?: 0,
 				'status' => 'published',
 			]);
+			$storedLargeKey = null;
+			$storedThumbKey = null;
 
 			$this->auditLogService->logAudit([
 				'user_id' => $userId,
@@ -108,6 +114,12 @@ final class PhotoService
 		} catch (Throwable $exception) {
 			if ($tempLarge && is_file($tempLarge)) unlink($tempLarge);
 			if ($tempThumb && is_file($tempThumb)) unlink($tempThumb);
+			if ($storedLargeKey !== null) {
+				$this->storage->delete($storedLargeKey);
+			}
+			if ($storedThumbKey !== null) {
+				$this->storage->delete($storedThumbKey);
+			}
 			$this->auditLogService->logAudit([
 				'user_id' => $userId,
 				'action_type' => AuditLogActionType::PHOTO_UPLOADED,
@@ -154,7 +166,11 @@ final class PhotoService
 			if (!$isOwner && !$isSelfClaim) {
 				continue;
 			}
-			if ($this->photos->addCosplayer($photoId, $userId, $cosplayId, $displayName, $this->normalizeInstagram($instagramUsername), $actorUserId, $pending ? 'pending' : 'confirmed')) {
+			$status = $pending ? 'pending' : 'confirmed';
+			if ($userId !== null && $userId !== $actorUserId) {
+				$status = 'pending';
+			}
+			if ($this->photos->addCosplayer($photoId, $userId, $cosplayId, $displayName, $this->normalizeInstagram($instagramUsername), $actorUserId, $status)) {
 				$count++;
 			}
 		}

@@ -62,6 +62,42 @@ final class PhotoController extends Controller
 		]);
 	}
 
+	public function index(): void
+	{
+		$filters = $this->photoIndexFilters();
+		$page = $this->photoIndexPage();
+		if ($this->hasLegacyPhotoIndexQuery()) {
+			header('Location: ' . $this->photoIndexPath($filters, $page), true, 301);
+			exit();
+		}
+		$perPage = 48;
+		$total = $this->photos->countPublished($filters);
+		$totalPages = max(1, (int) ceil($total / $perPage));
+		if ($page > $totalPages) {
+			$page = $totalPages;
+		}
+
+		$photos = array_map(
+			fn (array $photo): array => $this->photoService->decorate($photo),
+			$this->photos->listPublished($filters, $perPage, ($page - 1) * $perPage)
+		);
+
+		$hasFilters = !empty($filters['event_id']) || !empty($filters['year']) || !empty($filters['uploader_id']) || $page > 1;
+		$this->view('photos/index', [
+			'photos' => $photos,
+			'totalPhotos' => $total,
+			'page' => $page,
+			'totalPages' => $totalPages,
+			'filters' => $filters,
+			'filterEvents' => $this->photos->listFilterEvents(),
+			'filterYears' => $this->photos->listFilterYears(),
+			'filterUploaders' => $this->photos->listFilterUploaders(),
+			'photographedEvents' => $this->photos->listPhotographedEvents(6),
+			'canonicalUrl' => URL_ROOT_SITE . '/foto-cosplay',
+			'noindex' => $hasFilters,
+		]);
+	}
+
 	public function show(array $params): void
 	{
 		$photoId = count($params) > 1 ? (int) ($params[1] ?? 0) : (int) ($params[0] ?? 0);
@@ -273,6 +309,101 @@ final class PhotoController extends Controller
 	public function userCosplays(array $params): void
 	{
 		$this->json(true, '', 200, ['cosplays' => $this->cosplayPortfolioService->getUserPortfolio((int) ($params[0] ?? 0))]);
+	}
+
+	private function photoIndexFilters(): array
+	{
+		$filters = $this->photoIndexPathFilters();
+		if (!empty($_GET['event'])) {
+			$filters['event_id'] = max(0, (int) $_GET['event']);
+		}
+		if (!empty($_GET['year'])) {
+			$filters['year'] = $this->normalizeYear($_GET['year']);
+		}
+		if (!empty($_GET['uploader'])) {
+			$filters['uploader_id'] = max(0, (int) $_GET['uploader']);
+		}
+
+		return $filters;
+	}
+
+	private function photoIndexPathFilters(): array
+	{
+		$filters = [
+			'event_id' => 0,
+			'year' => 0,
+			'uploader_id' => 0,
+		];
+		foreach ($this->photoIndexSegments() as $segment) {
+			if (preg_match('/^evento-(\d+)$/', $segment, $matches) === 1) {
+				$filters['event_id'] = (int) $matches[1];
+				continue;
+			}
+			if (preg_match('/^anno-(\d{4})$/', $segment, $matches) === 1) {
+				$filters['year'] = $this->normalizeYear($matches[1]);
+				continue;
+			}
+			if (preg_match('/^autore-(\d+)$/', $segment, $matches) === 1) {
+				$filters['uploader_id'] = (int) $matches[1];
+			}
+		}
+
+		return [
+			'event_id' => max(0, $filters['event_id']),
+			'year' => max(0, $filters['year']),
+			'uploader_id' => max(0, $filters['uploader_id']),
+		];
+	}
+
+	private function photoIndexPage(): int
+	{
+		$page = max(1, (int) ($_GET['page'] ?? 1));
+		foreach ($this->photoIndexSegments() as $segment) {
+			if (preg_match('/^pagina-(\d+)$/', $segment, $matches) === 1) {
+				$page = max(1, (int) $matches[1]);
+			}
+		}
+		return $page;
+	}
+
+	private function photoIndexSegments(): array
+	{
+		$path = parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/foto-cosplay'), PHP_URL_PATH) ?: '/foto-cosplay';
+		$relative = trim(preg_replace('#^/foto-cosplay/?#', '', $path) ?? '', '/');
+		return $relative === '' ? [] : array_values(array_filter(explode('/', $relative)));
+	}
+
+	private function hasLegacyPhotoIndexQuery(): bool
+	{
+		return array_key_exists('event', $_GET)
+			|| array_key_exists('year', $_GET)
+			|| array_key_exists('uploader', $_GET)
+			|| array_key_exists('page', $_GET);
+	}
+
+	private function photoIndexPath(array $filters, int $page = 1): string
+	{
+		$segments = [];
+		if (!empty($filters['event_id'])) {
+			$segments[] = 'evento-' . (int) $filters['event_id'];
+		}
+		if (!empty($filters['year'])) {
+			$segments[] = 'anno-' . (int) $filters['year'];
+		}
+		if (!empty($filters['uploader_id'])) {
+			$segments[] = 'autore-' . (int) $filters['uploader_id'];
+		}
+		if ($page > 1) {
+			$segments[] = 'pagina-' . $page;
+		}
+		return '/foto-cosplay' . ($segments ? '/' . implode('/', $segments) : '');
+	}
+
+	private function normalizeYear(mixed $year): int
+	{
+		$year = (int) $year;
+		$current = (int) date('Y');
+		return ($year >= 2000 && $year <= $current + 3) ? $year : 0;
 	}
 
 	private function assertCsrfJson(bool $json = true): void

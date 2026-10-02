@@ -43,6 +43,11 @@ if (!empty($user['created_at'])) {
 	}
 }
 $socialLinks = $user['social_links'] ?? [];
+$publishedPhotos = $data['publishedPhotos'] ?? [];
+$publishedPhotoCount = (int) ($data['publishedPhotoCount'] ?? 0);
+$photoEvents = $data['photoEvents'] ?? [];
+$taggedPhotos = $data['taggedPhotos'] ?? [];
+$taggedPhotoCount = (int) ($data['taggedPhotoCount'] ?? 0);
 
 $socialConfig = [
 	'instagram' => ['label' => 'Instagram', 'icon' => 'fa-instagram', 'enabled' => !empty($settings['show_instagram'])],
@@ -272,6 +277,81 @@ $structuredData = [
 					</section>
 				</div>
 			</section>
+
+			<?php if (!empty($publishedPhotos) || !empty($taggedPhotos) || !empty($photoEvents)): ?>
+				<section class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
+					<div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+						<div>
+							<h2 class="text-2xl font-black tracking-tight text-gray-950">Foto</h2>
+							<p class="mt-1 text-sm text-gray-600">Foto pubblicate e associazioni confermate dalla community.</p>
+						</div>
+					</div>
+
+					<?php if (!empty($photoEvents)): ?>
+						<section class="mt-6">
+							<div class="mb-3 flex items-center justify-between gap-3">
+								<h3 class="text-lg font-bold text-gray-900">Eventi in cui ha caricato foto</h3>
+								<span class="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-800"><?php echo count($photoEvents); ?></span>
+							</div>
+							<div class="grid gap-2 md:grid-cols-2">
+								<?php foreach ($photoEvents as $photoEvent): ?>
+									<?php
+									$eventDate = !empty($photoEvent['data_inizio']) ? date('d/m/Y', strtotime((string) $photoEvent['data_inizio'])) : '';
+									if (!empty($photoEvent['data_fine']) && $photoEvent['data_fine'] !== $photoEvent['data_inizio']) {
+										$eventDate .= ' - ' . date('d/m/Y', strtotime((string) $photoEvent['data_fine']));
+									}
+									$eventPlace = trim((string) ($photoEvent['comune_nome'] ?: ($photoEvent['luogo'] ?? '')));
+									?>
+									<a href="/eventi-cosplay/<?php echo htmlspecialchars((string) $photoEvent['slug']); ?>/foto" class="block rounded-xl border border-gray-200 bg-gray-50 p-3 transition hover:border-green-300 hover:bg-green-50">
+										<div class="flex items-start justify-between gap-3">
+											<div class="min-w-0">
+												<p class="line-clamp-1 font-bold text-gray-950"><?php echo htmlspecialchars((string) $photoEvent['titolo']); ?></p>
+												<p class="mt-1 line-clamp-1 text-xs text-gray-600"><?php echo htmlspecialchars(trim($eventDate . ($eventPlace !== '' ? ' · ' . $eventPlace : ''))); ?></p>
+											</div>
+											<span class="shrink-0 rounded-full bg-white px-2 py-1 text-xs font-bold text-green-800 ring-1 ring-green-100"><?php echo (int) $photoEvent['photo_count']; ?> foto</span>
+										</div>
+									</a>
+								<?php endforeach; ?>
+							</div>
+						</section>
+					<?php endif; ?>
+
+					<?php if (!empty($publishedPhotos)): ?>
+						<section class="mt-6">
+							<div class="mb-3 flex items-center justify-between gap-3">
+								<h3 class="text-lg font-bold text-gray-900">Foto pubblicate</h3>
+								<span class="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-800"><?php echo $publishedPhotoCount; ?></span>
+							</div>
+							<div class="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+								<?php foreach ($publishedPhotos as $photo): ?>
+									<a href="/eventi-cosplay/<?php echo htmlspecialchars((string) $photo['event_slug']); ?>/foto/<?php echo (int) $photo['id']; ?>" class="group overflow-hidden rounded-xl bg-gray-100 ring-1 ring-gray-200">
+										<img src="<?php echo htmlspecialchars((string) $photo['thumbnail_url']); ?>" alt="Foto cosplay di <?php echo htmlspecialchars((string) $photo['event_title']); ?>" width="<?php echo (int) $photo['thumbnail_width']; ?>" height="<?php echo (int) $photo['thumbnail_height']; ?>" loading="lazy" class="aspect-square w-full object-cover transition group-hover:scale-105">
+									</a>
+								<?php endforeach; ?>
+							</div>
+							<?php if ($publishedPhotoCount > count($publishedPhotos)): ?>
+								<a href="/foto-cosplay/autore-<?php echo (int) $user['id']; ?>" class="mt-4 inline-flex rounded-lg border border-green-800 px-4 py-2 text-sm font-bold text-green-900 hover:bg-green-50">Vedi tutte le foto pubblicate</a>
+							<?php endif; ?>
+						</section>
+					<?php endif; ?>
+
+					<?php if (!empty($taggedPhotos)): ?>
+						<section class="mt-8">
+							<div class="mb-3 flex items-center justify-between gap-3">
+								<h3 class="text-lg font-bold text-gray-900">Foto in cui compare</h3>
+								<span class="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-800"><?php echo $taggedPhotoCount; ?></span>
+							</div>
+							<div class="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+								<?php foreach ($taggedPhotos as $photo): ?>
+									<a href="/eventi-cosplay/<?php echo htmlspecialchars((string) $photo['event_slug']); ?>/foto/<?php echo (int) $photo['id']; ?>" class="group overflow-hidden rounded-xl bg-gray-100 ring-1 ring-gray-200">
+										<img src="<?php echo htmlspecialchars((string) $photo['thumbnail_url']); ?>" alt="Foto cosplay di <?php echo htmlspecialchars((string) $photo['event_title']); ?>" width="<?php echo (int) $photo['thumbnail_width']; ?>" height="<?php echo (int) $photo['thumbnail_height']; ?>" loading="lazy" class="aspect-square w-full object-cover transition group-hover:scale-105">
+									</a>
+								<?php endforeach; ?>
+							</div>
+						</section>
+					<?php endif; ?>
+				</section>
+			<?php endif; ?>
 		</section>
 	</div>
 </main>

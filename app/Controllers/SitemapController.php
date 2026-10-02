@@ -9,6 +9,7 @@ use App\Models\EventMaster;
 use App\Repositories\OrganizationRepository;
 use App\Models\Provincia;
 use App\Models\Regione;
+use App\Repositories\PhotoRepository;
 use function date;
 use function header;
 use function strtotime;
@@ -24,6 +25,7 @@ class SitemapController extends Controller
 	private BlogCategory $blogCategoryModel;
 	private EventMaster $eventMasterModel;
 	private OrganizationRepository $organizationRepository;
+	private PhotoRepository $photoRepository;
 
 	public function __construct()
 	{
@@ -35,6 +37,7 @@ class SitemapController extends Controller
 		$this->blogCategoryModel = new BlogCategory();
 		$this->eventMasterModel = new EventMaster();
 		$this->organizationRepository = new OrganizationRepository();
+		$this->photoRepository = new PhotoRepository();
 	}
 	public function index()
 	{
@@ -64,6 +67,7 @@ class SitemapController extends Controller
 		$xml .= $this->addSitemap($base . '/sitemap-locations.xml');
 		$xml .= $this->addSitemap($base . '/sitemap-blog-categorie.xml');
 		$xml .= $this->addSitemap($base . '/sitemap-blog-post.xml');
+		$xml .= $this->addSitemap($base . '/sitemap-photos.xml');
 
 
 		$xml .= '</sitemapindex>';
@@ -118,6 +122,25 @@ class SitemapController extends Controller
 		$xml .= $this->addUrl('https://www.italiancosplay.it/cookies', '0.3');
 		$xml .= $this->addUrl('https://www.italiancosplay.it/faq', '0.6');
 		$xml .= $this->addUrl('https://www.italiancosplay.it/blog', '0.9');
+		$xml .= $this->addUrl('https://www.italiancosplay.it/foto-cosplay', '0.7');
+
+		$xml .= '</urlset>';
+
+		echo $xml;
+	}
+
+	public function photos()
+	{
+		header('Content-Type: application/xml; charset=utf-8');
+
+		$xml  = '<?xml version="1.0" encoding="UTF-8"?>' . PHP_EOL;
+		$xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . PHP_EOL;
+
+		foreach ($this->photoRepository->listPhotographedEvents(1000) as $event) {
+			$url = 'https://www.italiancosplay.it/eventi-cosplay/' . rawurlencode((string) $event['slug']) . '/foto';
+			$lastmod = !empty($event['last_photo_at']) ? date('Y-m-d', strtotime($event['last_photo_at'])) : date('Y-m-d');
+			$xml .= $this->addUrl($url, '0.5', $lastmod);
+		}
 
 		$xml .= '</urlset>';
 

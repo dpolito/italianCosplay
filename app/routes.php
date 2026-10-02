@@ -38,6 +38,11 @@ $router->get('/privacy', ['uses' => ['HomeController', 'privacy']]);
 $router->get('/cookies', ['uses' => ['HomeController', 'cookies']]);
 $router->get('/organizzatori-eventi-cosplay', ['uses' => ['HomeController', 'organizersLanding']]);
 $router->get('/faq', ['uses' => ['FaqController', 'index']]);
+$router->get('/foto-cosplay', ['uses' => ['PhotoController', 'index']]);
+$router->get('/foto-cosplay/{slug}', ['uses' => ['PhotoController', 'index']]);
+$router->get('/foto-cosplay/{slug}/{slug}', ['uses' => ['PhotoController', 'index']]);
+$router->get('/foto-cosplay/{slug}/{slug}/{slug}', ['uses' => ['PhotoController', 'index']]);
+$router->get('/foto-cosplay/{slug}/{slug}/{slug}/{slug}', ['uses' => ['PhotoController', 'index']]);
 $router->get('/sitemap.xml', ['uses' => ['SitemapController', 'index']]);
 $router->get('/sitemap-static.xml', ['uses' => ['SitemapController', 'static']]);
 $router->get('/sitemap-events.xml', ['uses' => ['SitemapController', 'events']]);
@@ -46,6 +51,7 @@ $router->get('/sitemap-organizations.xml', ['uses' => ['SitemapController', 'org
 $router->get('/sitemap-locations.xml', ['uses' => ['SitemapController', 'locations']]);
 $router->get('/sitemap-blog-categorie.xml', ['uses' => ['SitemapController', 'blog_categorie']]);
 $router->get('/sitemap-blog-post.xml', ['uses' => ['SitemapController', 'blog_post']]);
+$router->get('/sitemap-photos.xml', ['uses' => ['SitemapController', 'photos']]);
 
 // Advertising pubblico
 $router->get('/ads/click/{campaignId}', ['uses' => ['AdCampaignController', 'click']]);
