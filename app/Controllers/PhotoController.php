@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Repositories\PhotoRepository;
 use App\Services\CosplayPortfolioService;
 use App\Services\PendingUserActionService;
+use App\Services\PhotoAnalyticsService;
 use App\Services\PhotoService;
 use PDO;
 use Throwable;
@@ -22,6 +23,7 @@ final class PhotoController extends Controller
 	private User $userModel;
 	private PhotoRepository $photos;
 	private PhotoService $photoService;
+	private PhotoAnalyticsService $photoAnalyticsService;
 	private CosplayPortfolioService $cosplayPortfolioService;
 	private PendingUserActionService $pendingUserActionService;
 
@@ -32,6 +34,7 @@ final class PhotoController extends Controller
 		$this->userModel = new User();
 		$this->photos = new PhotoRepository($this->db);
 		$this->photoService = new PhotoService($this->photos);
+		$this->photoAnalyticsService = new PhotoAnalyticsService();
 		$this->cosplayPortfolioService = new CosplayPortfolioService();
 		$this->pendingUserActionService = new PendingUserActionService();
 		if (!isset($_SESSION['csrf_token'])) {
@@ -49,6 +52,10 @@ final class PhotoController extends Controller
 		$perPage = 48;
 		$total = $this->photos->countPublishedByEvent((int) $event['id']);
 		$items = array_map(fn (array $photo): array => $this->photoService->decorate($photo), $this->photos->listPublishedByEvent((int) $event['id'], $perPage, ($page - 1) * $perPage));
+		$this->photoAnalyticsService->track('photo_event_gallery_view', [
+			'event_id' => (int) $event['id'],
+			'source' => 'event_gallery',
+		]);
 		$this->view('photos/event-gallery', [
 			'event' => $event,
 			'photos' => $items,
@@ -69,6 +76,15 @@ final class PhotoController extends Controller
 		if ($this->hasLegacyPhotoIndexQuery()) {
 			header('Location: ' . $this->photoIndexPath($filters, $page), true, 301);
 			exit();
+		}
+		$this->photoAnalyticsService->track('photo_hub_view', ['source' => 'photo_hub']);
+		if (!empty($filters['event_id']) || !empty($filters['year']) || !empty($filters['uploader_id'])) {
+			$this->photoAnalyticsService->track('photo_filter_used', [
+				'filter_event_id' => (int) $filters['event_id'] ?: null,
+				'filter_year' => (int) $filters['year'] ?: null,
+				'filter_uploader_id' => (int) $filters['uploader_id'] ?: null,
+				'source' => 'photo_hub',
+			], false);
 		}
 		$perPage = 48;
 		$total = $this->photos->countPublished($filters);
@@ -106,6 +122,12 @@ final class PhotoController extends Controller
 			$this->notFound();
 		}
 		$photo = $this->photoService->decorate($photo);
+		$this->photoAnalyticsService->track('photo_view', [
+			'photo_id' => (int) $photo['id'],
+			'event_id' => (int) $photo['event_id'],
+			'uploaded_by_user_id' => (int) $photo['uploaded_by_user_id'],
+			'source' => 'photo_detail',
+		]);
 		$this->view('photos/show', [
 			'photo' => $photo,
 			'cosplayers' => $this->photos->getCosplayers((int) $photo['id']),
@@ -233,6 +255,15 @@ final class PhotoController extends Controller
 		if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			$this->assertCsrfJson(false);
 			$count = $this->photoService->addAssociation([$photoId], (int) $_SESSION['user_id'], (int) $_SESSION['user_id'], (int) ($_POST['cosplay_id'] ?? 0) ?: null, null, null, false);
+			$photo = $this->photos->findPublished($photoId);
+			if ($photo) {
+				$this->photoAnalyticsService->track('photo_self_claim', [
+					'photo_id' => (int) $photo['id'],
+					'event_id' => (int) $photo['event_id'],
+					'uploaded_by_user_id' => (int) $photo['uploaded_by_user_id'],
+					'source' => 'photo_detail',
+				], false);
+			}
 			Session::setFlash('success', $count > 0 ? 'Ti sei associato alla foto.' : 'Sei già associato a questa foto.');
 		}
 		header('Location: ' . $returnUrl);

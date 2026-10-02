@@ -324,7 +324,7 @@ $structuredData = [
 							</div>
 							<div class="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
 								<?php foreach ($publishedPhotos as $photo): ?>
-									<a href="/eventi-cosplay/<?php echo htmlspecialchars((string) $photo['event_slug']); ?>/foto/<?php echo (int) $photo['id']; ?>" class="group overflow-hidden rounded-xl bg-gray-100 ring-1 ring-gray-200">
+									<a href="/eventi-cosplay/<?php echo htmlspecialchars((string) $photo['event_slug']); ?>/foto/<?php echo (int) $photo['id']; ?>" class="group overflow-hidden rounded-xl bg-gray-100 ring-1 ring-gray-200" data-photo-analytics data-event-type="photo_open" data-photo-id="<?php echo (int) $photo['id']; ?>" data-event-id="<?php echo (int) $photo['event_id']; ?>" data-uploaded-by-user-id="<?php echo (int) $photo['uploaded_by_user_id']; ?>" data-source="user_profile_published">
 										<img src="<?php echo htmlspecialchars((string) $photo['thumbnail_url']); ?>" alt="Foto cosplay di <?php echo htmlspecialchars((string) $photo['event_title']); ?>" width="<?php echo (int) $photo['thumbnail_width']; ?>" height="<?php echo (int) $photo['thumbnail_height']; ?>" loading="lazy" class="aspect-square w-full object-cover transition group-hover:scale-105">
 									</a>
 								<?php endforeach; ?>
@@ -343,7 +343,7 @@ $structuredData = [
 							</div>
 							<div class="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
 								<?php foreach ($taggedPhotos as $photo): ?>
-									<a href="/eventi-cosplay/<?php echo htmlspecialchars((string) $photo['event_slug']); ?>/foto/<?php echo (int) $photo['id']; ?>" class="group overflow-hidden rounded-xl bg-gray-100 ring-1 ring-gray-200">
+									<a href="/eventi-cosplay/<?php echo htmlspecialchars((string) $photo['event_slug']); ?>/foto/<?php echo (int) $photo['id']; ?>" class="group overflow-hidden rounded-xl bg-gray-100 ring-1 ring-gray-200" data-photo-analytics data-event-type="photo_open" data-photo-id="<?php echo (int) $photo['id']; ?>" data-event-id="<?php echo (int) $photo['event_id']; ?>" data-uploaded-by-user-id="<?php echo (int) $photo['uploaded_by_user_id']; ?>" data-source="user_profile_tagged">
 										<img src="<?php echo htmlspecialchars((string) $photo['thumbnail_url']); ?>" alt="Foto cosplay di <?php echo htmlspecialchars((string) $photo['event_title']); ?>" width="<?php echo (int) $photo['thumbnail_width']; ?>" height="<?php echo (int) $photo['thumbnail_height']; ?>" loading="lazy" class="aspect-square w-full object-cover transition group-hover:scale-105">
 									</a>
 								<?php endforeach; ?>
@@ -355,3 +355,23 @@ $structuredData = [
 		</section>
 	</div>
 </main>
+<script>
+const trackPhotoAnalytics = (element) => {
+	const payload = {
+		event_type: element.dataset.eventType || '',
+		photo_id: element.dataset.photoId || '',
+		event_id: element.dataset.eventId || '',
+		uploaded_by_user_id: element.dataset.uploadedByUserId || '',
+		source: element.dataset.source || ''
+	};
+	const body = JSON.stringify(payload);
+	if (navigator.sendBeacon) {
+		navigator.sendBeacon('/analytics/photo-event', new Blob([body], { type: 'application/json' }));
+		return;
+	}
+	fetch('/analytics/photo-event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
+};
+document.querySelectorAll('[data-photo-analytics]').forEach((element) => {
+	element.addEventListener('click', () => trackPhotoAnalytics(element));
+});
+</script>

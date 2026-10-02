@@ -263,10 +263,15 @@ $brevoQuotaClass = $brevoQuotaClasses[$brevoEmailQuota['status'] ?? 'ok'] ?? 'bg
 					Moderazione
 					<span>▾</span>
 				</li>
-				<ul id="moderation-admin" class="group-items <?= strpos($_SERVER['REQUEST_URI'], '/admin/photos/reports') !== false ? '' : 'closed' ?>">
+				<ul id="moderation-admin" class="group-items <?= strpos($_SERVER['REQUEST_URI'], '/admin/photos') !== false ? '' : 'closed' ?>">
 					<li>
 						<a href="/admin/photos/reports" class="<?= (strpos($_SERVER['REQUEST_URI'], '/admin/photos/reports') !== false) ? 'active' : '' ?>">
 							Segnalazioni foto
+						</a>
+					</li>
+					<li>
+						<a href="/admin/photos/analytics" class="<?= (strpos($_SERVER['REQUEST_URI'], '/admin/photos/analytics') !== false) ? 'active' : '' ?>">
+							Statistiche foto
 						</a>
 					</li>
 				</ul>

@@ -20,6 +20,7 @@ final class PhotoService
 	private PhotoStorageInterface $storage;
 	private PhotoConfig $config;
 	private AuditLogService $auditLogService;
+	private PhotoAnalyticsService $photoAnalyticsService;
 
 	public function __construct(?PhotoRepository $photos = null, ?PhotoStorageInterface $storage = null, ?PhotoConfig $config = null)
 	{
@@ -28,6 +29,7 @@ final class PhotoService
 		$this->storage = $storage ?? new LocalPhotoStorage();
 		$this->config = $config ?? new PhotoConfig();
 		$this->auditLogService = new AuditLogService();
+		$this->photoAnalyticsService = new PhotoAnalyticsService();
 	}
 
 	public function getConfig(): PhotoConfig
@@ -103,6 +105,12 @@ final class PhotoService
 				'entity_id' => $photoId,
 				'payload' => ['event_id' => $eventId],
 			]);
+			$this->photoAnalyticsService->track('photo_upload_success', [
+				'photo_id' => $photoId,
+				'event_id' => $eventId,
+				'uploaded_by_user_id' => $userId,
+				'source' => 'dashboard_upload',
+			], false);
 
 			return [
 				'id' => $photoId,

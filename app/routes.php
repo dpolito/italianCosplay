@@ -43,6 +43,7 @@ $router->get('/foto-cosplay/{slug}', ['uses' => ['PhotoController', 'index']]);
 $router->get('/foto-cosplay/{slug}/{slug}', ['uses' => ['PhotoController', 'index']]);
 $router->get('/foto-cosplay/{slug}/{slug}/{slug}', ['uses' => ['PhotoController', 'index']]);
 $router->get('/foto-cosplay/{slug}/{slug}/{slug}/{slug}', ['uses' => ['PhotoController', 'index']]);
+$router->post('/analytics/photo-event', ['uses' => ['PhotoAnalyticsController', 'track']]);
 $router->get('/sitemap.xml', ['uses' => ['SitemapController', 'index']]);
 $router->get('/sitemap-static.xml', ['uses' => ['SitemapController', 'static']]);
 $router->get('/sitemap-events.xml', ['uses' => ['SitemapController', 'events']]);
@@ -219,6 +220,13 @@ $router->post('/admin/setup', [
 ]);
 $router->get('/admin/photos/reports', [
 	'uses' => ['AdminPhotoReportController', 'index'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'view_admin_dashboard']
+	]
+]);
+$router->get('/admin/photos/analytics', [
+	'uses' => ['PhotoAnalyticsController', 'admin'],
 	'middlewares' => [
 		AuthMiddleware::class,
 		[PermissionMiddleware::class, 'view_admin_dashboard']

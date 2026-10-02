@@ -67,7 +67,10 @@ $breadcrumbSchema = [
 		<aside class="space-y-5">
 			<section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
 				<h1 class="text-xl font-bold text-gray-900"><?= $h($photo['event_title']) ?></h1>
-				<p class="mt-2 text-sm text-gray-600">Caricata da @<?= $h($photo['uploader_username']) ?></p>
+				<p class="mt-2 text-sm text-gray-600">
+					Caricata da
+					<a href="/u/<?= $h($photo['uploader_username']) ?>" class="font-semibold text-green-900 hover:underline" data-photo-analytics data-event-type="photo_uploader_profile_click" data-photo-id="<?= (int) $photo['id'] ?>" data-event-id="<?= (int) $photo['event_id'] ?>" data-uploaded-by-user-id="<?= (int) $photo['uploaded_by_user_id'] ?>" data-source="photo_detail">@<?= $h($photo['uploader_username']) ?></a>
+				</p>
 				<p class="text-sm text-gray-600"><?= $h(date('d/m/Y H:i', strtotime((string) $photo['created_at']))) ?></p>
 				<div class="mt-4 flex flex-wrap gap-2">
 					<form method="post" action="<?= $h($photoUrl) ?>/sono-io">
@@ -157,5 +160,23 @@ document.querySelectorAll('.js-copy-photo-link').forEach((button) => {
 			if (feedback) feedback.classList.remove('hidden');
 		} catch (error) {}
 	});
+});
+const trackPhotoAnalytics = (element) => {
+	const payload = {
+		event_type: element.dataset.eventType || '',
+		photo_id: element.dataset.photoId || '',
+		event_id: element.dataset.eventId || '',
+		uploaded_by_user_id: element.dataset.uploadedByUserId || '',
+		source: element.dataset.source || ''
+	};
+	const body = JSON.stringify(payload);
+	if (navigator.sendBeacon) {
+		navigator.sendBeacon('/analytics/photo-event', new Blob([body], { type: 'application/json' }));
+		return;
+	}
+	fetch('/analytics/photo-event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
+};
+document.querySelectorAll('[data-photo-analytics]').forEach((element) => {
+	element.addEventListener('click', () => trackPhotoAnalytics(element));
 });
 </script>

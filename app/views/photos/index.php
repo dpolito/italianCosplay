@@ -97,7 +97,7 @@ foreach ($filterUploaders as $uploaderOption) {
 		</p>
 		<div class="mt-6 grid gap-3 sm:grid-cols-2">
 			<a href="#filtri-foto" class="inline-flex min-h-12 items-center justify-center rounded-lg border border-green-800 px-4 py-3 text-center font-bold text-green-900 hover:bg-green-50">📸 Trova le foto del tuo evento</a>
-			<a href="/dashboard/photos/upload" class="inline-flex min-h-12 items-center justify-center rounded-lg bg-green-800 px-4 py-3 text-center font-bold text-white hover:bg-green-700">Carica le tue foto</a>
+			<a href="/dashboard/photos/upload" class="inline-flex min-h-12 items-center justify-center rounded-lg bg-green-800 px-4 py-3 text-center font-bold text-white hover:bg-green-700" data-photo-analytics data-event-type="photo_upload_cta_click" data-source="photo_hub">Carica le tue foto</a>
 		</div>
 	</header>
 
@@ -189,12 +189,12 @@ foreach ($filterUploaders as $uploaderOption) {
 			<div class="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
 				<?php foreach ($photos as $photo): ?>
 					<article class="overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
-						<a href="/eventi-cosplay/<?= $h($photo['event_slug']) ?>/foto/<?= (int) $photo['id'] ?>" class="group block bg-gray-100">
+						<a href="/eventi-cosplay/<?= $h($photo['event_slug']) ?>/foto/<?= (int) $photo['id'] ?>" class="group block bg-gray-100" data-photo-analytics data-event-type="photo_open" data-photo-id="<?= (int) $photo['id'] ?>" data-event-id="<?= (int) $photo['event_id'] ?>" data-uploaded-by-user-id="<?= (int) $photo['uploaded_by_user_id'] ?>" data-source="photo_hub">
 							<img src="<?= $h($photo['thumbnail_url']) ?>" alt="Foto cosplay di <?= $h($photo['event_title']) ?>" width="<?= (int) $photo['thumbnail_width'] ?>" height="<?= (int) $photo['thumbnail_height'] ?>" loading="lazy" class="aspect-square w-full object-cover transition group-hover:scale-105">
 						</a>
 						<div class="p-3">
 							<a href="/eventi-cosplay/<?= $h($photo['event_slug']) ?>" class="line-clamp-2 text-sm font-bold text-gray-950 hover:text-green-800"><?= $h($photo['event_title']) ?></a>
-							<a href="/u/<?= $h($photo['uploader_username']) ?>" class="mt-1 inline-flex text-xs font-semibold text-green-800 hover:underline">@<?= $h($photo['uploader_username']) ?></a>
+							<a href="/u/<?= $h($photo['uploader_username']) ?>" class="mt-1 inline-flex text-xs font-semibold text-green-800 hover:underline" data-photo-analytics data-event-type="photo_uploader_profile_click" data-photo-id="<?= (int) $photo['id'] ?>" data-event-id="<?= (int) $photo['event_id'] ?>" data-uploaded-by-user-id="<?= (int) $photo['uploaded_by_user_id'] ?>" data-source="photo_hub">@<?= $h($photo['uploader_username']) ?></a>
 							<p class="text-xs text-gray-500"><?= $h(date('d/m/Y', strtotime((string) $photo['created_at']))) ?></p>
 						</div>
 					</article>
@@ -285,5 +285,28 @@ document.querySelectorAll('[data-photo-filter-form]').forEach((form) => {
 		if (uploader.value) segments.push('autore-' + encodeURIComponent(uploader.value));
 		window.location.href = '/foto-cosplay' + (segments.length ? '/' + segments.join('/') : '');
 	});
+});
+const trackPhotoAnalytics = (element) => {
+	const payload = {
+		event_type: element.dataset.eventType || '',
+		photo_id: element.dataset.photoId || '',
+		event_id: element.dataset.eventId || '',
+		uploaded_by_user_id: element.dataset.uploadedByUserId || '',
+		source: element.dataset.source || ''
+	};
+	const body = JSON.stringify(payload);
+	if (navigator.sendBeacon) {
+		navigator.sendBeacon('/analytics/photo-event', new Blob([body], { type: 'application/json' }));
+		return;
+	}
+	fetch('/analytics/photo-event', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body,
+		keepalive: true
+	}).catch(() => {});
+};
+document.querySelectorAll('[data-photo-analytics]').forEach((element) => {
+	element.addEventListener('click', () => trackPhotoAnalytics(element));
 });
 </script>
