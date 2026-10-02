@@ -130,6 +130,9 @@ $router->get('/api/province/{id}', ['uses' => ['ApiController', 'getProvinceByRe
 $router->get('/api/comuni/{id}', ['uses' => ['ApiController', 'getComuniByProvincia']]);
 $router->get('/api/search/{q}', ['uses' => ['ApiController', 'searchComuni']]);
 
+// MCP endpoint per tool AI read-only.
+$router->post('/mcp', ['uses' => ['McpController', 'handle']]);
+
 // API versionate per integrazioni esterne.
 $router->get('/api/v1/events/search', [
 	'uses' => ['ApiV1Controller', 'searchEvents'],
