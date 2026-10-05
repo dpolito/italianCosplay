@@ -286,6 +286,7 @@ if (isset($_SESSION['user_id'])) {
 				<?php if (!empty($featureFlags['enable_events'])): ?>
 					<li><a href="/eventi-cosplay" class="text-black hover:text-gray-500 transition">Eventi Cosplay Italia</a></li>
 				<?php endif; ?>
+				<li><a href="/foto-cosplay" class="text-black hover:text-gray-500 transition">Foto Cosplay</a></li>
 				<?php if (!empty($featureFlags['enable_blog'])): ?>
 					<li><a href="/blog"  class="text-black hover:text-gray-500 transition">Blog</a></li>
 				<?php endif; ?>
@@ -350,6 +351,12 @@ if (isset($_SESSION['user_id'])) {
 					</a>
 				</li>
 			<?php endif; ?>
+			<li>
+				<a href="/foto-cosplay" class="mobile-menu-link">
+					<span class="mobile-menu-icon"><i class="fa-solid fa-camera" aria-hidden="true"></i></span>
+					<span>Foto cosplay</span>
+				</a>
+			</li>
 			<?php if (!empty($featureFlags['enable_blog'])): ?>
 				<li>
 					<a href="/blog" class="mobile-menu-link">
