@@ -106,6 +106,26 @@ $router->post('/dashboard/photos/upload', [
 	'uses' => ['PhotoController', 'upload'],
 	'middlewares' => [AuthMiddleware::class]
 ]);
+$router->get('/dashboard/photos/upload/session', [
+	'uses' => ['PhotoController', 'uploadSession'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->post('/dashboard/photos/upload/session/start', [
+	'uses' => ['PhotoController', 'startUploadSession'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->post('/dashboard/photos/upload/session/confirm', [
+	'uses' => ['PhotoController', 'confirmUploadSession'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->post('/dashboard/photos/upload/session/cancel', [
+	'uses' => ['PhotoController', 'cancelUploadSession'],
+	'middlewares' => [AuthMiddleware::class]
+]);
+$router->post('/dashboard/photos/upload/item/remove', [
+	'uses' => ['PhotoController', 'removeUploadItem'],
+	'middlewares' => [AuthMiddleware::class]
+]);
 $router->post('/dashboard/photos/delete', [
 	'uses' => ['PhotoController', 'delete'],
 	'middlewares' => [AuthMiddleware::class]

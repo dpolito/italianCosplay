@@ -13,6 +13,7 @@ use App\Services\CosplayPortfolioService;
 use App\Services\PendingUserActionService;
 use App\Services\PhotoAnalyticsService;
 use App\Services\PhotoService;
+use App\Services\PhotoUploadSessionService;
 use PDO;
 use Throwable;
 
@@ -23,6 +24,7 @@ final class PhotoController extends Controller
 	private User $userModel;
 	private PhotoRepository $photos;
 	private PhotoService $photoService;
+	private PhotoUploadSessionService $photoUploadSessionService;
 	private PhotoAnalyticsService $photoAnalyticsService;
 	private CosplayPortfolioService $cosplayPortfolioService;
 	private PendingUserActionService $pendingUserActionService;
@@ -34,6 +36,7 @@ final class PhotoController extends Controller
 		$this->userModel = new User();
 		$this->photos = new PhotoRepository($this->db);
 		$this->photoService = new PhotoService($this->photos);
+		$this->photoUploadSessionService = new PhotoUploadSessionService(null, $this->photoService);
 		$this->photoAnalyticsService = new PhotoAnalyticsService();
 		$this->cosplayPortfolioService = new CosplayPortfolioService();
 		$this->pendingUserActionService = new PendingUserActionService();
@@ -164,6 +167,7 @@ final class PhotoController extends Controller
 			'csrf_token' => $_SESSION['csrf_token'] ?? '',
 			'photoConfig' => $this->photoService->getConfig(),
 			'preselectedEvent' => $preselectedEvent,
+			'uploadSession' => $this->photoUploadSessionService->current($userId),
 		], 'dashboard');
 	}
 
@@ -192,8 +196,57 @@ final class PhotoController extends Controller
 	{
 		$this->assertCsrfJson();
 		try {
-			$result = $this->photoService->upload($_FILES['photo'] ?? [], (int) ($_POST['event_id'] ?? 0), (int) $_SESSION['user_id']);
-			$this->json(true, 'Foto caricata.', 200, ['photo' => $result]);
+			$result = $this->photoUploadSessionService->upload((int) $_SESSION['user_id'], (int) ($_POST['event_id'] ?? 0), $_FILES['photo'] ?? []);
+			$this->json(true, 'Foto salvata nel caricamento temporaneo.', 200, $result);
+		} catch (Throwable $exception) {
+			$this->json(false, $exception->getMessage(), 422);
+		}
+	}
+
+	public function uploadSession(): void
+	{
+		$this->json(true, '', 200, ['session' => $this->photoUploadSessionService->current((int) $_SESSION['user_id'])]);
+	}
+
+	public function startUploadSession(): void
+	{
+		$this->assertCsrfJson();
+		try {
+			$session = $this->photoUploadSessionService->start((int) $_SESSION['user_id'], (int) ($_POST['event_id'] ?? 0));
+			$this->json(true, 'Sessione di caricamento pronta.', 200, ['session' => $session]);
+		} catch (Throwable $exception) {
+			$this->json(false, $exception->getMessage(), 422);
+		}
+	}
+
+	public function confirmUploadSession(): void
+	{
+		$this->assertCsrfJson();
+		try {
+			$result = $this->photoUploadSessionService->confirm((int) $_SESSION['user_id'], (int) ($_POST['session_id'] ?? 0));
+			$this->json(true, 'Foto pubblicate correttamente.', 200, $result);
+		} catch (Throwable $exception) {
+			$this->json(false, $exception->getMessage(), 422);
+		}
+	}
+
+	public function cancelUploadSession(): void
+	{
+		$this->assertCsrfJson();
+		try {
+			$this->photoUploadSessionService->cancel((int) $_SESSION['user_id'], (int) ($_POST['session_id'] ?? 0));
+			$this->json(true, 'Caricamento annullato.');
+		} catch (Throwable $exception) {
+			$this->json(false, $exception->getMessage(), 422);
+		}
+	}
+
+	public function removeUploadItem(): void
+	{
+		$this->assertCsrfJson();
+		try {
+			$this->photoUploadSessionService->removeItem((int) $_SESSION['user_id'], (int) ($_POST['item_id'] ?? 0));
+			$this->json(true, 'Foto rimossa dal caricamento.');
 		} catch (Throwable $exception) {
 			$this->json(false, $exception->getMessage(), 422);
 		}

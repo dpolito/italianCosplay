@@ -288,7 +288,9 @@ final class PhotoRepository
 			 FROM photos p
 			 INNER JOIN events e ON e.id = p.event_id
 			 LEFT JOIN comuni c ON c.id = e.comune_id
-			 WHERE p.uploaded_by_user_id = :user_id AND p.deleted_at IS NULL
+			 WHERE p.uploaded_by_user_id = :user_id
+			   AND p.status = 'published'
+			   AND p.deleted_at IS NULL
 			 GROUP BY e.id, e.titolo, e.slug, e.data_inizio, e.data_fine, c.nome
 			 ORDER BY last_upload_at DESC"
 		);
@@ -299,7 +301,10 @@ final class PhotoRepository
 	public function listForUploaderEvent(int $userId, int $eventId): array
 	{
 		$stmt = $this->db->prepare($this->selectSql() . "
-			WHERE p.uploaded_by_user_id = :user_id AND p.event_id = :event_id AND p.deleted_at IS NULL
+			WHERE p.uploaded_by_user_id = :user_id
+			  AND p.event_id = :event_id
+			  AND p.status = 'published'
+			  AND p.deleted_at IS NULL
 			ORDER BY p.created_at DESC, p.id DESC"
 		);
 		$stmt->execute([':user_id' => $userId, ':event_id' => $eventId]);
@@ -315,6 +320,23 @@ final class PhotoRepository
 		$stmt = $this->db->prepare("UPDATE photos SET deleted_at = NOW(), updated_at = NOW() WHERE id = :id AND uploaded_by_user_id = :user_id");
 		$stmt->execute([':id' => $photoId, ':user_id' => $userId]);
 		return $photo;
+	}
+
+	public function updateStatusForOwner(int $photoId, int $userId, string $status): bool
+	{
+		$stmt = $this->db->prepare(
+			"UPDATE photos
+			 SET status = :status, updated_at = NOW()
+			 WHERE id = :id
+			   AND uploaded_by_user_id = :user_id
+			   AND deleted_at IS NULL"
+		);
+		$stmt->execute([
+			':status' => $status,
+			':id' => $photoId,
+			':user_id' => $userId,
+		]);
+		return $stmt->rowCount() > 0;
 	}
 
 	public function addCosplayer(int $photoId, ?int $userId, ?int $cosplayId, ?string $displayName, ?string $instagramUsername, int $createdByUserId, string $status = 'confirmed'): bool

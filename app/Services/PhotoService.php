@@ -49,7 +49,20 @@ final class PhotoService
 		);
 	}
 
-	public function createFromLocalFile(string $sourcePath, int $eventId, int $userId, string $originalFilename, string $analyticsSource = 'server_import'): array
+	public function uploadTemporary(array $file, int $eventId, int $userId): array
+	{
+		$this->validateUpload($file, true);
+		return $this->createFromLocalFile(
+			(string) $file['tmp_name'],
+			$eventId,
+			$userId,
+			$this->sanitizeOriginalName((string) ($file['name'] ?? 'foto')),
+			'dashboard_upload_session',
+			'processing'
+		);
+	}
+
+	public function createFromLocalFile(string $sourcePath, int $eventId, int $userId, string $originalFilename, string $analyticsSource = 'server_import', string $status = 'published'): array
 	{
 		$tempLarge = null;
 		$tempThumb = null;
@@ -104,7 +117,7 @@ final class PhotoService
 				'thumbnail_width' => $thumbWidth,
 				'thumbnail_height' => $thumbHeight,
 				'filesize' => filesize($this->storage->getAbsolutePath($largeKey)) ?: 0,
-				'status' => 'published',
+				'status' => $status,
 			]);
 			$storedLargeKey = null;
 			$storedThumbKey = null;
@@ -114,14 +127,16 @@ final class PhotoService
 				'action_type' => AuditLogActionType::PHOTO_UPLOADED,
 				'entity_type' => 'photo',
 				'entity_id' => $photoId,
-				'payload' => ['event_id' => $eventId],
+				'payload' => ['event_id' => $eventId, 'status' => $status],
 			]);
-			$this->photoAnalyticsService->track('photo_upload_success', [
-				'photo_id' => $photoId,
-				'event_id' => $eventId,
-				'uploaded_by_user_id' => $userId,
-				'source' => $analyticsSource,
-			], false);
+			if ($status === 'published') {
+				$this->photoAnalyticsService->track('photo_upload_success', [
+					'photo_id' => $photoId,
+					'event_id' => $eventId,
+					'uploaded_by_user_id' => $userId,
+					'source' => $analyticsSource,
+				], false);
+			}
 
 			return [
 				'id' => $photoId,
@@ -174,6 +189,13 @@ final class PhotoService
 			'entity_id' => $photoId,
 			'payload' => ['event_id' => (int) $photo['event_id']],
 		]);
+	}
+
+	public function publishOwned(int $photoId, int $userId): void
+	{
+		if (!$this->photos->updateStatusForOwner($photoId, $userId, 'published')) {
+			throw new InvalidArgumentException('Foto non trovata o non autorizzata.');
+		}
 	}
 
 	public function addAssociation(array $photoIds, int $actorUserId, ?int $userId, ?int $cosplayId, ?string $displayName, ?string $instagramUsername, bool $pending = false): int
