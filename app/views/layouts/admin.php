@@ -270,6 +270,11 @@ $brevoQuotaClass = $brevoQuotaClasses[$brevoEmailQuota['status'] ?? 'ok'] ?? 'bg
 						</a>
 					</li>
 					<li>
+						<a href="/admin/photos/event-submissions" class="<?= (strpos($_SERVER['REQUEST_URI'], '/admin/photos/event-submissions') !== false) ? 'active' : '' ?>">
+							Eventi foto in verifica
+						</a>
+					</li>
+					<li>
 						<a href="/admin/photos/analytics" class="<?= (strpos($_SERVER['REQUEST_URI'], '/admin/photos/analytics') !== false) ? 'active' : '' ?>">
 							Statistiche foto
 						</a>

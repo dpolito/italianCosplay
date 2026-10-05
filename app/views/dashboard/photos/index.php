@@ -28,10 +28,20 @@ $h = static fn ($value) => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8'
 						<?= (int) $group['photo_count'] ?> foto
 						<?php if (!empty($group['comune_nome'])): ?> · <?= $h($group['comune_nome']) ?><?php endif; ?>
 					</p>
+					<?php if (!empty($group['is_pending_submission'])): ?>
+						<p class="mt-2 inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-900">
+							<?= ($group['submission_type'] ?? '') === 'edition' ? 'Edizione in verifica' : 'Evento in verifica' ?>
+						</p>
+						<p class="mt-2 text-sm text-gray-600">Le foto saranno pubblicate quando l'evento o l'edizione verranno verificati.</p>
+					<?php endif; ?>
 				</div>
 				<div class="flex flex-wrap gap-2">
-					<a class="rounded-lg border border-green-800 px-3 py-2 text-sm font-semibold text-green-900 hover:bg-green-50" href="/eventi-cosplay/<?= $h($group['slug']) ?>/foto">Gallery pubblica</a>
-					<a class="rounded-lg bg-green-800 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700" href="/dashboard/photos/event/<?= (int) $group['event_id'] ?>">Gestisci</a>
+					<?php if (empty($group['is_pending_submission'])): ?>
+						<a class="rounded-lg border border-green-800 px-3 py-2 text-sm font-semibold text-green-900 hover:bg-green-50" href="/eventi-cosplay/<?= $h($group['slug']) ?>/foto">Gallery pubblica</a>
+						<a class="rounded-lg bg-green-800 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700" href="/dashboard/photos/event/<?= (int) $group['event_id'] ?>">Gestisci</a>
+					<?php else: ?>
+						<a class="rounded-lg bg-green-800 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700" href="/dashboard/photos/upload">Aggiungi foto</a>
+					<?php endif; ?>
 				</div>
 			</div>
 		</article>

@@ -101,6 +101,74 @@ final class PhotoUploadSessionService
 		}
 	}
 
+	public function uploadForSubmission(int $userId, int $submissionId, array $file): array
+	{
+		$session = $this->startForSubmission($userId, $submissionId);
+		$sessionId = (int) $session['id'];
+		$tmpName = (string) ($file['tmp_name'] ?? '');
+		if ($tmpName === '' || !is_file($tmpName)) {
+			throw new InvalidArgumentException('File temporaneo non disponibile.');
+		}
+		$fileHash = hash_file('sha256', $tmpName);
+		$fileSize = (int) ($file['size'] ?? filesize($tmpName));
+		$existing = $this->sessions->findItemByFingerprint($sessionId, $fileHash, $fileSize);
+		if ($existing) {
+			return ['item' => $this->decorateItem($existing), 'session' => $this->decorateSession($this->sessions->findForUser($sessionId, $userId) ?? [])];
+		}
+
+		$this->sessions->touch($sessionId, 'uploading');
+		try {
+			$photo = $this->photoService->uploadTemporaryForSubmission($file, $submissionId, $userId);
+			$itemId = $this->sessions->createItem([
+				'upload_session_id' => $sessionId,
+				'photo_id' => (int) $photo['id'],
+				'original_filename' => mb_substr((string) ($file['name'] ?? 'foto'), 0, 255),
+				'mime_type' => $this->detectMime($tmpName),
+				'file_size' => $fileSize,
+				'file_hash' => $fileHash,
+				'status' => 'completed',
+				'error_message' => null,
+			]);
+			$this->sessions->touch($sessionId, 'ready');
+			$item = $this->sessions->findItemForUser($itemId, $userId);
+			return ['item' => $this->decorateItem($item ?? []), 'session' => $this->decorateSession($this->sessions->findForUser($sessionId, $userId) ?? [])];
+		} catch (Throwable $exception) {
+			$this->sessions->createItem([
+				'upload_session_id' => $sessionId,
+				'photo_id' => null,
+				'original_filename' => mb_substr((string) ($file['name'] ?? 'foto'), 0, 255),
+				'mime_type' => $this->detectMime($tmpName),
+				'file_size' => $fileSize,
+				'file_hash' => $fileHash,
+				'status' => 'error',
+				'error_message' => mb_substr($exception->getMessage(), 0, 255),
+			]);
+			throw $exception;
+		}
+	}
+
+	public function startForSubmission(int $userId, int $submissionId): array
+	{
+		$this->assertSubmissionExists($submissionId);
+		$existing = $this->sessions->findOpenForUser($userId);
+		if ($existing && (int) ($existing['event_submission_id'] ?? 0) === $submissionId) {
+			return $this->decorateSession($existing);
+		}
+		if ($existing) {
+			throw new InvalidArgumentException('Hai già un caricamento in corso. Completalo o annullalo prima di iniziarne uno nuovo.');
+		}
+
+		$sessionId = $this->sessions->createForSubmission($userId, $submissionId, date('Y-m-d H:i:s', time() + self::EXPIRES_SECONDS));
+		$this->auditLogService->logAudit([
+			'user_id' => $userId,
+			'action_type' => AuditLogActionType::PHOTO_UPLOAD_SESSION_STARTED,
+			'entity_type' => 'photo_upload_session',
+			'entity_id' => $sessionId,
+			'payload' => ['event_submission_id' => $submissionId],
+		]);
+		return $this->decorateSession($this->sessions->findForUser($sessionId, $userId) ?? []);
+	}
+
 	public function removeItem(int $userId, int $itemId): void
 	{
 		$item = $this->sessions->findItemForUser($itemId, $userId);
@@ -132,9 +200,13 @@ final class PhotoUploadSessionService
 		$published = 0;
 		$this->db->beginTransaction();
 		try {
-			foreach ($completed as $item) {
-				$this->photoService->publishOwned((int) $item['photo_id'], $userId);
-				$published++;
+			if (empty($session['event_submission_id'])) {
+				foreach ($completed as $item) {
+					$this->photoService->publishOwned((int) $item['photo_id'], $userId);
+					$published++;
+				}
+			} else {
+				$published = count($completed);
 			}
 			$this->sessions->touch($sessionId, 'completed');
 			$this->db->commit();
@@ -148,10 +220,19 @@ final class PhotoUploadSessionService
 			'action_type' => AuditLogActionType::PHOTO_UPLOAD_SESSION_CONFIRMED,
 			'entity_type' => 'photo_upload_session',
 			'entity_id' => $sessionId,
-			'payload' => ['event_id' => (int) $session['event_id'], 'photo_count' => $published],
+			'payload' => [
+				'event_id' => (int) ($session['event_id'] ?? 0),
+				'event_submission_id' => (int) ($session['event_submission_id'] ?? 0),
+				'photo_count' => $published,
+			],
 		]);
 
-		return ['event_id' => (int) $session['event_id'], 'photo_count' => $published];
+		return [
+			'event_id' => (int) ($session['event_id'] ?? 0),
+			'event_submission_id' => (int) ($session['event_submission_id'] ?? 0),
+			'photo_count' => $published,
+			'pending_review' => !empty($session['event_submission_id']),
+		];
 	}
 
 	public function cancel(int $userId, int $sessionId): void
@@ -209,6 +290,15 @@ final class PhotoUploadSessionService
 		$stmt->execute([':id' => $eventId]);
 		if (!$stmt->fetchColumn()) {
 			throw new InvalidArgumentException('Evento non valido.');
+		}
+	}
+
+	private function assertSubmissionExists(int $submissionId): void
+	{
+		$stmt = $this->db->prepare("SELECT 1 FROM photo_event_submissions WHERE id = :id AND status = 'pending' LIMIT 1");
+		$stmt->execute([':id' => $submissionId]);
+		if (!$stmt->fetchColumn()) {
+			throw new InvalidArgumentException('Segnalazione evento non valida.');
 		}
 	}
 

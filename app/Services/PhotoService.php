@@ -62,14 +62,32 @@ final class PhotoService
 		);
 	}
 
-	public function createFromLocalFile(string $sourcePath, int $eventId, int $userId, string $originalFilename, string $analyticsSource = 'server_import', string $status = 'published'): array
+	public function uploadTemporaryForSubmission(array $file, int $submissionId, int $userId): array
+	{
+		$this->validateUpload($file, true);
+		return $this->createFromLocalFile(
+			(string) $file['tmp_name'],
+			null,
+			$userId,
+			$this->sanitizeOriginalName((string) ($file['name'] ?? 'foto')),
+			'dashboard_upload_submission',
+			'processing',
+			$submissionId
+		);
+	}
+
+	public function createFromLocalFile(string $sourcePath, ?int $eventId, int $userId, string $originalFilename, string $analyticsSource = 'server_import', string $status = 'published', ?int $eventSubmissionId = null): array
 	{
 		$tempLarge = null;
 		$tempThumb = null;
 		$storedLargeKey = null;
 		$storedThumbKey = null;
 		try {
-			$this->assertEventExists($eventId);
+			if ($eventId !== null) {
+				$this->assertEventExists($eventId);
+			} elseif ($eventSubmissionId === null) {
+				throw new InvalidArgumentException('Evento non valido.');
+			}
 			[$sourceWidth, $sourceHeight, $mime] = $this->readImageInfo($sourcePath);
 			if ($sourceWidth * $sourceHeight > $this->config->maxPixels) {
 				throw new InvalidArgumentException('Immagine troppo grande in pixel.');
@@ -96,7 +114,7 @@ final class PhotoService
 				imagedestroy($thumb);
 			}
 
-			$baseKey = date('Y/m/') . $eventId . '/' . bin2hex(random_bytes(16));
+			$baseKey = date('Y/m/') . ($eventId !== null ? (string) $eventId : 'pending-' . $eventSubmissionId) . '/' . bin2hex(random_bytes(16));
 			$largeKey = $baseKey . '.webp';
 			$thumbKey = $baseKey . '.thumb.webp';
 			$this->storage->store($tempLarge, $largeKey);
@@ -108,6 +126,7 @@ final class PhotoService
 
 			$photoId = $this->photos->create([
 				'event_id' => $eventId,
+				'event_submission_id' => $eventSubmissionId,
 				'uploaded_by_user_id' => $userId,
 				'storage_key' => $largeKey,
 				'thumbnail_storage_key' => $thumbKey,
@@ -127,7 +146,7 @@ final class PhotoService
 				'action_type' => AuditLogActionType::PHOTO_UPLOADED,
 				'entity_type' => 'photo',
 				'entity_id' => $photoId,
-				'payload' => ['event_id' => $eventId, 'status' => $status],
+				'payload' => ['event_id' => $eventId, 'event_submission_id' => $eventSubmissionId, 'status' => $status],
 			]);
 			if ($status === 'published') {
 				$this->photoAnalyticsService->track('photo_upload_success', [
@@ -161,7 +180,7 @@ final class PhotoService
 				'entity_id' => null,
 				'success' => 0,
 				'error_message' => mb_substr($exception->getMessage(), 0, 250),
-				'payload' => ['event_id' => $eventId],
+				'payload' => ['event_id' => $eventId, 'event_submission_id' => $eventSubmissionId],
 			]);
 			throw $exception;
 		}

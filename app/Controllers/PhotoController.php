@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Repositories\PhotoRepository;
 use App\Services\CosplayPortfolioService;
 use App\Services\PendingUserActionService;
+use App\Services\PhotoEventSubmissionService;
 use App\Services\PhotoAnalyticsService;
 use App\Services\PhotoService;
 use App\Services\PhotoUploadSessionService;
@@ -24,6 +25,7 @@ final class PhotoController extends Controller
 	private User $userModel;
 	private PhotoRepository $photos;
 	private PhotoService $photoService;
+	private PhotoEventSubmissionService $photoEventSubmissionService;
 	private PhotoUploadSessionService $photoUploadSessionService;
 	private PhotoAnalyticsService $photoAnalyticsService;
 	private CosplayPortfolioService $cosplayPortfolioService;
@@ -36,6 +38,7 @@ final class PhotoController extends Controller
 		$this->userModel = new User();
 		$this->photos = new PhotoRepository($this->db);
 		$this->photoService = new PhotoService($this->photos);
+		$this->photoEventSubmissionService = new PhotoEventSubmissionService();
 		$this->photoUploadSessionService = new PhotoUploadSessionService(null, $this->photoService);
 		$this->photoAnalyticsService = new PhotoAnalyticsService();
 		$this->cosplayPortfolioService = new CosplayPortfolioService();
@@ -196,8 +199,22 @@ final class PhotoController extends Controller
 	{
 		$this->assertCsrfJson();
 		try {
-			$result = $this->photoUploadSessionService->upload((int) $_SESSION['user_id'], (int) ($_POST['event_id'] ?? 0), $_FILES['photo'] ?? []);
+			$submissionId = (int) ($_POST['event_submission_id'] ?? 0);
+			$result = $submissionId > 0
+				? $this->photoUploadSessionService->uploadForSubmission((int) $_SESSION['user_id'], $submissionId, $_FILES['photo'] ?? [])
+				: $this->photoUploadSessionService->upload((int) $_SESSION['user_id'], (int) ($_POST['event_id'] ?? 0), $_FILES['photo'] ?? []);
 			$this->json(true, 'Foto salvata nel caricamento temporaneo.', 200, $result);
+		} catch (Throwable $exception) {
+			$this->json(false, $exception->getMessage(), 422);
+		}
+	}
+
+	public function createEventSubmission(): void
+	{
+		$this->assertCsrfJson();
+		try {
+			$submission = $this->photoEventSubmissionService->createOrReuse((int) $_SESSION['user_id'], $_POST);
+			$this->json(true, 'Segnalazione salvata. Puoi continuare con il caricamento.', 200, ['submission' => $submission]);
 		} catch (Throwable $exception) {
 			$this->json(false, $exception->getMessage(), 422);
 		}
@@ -224,7 +241,10 @@ final class PhotoController extends Controller
 		$this->assertCsrfJson();
 		try {
 			$result = $this->photoUploadSessionService->confirm((int) $_SESSION['user_id'], (int) ($_POST['session_id'] ?? 0));
-			$this->json(true, 'Foto pubblicate correttamente.', 200, $result);
+			$message = !empty($result['pending_review'])
+				? 'Foto caricate. Saranno pubblicate dopo la verifica dell\'evento o dell\'edizione.'
+				: 'Foto pubblicate correttamente.';
+			$this->json(true, $message, 200, $result);
 		} catch (Throwable $exception) {
 			$this->json(false, $exception->getMessage(), 422);
 		}

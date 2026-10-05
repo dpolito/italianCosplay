@@ -6,8 +6,15 @@
 	const sessionJson = root.querySelector('[data-upload-session-json]');
 	const eventSearch = root.querySelector('[data-event-search]');
 	const eventIdInput = root.querySelector('[data-event-id]');
+	const eventSubmissionIdInput = root.querySelector('[data-event-submission-id]');
 	const eventResults = root.querySelector('[data-event-results]');
 	const eventSelected = root.querySelector('[data-event-selected]');
+	const openSubmission = root.querySelector('[data-open-submission]');
+	const closeSubmission = root.querySelector('[data-close-submission]');
+	const submissionForm = root.querySelector('[data-submission-form]');
+	const submissionEventId = root.querySelector('[data-submission-event-id]');
+	const submissionEventName = root.querySelector('[data-submission-event-name]');
+	const submissionFeedback = root.querySelector('[data-submission-feedback]');
 	const dropzone = root.querySelector('[data-dropzone]');
 	const fileInput = root.querySelector('[data-file-input]');
 	const startButton = root.querySelector('[data-start]');
@@ -44,7 +51,7 @@
 		waitingNode.textContent = waiting.toString();
 		failedNode.textContent = failed.toString();
 		totalBar.style.width = total > 0 ? Math.round((completed / total) * 100) + '%' : '0%';
-		const hasEvent = Boolean(eventIdInput.value);
+		const hasEvent = Boolean(eventIdInput.value || eventSubmissionIdInput.value);
 		startButton.disabled = !hasEvent || waiting === 0;
 		startButton.textContent = waiting > 0 ? 'Riprendi coda' : 'Carica';
 		confirmButton.disabled = !session || completed === 0 || uploading > 0 || waiting > 0;
@@ -131,7 +138,7 @@
 	}
 
 	function uploadItem(item) {
-		if (!eventIdInput.value || !item.file) return;
+		if ((!eventIdInput.value && !eventSubmissionIdInput.value) || !item.file) return;
 		started = true;
 		item.status = 'uploading';
 		item.progress = 5;
@@ -140,7 +147,11 @@
 		active++;
 		const formData = new FormData();
 		formData.append('csrf_token', csrf);
-		formData.append('event_id', eventIdInput.value);
+		if (eventSubmissionIdInput.value) {
+			formData.append('event_submission_id', eventSubmissionIdInput.value);
+		} else {
+			formData.append('event_id', eventIdInput.value);
+		}
 		formData.append('photo', item.file);
 		const xhr = new XMLHttpRequest();
 		xhr.open('POST', '/dashboard/photos/upload');
@@ -295,6 +306,8 @@
 				button.textContent = eventLabel(event);
 				button.addEventListener('click', () => {
 					eventIdInput.value = event.id;
+					eventSubmissionIdInput.value = '';
+					if (submissionEventId) submissionEventId.value = event.id;
 					eventSearch.value = event.titolo;
 					eventSelected.textContent = 'Evento selezionato: ' + eventLabel(event);
 					eventResults.classList.add('hidden');
@@ -305,6 +318,52 @@
 			eventResults.classList.toggle('hidden', !eventResults.children.length);
 		}, 220);
 	});
+
+	if (openSubmission && submissionForm) {
+		openSubmission.addEventListener('click', () => {
+			submissionForm.classList.remove('hidden');
+			if (submissionEventName && !submissionEventName.value.trim()) {
+				submissionEventName.value = eventSearch.value.trim() || eventSelected.textContent.replace(/^Evento selezionato:\s*/i, '').split('·')[0].trim();
+			}
+			if (submissionEventId) {
+				submissionEventId.value = eventIdInput.value || '';
+			}
+			submissionEventName && submissionEventName.focus();
+		});
+	}
+	if (closeSubmission && submissionForm) {
+		closeSubmission.addEventListener('click', () => {
+			submissionForm.classList.add('hidden');
+		});
+	}
+	if (submissionForm) {
+		submissionForm.addEventListener('submit', async (event) => {
+			event.preventDefault();
+			const formData = new FormData(submissionForm);
+			formData.append('csrf_token', csrf);
+			const response = await fetch('/dashboard/photos/event-submissions', { method: 'POST', headers: { Accept: 'application/json' }, body: formData });
+			const payload = await response.json();
+			if (!payload.success) {
+				showSubmissionFeedback(payload.message || 'Segnalazione non riuscita.', false);
+				return;
+			}
+			const submission = payload.submission || {};
+			eventSubmissionIdInput.value = submission.id || '';
+			eventIdInput.value = '';
+			eventSelected.textContent = (submission.event_id ? 'Edizione in verifica: ' : 'Evento in verifica: ') + (submission.event_name || formData.get('event_name')) + ' ' + (submission.year || formData.get('year'));
+			showSubmissionFeedback('Segnalazione salvata. Puoi caricare le foto: resteranno in verifica finché un admin non risolve l’evento.', true);
+			submissionForm.classList.add('hidden');
+			pump();
+			refreshCounts();
+		});
+	}
+
+	function showSubmissionFeedback(message, success) {
+		if (!submissionFeedback) return;
+		submissionFeedback.textContent = message;
+		submissionFeedback.className = 'sm:col-span-2 rounded-lg px-3 py-2 text-sm ' + (success ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800');
+		submissionFeedback.classList.remove('hidden');
+	}
 
 	['dragenter', 'dragover'].forEach((name) => dropzone.addEventListener(name, (event) => {
 		event.preventDefault();
@@ -324,8 +383,13 @@
 		if (!session || active > 0) return;
 		const payload = await post('/dashboard/photos/upload/session/confirm', { session_id: session.id });
 		if (payload.success) {
-			showSummary('Foto pubblicate', payload.photo_count + ' foto pubblicate correttamente.', 'success');
-			window.location.href = '/dashboard/photos/event/' + encodeURIComponent(payload.event_id);
+			if (payload.pending_review) {
+				showSummary('Foto in verifica', payload.photo_count + ' foto caricate. Saranno pubblicate dopo la verifica.', 'success');
+				window.location.href = '/dashboard/photos';
+			} else {
+				showSummary('Foto pubblicate', payload.photo_count + ' foto pubblicate correttamente.', 'success');
+				window.location.href = '/dashboard/photos/event/' + encodeURIComponent(payload.event_id);
+			}
 		} else {
 			showSummary('Conferma non riuscita', payload.message || 'Operazione non riuscita.', 'error');
 		}
@@ -345,10 +409,13 @@
 		event.returnValue = 'Alcune foto sono ancora in caricamento.';
 	});
 
-	if (session && Array.isArray(session.items)) {
+		if (session && Array.isArray(session.items)) {
 		session.items.forEach(addServerItem);
 		if (session.event_title && !eventSelected.textContent.trim()) {
 			eventSelected.textContent = 'Evento selezionato: ' + session.event_title;
+		} else if (session.submission_event_name && !eventSelected.textContent.trim()) {
+			eventSubmissionIdInput.value = session.event_submission_id || '';
+			eventSelected.textContent = 'Evento in verifica: ' + session.submission_event_name + ' ' + (session.submission_year || '');
 		}
 		if (items.length > 0) {
 			showSummary('Caricamento recuperato', session.completed_count + ' foto già salvate sul server.', 'success');

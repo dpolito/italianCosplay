@@ -19,12 +19,13 @@ final class PhotoRepository
 	{
 		$stmt = $this->db->prepare(
 			"INSERT INTO photos
-				(event_id, uploaded_by_user_id, storage_key, thumbnail_storage_key, original_filename, width, height, thumbnail_width, thumbnail_height, filesize, status, created_at)
+				(event_id, event_submission_id, uploaded_by_user_id, storage_key, thumbnail_storage_key, original_filename, width, height, thumbnail_width, thumbnail_height, filesize, status, created_at)
 			 VALUES
-				(:event_id, :uploaded_by_user_id, :storage_key, :thumbnail_storage_key, :original_filename, :width, :height, :thumbnail_width, :thumbnail_height, :filesize, :status, NOW())"
+				(:event_id, :event_submission_id, :uploaded_by_user_id, :storage_key, :thumbnail_storage_key, :original_filename, :width, :height, :thumbnail_width, :thumbnail_height, :filesize, :status, NOW())"
 		);
 		$stmt->execute([
 			':event_id' => $data['event_id'],
+			':event_submission_id' => $data['event_submission_id'] ?? null,
 			':uploaded_by_user_id' => $data['uploaded_by_user_id'],
 			':storage_key' => $data['storage_key'],
 			':thumbnail_storage_key' => $data['thumbnail_storage_key'],
@@ -295,7 +296,38 @@ final class PhotoRepository
 			 ORDER BY last_upload_at DESC"
 		);
 		$stmt->execute([':user_id' => $userId]);
-		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+		$groups = $stmt->fetchAll(PDO::FETCH_ASSOC);
+		$pendingStmt = $this->db->prepare(
+			"SELECT s.id AS submission_id, s.event_id, s.event_name, s.year, s.location_name, s.status AS submission_status,
+					COUNT(p.id) AS photo_count, MAX(p.created_at) AS last_upload_at
+			 FROM photos p
+			 INNER JOIN photo_event_submissions s ON s.id = p.event_submission_id
+			 WHERE p.uploaded_by_user_id = :user_id
+			   AND p.status = 'processing'
+			   AND p.deleted_at IS NULL
+			   AND s.status IN ('pending','rejected')
+			 GROUP BY s.id, s.event_id, s.event_name, s.year, s.location_name, s.status
+			 ORDER BY last_upload_at DESC"
+		);
+		$pendingStmt->execute([':user_id' => $userId]);
+		foreach ($pendingStmt->fetchAll(PDO::FETCH_ASSOC) as $pending) {
+			$groups[] = [
+				'event_id' => null,
+				'submission_id' => (int) $pending['submission_id'],
+				'titolo' => (string) $pending['event_name'] . ' ' . (string) $pending['year'],
+				'slug' => '',
+				'data_inizio' => null,
+				'data_fine' => null,
+				'comune_nome' => $pending['location_name'],
+				'photo_count' => (int) $pending['photo_count'],
+				'last_upload_at' => $pending['last_upload_at'],
+				'is_pending_submission' => true,
+				'submission_status' => $pending['submission_status'],
+				'submission_type' => !empty($pending['event_id']) ? 'edition' : 'event',
+			];
+		}
+		usort($groups, static fn (array $a, array $b): int => strcmp((string) ($b['last_upload_at'] ?? ''), (string) ($a['last_upload_at'] ?? '')));
+		return $groups;
 	}
 
 	public function listForUploaderEvent(int $userId, int $eventId): array
@@ -562,7 +594,7 @@ final class PhotoRepository
 		return "SELECT p.*, e.titolo AS event_title, e.slug AS event_slug, e.data_inizio, e.data_fine,
 				u.username AS uploader_username, u.first_name AS uploader_first_name, u.last_name AS uploader_last_name
 			FROM photos p
-			INNER JOIN events e ON e.id = p.event_id
+			LEFT JOIN events e ON e.id = p.event_id
 			INNER JOIN users u ON u.id = p.uploaded_by_user_id";
 	}
 

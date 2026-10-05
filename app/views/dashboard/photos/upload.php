@@ -2,7 +2,7 @@
 $h = static fn ($value) => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 $session = is_array($uploadSession ?? null) ? $uploadSession : null;
 $selected = $preselectedEvent ?? null;
-if (!$selected && $session) {
+if (!$selected && $session && !empty($session['event_id'])) {
 	$selected = [
 		'id' => (int) $session['event_id'],
 		'titolo' => (string) ($session['event_title'] ?? ''),
@@ -54,6 +54,7 @@ $formatItalianDate = static function (?string $date): string {
 		<label for="event-search" class="block text-sm font-semibold text-gray-800">Evento</label>
 		<input id="event-search" data-event-search type="search" autocomplete="off" class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2" placeholder="Cerca Romics, Lucca Comics...">
 		<input type="hidden" data-event-id value="<?= $selected ? (int) $selected['id'] : '' ?>">
+		<input type="hidden" data-event-submission-id value="<?= $session && !empty($session['event_submission_id']) ? (int) $session['event_submission_id'] : '' ?>">
 		<div data-event-results class="mt-2 hidden overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm"></div>
 		<p data-event-selected class="mt-2 text-sm font-semibold text-green-800">
 			<?php if ($selected): ?>
@@ -63,6 +64,39 @@ $formatItalianDate = static function (?string $date): string {
 				<?php endif; ?>
 			<?php endif; ?>
 		</p>
+		<div class="mt-4 rounded-lg border border-dashed border-amber-300 bg-amber-50 p-4">
+			<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<div>
+					<p class="font-semibold text-amber-950">Non trovi l'evento o l'edizione?</p>
+					<p class="mt-1 text-sm text-amber-900">Segnala nome e anno, poi continua subito con il caricamento.</p>
+				</div>
+				<button type="button" data-open-submission class="inline-flex items-center justify-center rounded-lg border border-amber-700 bg-white px-4 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100">+ Segnala evento/edizione</button>
+			</div>
+			<form data-submission-form class="mt-4 hidden grid gap-3 rounded-lg bg-white p-4 ring-1 ring-amber-200 sm:grid-cols-2">
+				<input type="hidden" name="event_id" data-submission-event-id value="<?= $selected ? (int) $selected['id'] : '' ?>">
+				<div class="sm:col-span-2">
+					<label for="submission-event-name" class="block text-sm font-semibold text-gray-800">Nome evento *</label>
+					<input id="submission-event-name" name="event_name" data-submission-event-name required maxlength="180" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">
+				</div>
+				<div>
+					<label for="submission-year" class="block text-sm font-semibold text-gray-800">Anno *</label>
+					<input id="submission-year" name="year" type="number" min="1990" max="<?= (int) date('Y') + 3 ?>" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">
+				</div>
+				<div>
+					<label for="submission-location" class="block text-sm font-semibold text-gray-800">Comune / località</label>
+					<input id="submission-location" name="location_name" maxlength="160" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">
+				</div>
+				<div>
+					<label for="submission-date" class="block text-sm font-semibold text-gray-800">Data evento</label>
+					<input id="submission-date" name="event_date" type="date" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">
+				</div>
+				<div class="flex items-end gap-2">
+					<button type="submit" class="rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-800">Segnala e continua</button>
+					<button type="button" data-close-submission class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Annulla</button>
+				</div>
+				<p data-submission-feedback class="hidden sm:col-span-2 rounded-lg px-3 py-2 text-sm"></p>
+			</form>
+		</div>
 	</div>
 
 	<div data-dropzone class="rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-8 text-center">

@@ -106,6 +106,10 @@ $router->post('/dashboard/photos/upload', [
 	'uses' => ['PhotoController', 'upload'],
 	'middlewares' => [AuthMiddleware::class]
 ]);
+$router->post('/dashboard/photos/event-submissions', [
+	'uses' => ['PhotoController', 'createEventSubmission'],
+	'middlewares' => [AuthMiddleware::class]
+]);
 $router->get('/dashboard/photos/upload/session', [
 	'uses' => ['PhotoController', 'uploadSession'],
 	'middlewares' => [AuthMiddleware::class]
@@ -245,6 +249,13 @@ $router->get('/admin/photos/reports', [
 		[PermissionMiddleware::class, 'view_admin_dashboard']
 	]
 ]);
+$router->get('/admin/photos/event-submissions', [
+	'uses' => ['AdminPhotoEventSubmissionController', 'index'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'view_admin_dashboard']
+	]
+]);
 $router->get('/admin/photos/analytics', [
 	'uses' => ['PhotoAnalyticsController', 'admin'],
 	'middlewares' => [
@@ -303,6 +314,20 @@ $router->get('/admin/photos/import-legacy/{id}/report', [
 ]);
 $router->post('/admin/photos/reports/{id}/resolve', [
 	'uses' => ['AdminPhotoReportController', 'resolve'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'view_admin_dashboard']
+	]
+]);
+$router->post('/admin/photos/event-submissions/{id}/merge', [
+	'uses' => ['AdminPhotoEventSubmissionController', 'merge'],
+	'middlewares' => [
+		AuthMiddleware::class,
+		[PermissionMiddleware::class, 'view_admin_dashboard']
+	]
+]);
+$router->post('/admin/photos/event-submissions/{id}/reject', [
+	'uses' => ['AdminPhotoEventSubmissionController', 'reject'],
 	'middlewares' => [
 		AuthMiddleware::class,
 		[PermissionMiddleware::class, 'view_admin_dashboard']

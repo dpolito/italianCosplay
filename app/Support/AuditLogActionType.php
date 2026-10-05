@@ -79,6 +79,8 @@ final class AuditLogActionType
 	public const PHOTO_UPLOADED = 'photo_uploaded';
 	public const PHOTO_UPLOAD_SESSION_STARTED = 'photo_upload_session_started';
 	public const PHOTO_UPLOAD_SESSION_CONFIRMED = 'photo_upload_session_confirmed';
+	public const PHOTO_EVENT_SUBMISSION_CREATED = 'photo_event_submission_created';
+	public const PHOTO_EVENT_SUBMISSION_RESOLVED = 'photo_event_submission_resolved';
 	public const PHOTO_DELETED = 'photo_deleted';
 	public const PHOTO_COSPLAYER_ASSOCIATED = 'photo_cosplayer_associated';
 	public const PHOTO_COSPLAYER_REMOVED = 'photo_cosplayer_removed';

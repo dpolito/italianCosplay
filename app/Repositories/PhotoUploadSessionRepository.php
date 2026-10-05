@@ -18,9 +18,11 @@ final class PhotoUploadSessionRepository
 	public function findOpenForUser(int $userId): ?array
 	{
 		$stmt = $this->db->prepare(
-			"SELECT s.*, e.titolo AS event_title, e.slug AS event_slug, e.data_inizio, e.data_fine
+			"SELECT s.*, e.titolo AS event_title, e.slug AS event_slug, e.data_inizio, e.data_fine,
+					pes.event_name AS submission_event_name, pes.year AS submission_year, pes.status AS submission_status
 			 FROM photo_upload_sessions s
-			 INNER JOIN events e ON e.id = s.event_id
+			 LEFT JOIN events e ON e.id = s.event_id
+			 LEFT JOIN photo_event_submissions pes ON pes.id = s.event_submission_id
 			 WHERE s.user_id = :user_id
 			   AND s.status IN ('draft','uploading','ready')
 			   AND s.expires_at > NOW()
@@ -35,9 +37,11 @@ final class PhotoUploadSessionRepository
 	public function findForUser(int $sessionId, int $userId): ?array
 	{
 		$stmt = $this->db->prepare(
-			"SELECT s.*, e.titolo AS event_title, e.slug AS event_slug, e.data_inizio, e.data_fine
+			"SELECT s.*, e.titolo AS event_title, e.slug AS event_slug, e.data_inizio, e.data_fine,
+					pes.event_name AS submission_event_name, pes.year AS submission_year, pes.status AS submission_status
 			 FROM photo_upload_sessions s
-			 INNER JOIN events e ON e.id = s.event_id
+			 LEFT JOIN events e ON e.id = s.event_id
+			 LEFT JOIN photo_event_submissions pes ON pes.id = s.event_submission_id
 			 WHERE s.id = :id AND s.user_id = :user_id
 			 LIMIT 1"
 		);
@@ -53,6 +57,16 @@ final class PhotoUploadSessionRepository
 			 VALUES (:user_id, :event_id, 'draft', NOW(), NOW(), :expires_at)"
 		);
 		$stmt->execute([':user_id' => $userId, ':event_id' => $eventId, ':expires_at' => $expiresAt]);
+		return (int) $this->db->lastInsertId();
+	}
+
+	public function createForSubmission(int $userId, int $submissionId, string $expiresAt): int
+	{
+		$stmt = $this->db->prepare(
+			"INSERT INTO photo_upload_sessions (user_id, event_id, event_submission_id, status, created_at, updated_at, expires_at)
+			 VALUES (:user_id, NULL, :submission_id, 'draft', NOW(), NOW(), :expires_at)"
+		);
+		$stmt->execute([':user_id' => $userId, ':submission_id' => $submissionId, ':expires_at' => $expiresAt]);
 		return (int) $this->db->lastInsertId();
 	}
 
